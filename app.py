@@ -207,7 +207,7 @@ class MainWindow(QMainWindow):
 
     def lstAsset_clicked(self):
         
-        sel_items = [item.text() for item in self.ui.lstAssets.selectedItems()]
+        sel_items = [item.text().split(' ')[0] for item in self.ui.lstAssets.selectedItems()]
         if self.ui.cmbAction.currentText() == "sell_selected":
             if len(sel_items) > 0:
                 strjoinlst = ",".join(sel_items)
@@ -218,18 +218,24 @@ class MainWindow(QMainWindow):
 
                 self.ui.lblRaiseAmount.setText("Sell Selected Asset:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
+
+            elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z" or self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
+
+                self.ui.lblRaiseAmount.setVisible(True)
+                self.ui.lblDollarValueToSell.setVisible(True)
+                self.ui.edtRaiseAmount.setVisible(True)
+                self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
+                self.ui.edtRaiseAmount.setText("")
             else:
                 self.ui.lblRaiseAmount.setVisible(False)
                 self.ui.lblDollarValueToSell.setVisible(False)
                 self.ui.edtRaiseAmount.setVisible(False)
-                self.ui.edtDollarValueToSell.setVisible(False)    
-        else:
-            self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
-            self.ui.edtRaiseAmount.setText("")
-            self.ui.lblRaiseAmount.setVisible(False)
-            self.ui.lblDollarValueToSell.setVisible(False)
-            self.ui.edtRaiseAmount.setVisible(False)
-            self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.lblRaiseAmount.setText("")
+                self.ui.edtRaiseAmount.setText("")
+
+                
         
         
 
@@ -326,17 +332,19 @@ class MainWindow(QMainWindow):
         if perform_action == "raise_x_sell_y_dollars" or perform_action == "raise_x_sell_y_dollars_except_z":
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
-            self.ui.lblRaiseAmount.setText("Raise Amount:")
+            self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
+            self.ui.edtRaiseAmount.setText("")
 
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.lblDollarValueToSell.setVisible(True)
-            #self.ui.lblDollarValueToSell.setText("Dollar Value to Sell:")
+            
         else:
             self.ui.edtRaiseAmount.setVisible(False)
             self.ui.lblRaiseAmount.setVisible(False)
             self.ui.edtDollarValueToSell.setVisible(False)
             self.ui.lblDollarValueToSell.setVisible(False)
-            self.clear_selection_clicked() 
+            
+        self.clear_selection_clicked()
         
    
 
