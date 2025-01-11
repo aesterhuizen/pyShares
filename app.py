@@ -50,7 +50,7 @@ class Worker_Thread(QRunnable):
         finally:
             self.signals.finished.emit()  # Done
         #comment in app.py
-        
+
 class msgBoxGetAccounts(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -207,38 +207,7 @@ class MainWindow(QMainWindow):
 
     def lstAsset_clicked(self):
         
-        x_data = np.array([])
-        y_data = np.array([])
-        x_count = 0
-
-        sel_items = [(item.text().split('\t')[0]).strip() for item in self.ui.lstAssets.selectedItems()]
-        for item in sel_items:
-            historical_data = r.get_stock_historicals(item, interval='hour', span='week', bounds='regular', info=None)  
-            for hdata in historical_data:
-                y_data = np.append(y_data,hdata['open_price'])
-                y_data = np.append(y_data,hdata['high_price'])
-                y_data = np.append(y_data,hdata['low_price'])
-                y_data = np.append(y_data,hdata['close_price'])
-                x_data = np.append(x_data,x_count)
-                x_count += 1
-                x_data = np.append(x_data,x_count)
-                x_count += 1
-                x_data = np.append(x_data,x_count)   
-                x_count += 1
-                x_data = np.append(x_data,x_count)
-                x_count += 1
-               
-            f = interp1d(x_data,y_data, kind='cubic')
-            x_new = np.linspace(0,x_count-1,500)
-            y_new = f(x_new)
-            self.plot.axes.clear()
-            self.plot.axes.grid(True)
-            self.plot.axes.set_xlabel('Time')
-            self.plot.axes.set_ylabel('Price')
-            self.plot.axes.set_title(f"{item} - 1 week history")
-            self.plot.axes.plot(x_new,y_new)
-            self.plot.draw()
-
+        sel_items = [item.text() for item in self.ui.lstAssets.selectedItems()]
         if self.ui.cmbAction.currentText() == "sell_selected":
             if len(sel_items) > 0:
                 strjoinlst = ",".join(sel_items)
