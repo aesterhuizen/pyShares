@@ -1,5 +1,5 @@
-import os.path
-import sys,traceback
+import os
+import sys,traceback # type: ignore
 import time
 import pyotp
 import robin_stocks.robinhood as r
