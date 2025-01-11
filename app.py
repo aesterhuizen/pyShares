@@ -49,6 +49,7 @@ class Worker_Thread(QRunnable):
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
+        #comment in app.py
         
 class msgBoxGetAccounts(QDialog):
     def __init__(self, parent=None):
