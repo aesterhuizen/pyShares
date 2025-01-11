@@ -15,8 +15,8 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDi
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
-from layout_splitter import Ui_MainWindow
-from matplotlib.backends.backend_qt5agggimport FigureCanvasQTAgg
+from layout import Ui_MainWindow
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 class WorkerSignals(QObject):
