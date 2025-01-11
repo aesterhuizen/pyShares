@@ -16,7 +16,7 @@ from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
 from layout_splitter import Ui_MainWindow
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agggimport FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 class WorkerSignals(QObject):
@@ -224,6 +224,8 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setVisible(False)
                 self.ui.edtDollarValueToSell.setVisible(False)    
         else:
+            self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
+            self.ui.edtRaiseAmount.setText("")
             self.ui.lblRaiseAmount.setVisible(False)
             self.ui.lblDollarValueToSell.setVisible(False)
             self.ui.edtRaiseAmount.setVisible(False)
