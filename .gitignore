@@ -3,3 +3,4 @@ fugue/
 !test.log
 build/
 dist/
+app.spec

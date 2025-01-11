@@ -1,5 +1,0 @@
-code ..............
-
-modified some code !
-
-I forgot this part, added it within detached HEAD
