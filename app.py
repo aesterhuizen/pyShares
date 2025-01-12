@@ -145,14 +145,14 @@ class MainWindow(QMainWindow):
         #Create a thread manager    
         self.threadpool = QThreadPool()
         #load credentials file
-        self.env_path = "D:\dev\Python\Python3.11\Scripts\Robinhood\.accInfo.env"
+        self.env_path = "C:/Users/aeste/OneDrive/Documents/dev/Python/Python3.11/Scripts/PyQt6/pyShares/.accInfo.env"
         load_dotenv(self.env_path)
 
         #login to Robinhood
         otp = pyotp.TOTP(os.environ['robin_mfa']).now()
         r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
       
-       
+      
         #Get account numers and populate comboboxes
         self.account_info = os.environ['account_number']
         #There is an account number
@@ -176,13 +176,13 @@ class MainWindow(QMainWindow):
           #Setup signals / Slots
        
         
-        icondir = os.path.join(os.path.dirname(__file__), 'application--arrow.png')
+        
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
-        
+        icon = sys.argv[0].replace("app.py","icons/application--arrow.png")
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(f'{icondir}'), "Exit", self)
+        button_action = QAction(QIcon(icon), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
 
@@ -263,7 +263,7 @@ class MainWindow(QMainWindow):
                 self.ui.lblRaiseAmount.setText("")
                 self.ui.edtRaiseAmount.setText("")
 
-                
+
         return
 
                 
