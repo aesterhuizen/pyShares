@@ -6,4 +6,4 @@ dist/
 app.spec
 __pycache__/
 *.ui
-layout.py
+*.pyc

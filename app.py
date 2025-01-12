@@ -117,7 +117,9 @@ class MainWindow(QMainWindow):
         # self.mystocks_dict = {}
         # self.account_dict = {}
         # self.raise_amount = 0
-    
+        self.totalGains = 0.0
+        self.todayGains = 0.0
+
         # self.stock_quantity_to_sell = 0
         self.current_account_num = ""
         self.account_info = ''
@@ -165,7 +167,8 @@ class MainWindow(QMainWindow):
             self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
             self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
             self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
-
+            #get total gains for the day
+            self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
             #setup plot widget
             self.setup_plot(self.curAccountTickers_and_Quanties)
 
@@ -173,13 +176,13 @@ class MainWindow(QMainWindow):
           #Setup signals / Slots
        
         
-        icondir = os.path.join(os.path.dirname(__file__), 'fugue/icons')
+        icondir = os.path.join(os.path.dirname(__file__), 'application--arrow.png')
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
         
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(f'{icondir}/application--arrow.png'), "Exit", self)
+        button_action = QAction(QIcon(f'{icondir}'), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
 
@@ -199,6 +202,20 @@ class MainWindow(QMainWindow):
         self.ui.btnClearSelec.clicked.connect(self.clear_selection_clicked)  
         #connect the list asset box
         self.ui.lstAssets.itemSelectionChanged.connect(self.lstAsset_clicked)
+        #setup status bar
+        lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
+        lblStatusBar.setMinimumWidth(50)
+        self.ui.statusBar.addWidget(lblStatusBar,1)
+
+        frm_TotalGains = "{0:.2f}".format(self.totalGains)
+        lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
+        lblStatusBar_pctT.setMinimumWidth(120)
+        self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
+
+        frm_TodayGains = "{0:.2f}".format(self.todayGains)
+        lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
+        lblStatusBar_pctToday.setMinimumWidth(120)
+        self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
           # show the Mainwindow
         self.show()
 
@@ -208,8 +225,11 @@ class MainWindow(QMainWindow):
     def lstAsset_clicked(self):
         
         sel_items = [item.text().split(' ')[0] for item in self.ui.lstAssets.selectedItems()]
-        if self.ui.cmbAction.currentText() == "sell_selected":
-            if len(sel_items) > 0:
+        
+        if len(sel_items) > 0:
+            #check to see if the action is sell selected
+            if self.ui.cmbAction.currentText() == "sell_selected":
+            
                 strjoinlst = ",".join(sel_items)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setVisible(True)
@@ -234,6 +254,17 @@ class MainWindow(QMainWindow):
                 self.ui.edtDollarValueToSell.setVisible(False)
                 self.ui.lblRaiseAmount.setText("")
                 self.ui.edtRaiseAmount.setText("")
+            
+        else:
+                self.ui.lblRaiseAmount.setVisible(False)
+                self.ui.lblDollarValueToSell.setVisible(False)
+                self.ui.edtRaiseAmount.setVisible(False)
+                self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.lblRaiseAmount.setText("")
+                self.ui.edtRaiseAmount.setText("")
+
+                
+        return
 
                 
         
