@@ -4,8 +4,7 @@ import time
 import pyotp
 import robin_stocks.robinhood as r
 import matplotlib
-import numpy as np
-from scipy.interpolate import interp1d
+
 
 from dotenv import load_dotenv, set_key
 
