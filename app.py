@@ -10,7 +10,7 @@ from dotenv import load_dotenv, set_key
 
 matplotlib.use('QtAgg')
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, QLabel, QVBoxLayout, QLineEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
@@ -49,6 +49,57 @@ class Worker_Thread(QRunnable):
         finally:
             self.signals.finished.emit()  # Done
         #comment in app.py
+
+class msgBoxGetCredentialFile(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Set Data File")
+
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.setEnabled(False)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        #self.buttonBox.setEnabled(False)
+
+        vlayout = QVBoxLayout()
+       
+        message = QLabel("Path to Credential File: ")
+        self.edtCred_path = QLineEdit('<credential file>')
+        btnBrowse = QPushButton("Browse")
+        self.edtCred_path.textChanged.connect(self.textChanged)
+        
+        hlayout = QHBoxLayout()
+        hlayout.addWidget(self.edtCred_path)
+        hlayout.addWidget(btnBrowse)
+
+        btnBrowse.clicked.connect(self.browse_clicked)
+
+        
+        vlayout.addWidget(message)
+        vlayout.addLayout(hlayout)
+        vlayout.addWidget(self.buttonBox)
+
+        self.setLayout(vlayout)
+    
+    def textChanged(self):
+        if self.edtCred_path.text() == "<credential file>":
+            self.buttonBox.setEnabled(False)
+        else:
+            self.buttonBox.setEnabled(True)
+
+    def browse_clicked(self):
+        options = QFileDialog.Option.DontUseNativeDialog
+       
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open File", f"{os.path.curdir}", "All Files (*);;Python Files (*.py)", options=options)
+        if file_name:
+            self.edtCred_path.setText(file_name)
+
+        
+        return
+    
 
 class msgBoxGetAccounts(QDialog):
     def __init__(self, parent=None):
@@ -152,8 +203,12 @@ class MainWindow(QMainWindow):
         else:
             base_path = os.path.abspath(".")
 
-        self.env_path = os.path.join(base_path, 'data\.accInfo.env')
-                                     
+        get_cred_file = msgBoxGetCredentialFile()
+        button = get_cred_file.exec() #show the popup box for the user to enter account number
+        if button == 1:
+            self.env_path = get_cred_file.edtCred_path.text()
+
+        #load credentials from file                                     
         load_dotenv(self.env_path)
 
         #login to Robinhood
