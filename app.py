@@ -144,7 +144,16 @@ class MainWindow(QMainWindow):
         #Create a thread manager    
         self.threadpool = QThreadPool()
         #load credentials file
-        self.env_path = "C:/Users/aeste/OneDrive/Documents/dev/Python/Python3.11/Scripts/PyQt6/pyShares/.accInfo.env"
+        if getattr(sys, 'frozen', False):
+        # If the application is run as a bundle, the PyInstaller bootloader
+        # extends the sys module by a flag frozen=True and sets the app 
+        # path into variable _MEIPASS'.
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.abspath(".")
+
+        self.env_path = os.path.join(base_path, 'data\.accInfo.env')
+                                     
         load_dotenv(self.env_path)
 
         #login to Robinhood
@@ -175,13 +184,13 @@ class MainWindow(QMainWindow):
           #Setup signals / Slots
        
         
-        
+        icon_path = os.path.join(base_path,"icons/application--arrow.png")
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
-        icon = sys.argv[0].replace("app.py","icons/application--arrow.png")
+        
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(icon), "Exit", self)
+        button_action = QAction(QIcon(icon_path), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
 
