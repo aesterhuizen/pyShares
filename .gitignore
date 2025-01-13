@@ -1,3 +1,7 @@
 fugue/
 *.log
 !test.log
+build/
+dist/
+app.spec
+__pycache__/

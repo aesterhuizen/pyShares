@@ -302,7 +302,7 @@
             <item>
              <widget class="QLabel" name="lblRaiseAmount">
               <property name="text">
-               <string>Raise Amount:</string>
+               <string>Raise Amount (USB):</string>
               </property>
              </widget>
             </item>
