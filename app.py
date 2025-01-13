@@ -10,8 +10,10 @@ from dotenv import load_dotenv, set_key
 
 matplotlib.use('QtAgg')
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, \
+                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
+                            
+from PyQt6.QtGui import QAction, QIcon, QCursor
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
 from layout import Ui_MainWindow
@@ -57,9 +59,14 @@ class msgBoxGetCredentialFile(QDialog):
         self.setWindowTitle("Set Data File")
 
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-
         self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.setEnabled(False)
+        
+        # Access individual buttons
+        self.okButton = self.buttonBox.button(QDialogButtonBox.StandardButton.Ok)
+        self.cancelButton = self.buttonBox.button(QDialogButtonBox.StandardButton.Cancel)
+        self.okButton.setEnabled(False)
+
+        # Connect signals
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         #self.buttonBox.setEnabled(False)
@@ -86,9 +93,9 @@ class msgBoxGetCredentialFile(QDialog):
     
     def textChanged(self):
         if self.edtCred_path.text() == "<credential file>":
-            self.buttonBox.setEnabled(False)
+            self.okButton.setEnabled(False)
         else:
-            self.buttonBox.setEnabled(True)
+            self.okButton.setEnabled(True)
 
     def browse_clicked(self):
         options = QFileDialog.Option.DontUseNativeDialog
@@ -207,47 +214,55 @@ class MainWindow(QMainWindow):
         button = get_cred_file.exec() #show the popup box for the user to enter account number
         if button == 1:
             self.env_path = get_cred_file.edtCred_path.text()
-
-        #load credentials from file                                     
-        load_dotenv(self.env_path)
-
-        #login to Robinhood
-        otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-        r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
-      
-      
-        #Get account numers and populate comboboxes
-        self.account_info = os.environ['account_number']
-        #There is an account number
-        if self.account_info != '':
-            if self.account_info.find(',') != -1:
-                slice_account = self.account_info.split(',')
-                for item in slice_account:
-                    self.ui.cmbAccount.addItem(item)
-            else:
-                self.ui.cmbAccount.addItem(self.account_info)
+            #load credentials file                                     
+            load_dotenv(self.env_path)
+    
+            #login to Robinhood
+            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
             
-            self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
-            self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
-            self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
-            #get total gains for the day
-            self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
-            #setup plot widget
-            self.setup_plot(self.curAccountTickers_and_Quanties)
-
-
-          #Setup signals / Slots
-       
+            #Get account numers and populate comboboxes
+            self.account_info = os.environ['account_number']
+            #There is an account number
+            if self.account_info != '':
+                if self.account_info.find(',') != -1:
+                    slice_account = self.account_info.split(',')
+                    for item in slice_account:
+                        self.ui.cmbAccount.addItem(item)
+                else:
+                    self.ui.cmbAccount.addItem(self.account_info)
+                
+                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
+                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
+                #get total gains for the day
+                self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                #setup plot widget
+                self.setup_plot(self.curAccountTickers_and_Quanties)
         
-        icon_path = os.path.join(base_path,"icons/application--arrow.png")
+        
+      
+
+
+        #Setup signals / Slots
+    
+        
+        icon_path = os.path.join(base_path,"icons")
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
+        self.ui.actionCredentials_File.triggered.connect(self.Show_msgCredentials)
         
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(icon_path), "Exit", self)
+        button_action = QAction(QIcon(icon_path +'/application--arrow.png'), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
+
+        #add credentials button
+        button_cred_action = QAction(QIcon(icon_path +'/animal-monkey.png'), "Credentials", self)
+        button_cred_action.triggered.connect(self.Show_msgCredentials)
+        button_cred_action = self.ui.toolBar.addAction(button_cred_action)
+
 
         #connect sigals and slots Account combo box
         self.ui.cmbAccount.activated.connect(self.account_clicked)
@@ -268,21 +283,84 @@ class MainWindow(QMainWindow):
         #setup status bar
         lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
         lblStatusBar.setMinimumWidth(50)
+        lblStatusBar.setObjectName("lblStatusBar")
         self.ui.statusBar.addWidget(lblStatusBar,1)
 
         frm_TotalGains = "{0:.2f}".format(self.totalGains)
         lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
+        lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
         lblStatusBar_pctT.setMinimumWidth(120)
         self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
 
         frm_TodayGains = "{0:.2f}".format(self.todayGains)
         lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
+        lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
+
         lblStatusBar_pctToday.setMinimumWidth(120)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
-          # show the Mainwindow
+        # show the Mainwindow
         self.show()
+            
+            
+      
+     
 
 
+
+    def Show_msgCredentials(self):
+        get_cred_file = msgBoxGetCredentialFile()
+        button = get_cred_file.exec() #show the popup box for the user to enter account number
+        if button == 1:
+            wait_cursor = QCursor()
+            wait_cursor.setShape(wait_cursor.shape().WaitCursor)
+
+            QApplication.setOverrideCursor(wait_cursor)
+
+            self.env_path = get_cred_file.edtCred_path.text()
+            #load credentials file                                     
+            load_dotenv(self.env_path)
+
+            #login to Robinhood
+            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+            
+            #Get account numers and populate comboboxes
+            self.account_info = os.environ['account_number']
+            #There is an account number
+            if self.account_info != '':
+                if self.account_info.find(',') != -1:
+                    slice_account = self.account_info.split(',')
+                    for item in slice_account:
+                        self.ui.cmbAccount.addItem(item)
+                else:
+                    self.ui.cmbAccount.addItem(self.account_info)
+                
+                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
+                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
+                #get total gains for the day
+                self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                #setup plot widget
+                self.setup_plot(self.curAccountTickers_and_Quanties)
+                #edit status bar
+            #lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
+            # lblStatusBar.setMinimumWidth(50)
+            # self.ui.statusBar.addWidget(lblStatusBar,1)
+
+            frm_TotalGains = "{0:.2f}".format(self.totalGains)
+            frm_TodayGains = "{0:.2f}".format(self.todayGains)
+
+            lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
+            lbltotal.setText(f"Total Assets: {self.ui.lstAssets.count()}")
+
+            lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
+            lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
+            lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
+            lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
+
+            QApplication.restoreOverrideCursor()
+        else:
+            return
 
 
     def lstAsset_clicked(self):

@@ -481,6 +481,8 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <addaction name="actionCredentials_File"/>
+    <addaction name="separator"/>
     <addaction name="action_Exit"/>
    </widget>
    <addaction name="menuFile"/>
@@ -516,6 +518,11 @@
    </property>
    <property name="menuRole">
     <enum>QAction::QuitRole</enum>
+   </property>
+  </action>
+  <action name="actionCredentials_File">
+   <property name="text">
+    <string>&amp;Credentials File</string>
    </property>
   </action>
  </widget>

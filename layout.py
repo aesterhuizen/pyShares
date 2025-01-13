@@ -233,6 +233,10 @@ class Ui_MainWindow(object):
         self.action_Exit = QtGui.QAction(parent=MainWindow)
         self.action_Exit.setMenuRole(QtGui.QAction.MenuRole.QuitRole)
         self.action_Exit.setObjectName("action_Exit")
+        self.actionCredentials_File = QtGui.QAction(parent=MainWindow)
+        self.actionCredentials_File.setObjectName("actionCredentials_File")
+        self.menuFile.addAction(self.actionCredentials_File)
+        self.menuFile.addSeparator()
         self.menuFile.addAction(self.action_Exit)
         self.menuBar.addAction(self.menuFile.menuAction())
 
@@ -264,3 +268,4 @@ class Ui_MainWindow(object):
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
         self.action_Exit.setText(_translate("MainWindow", "&Exit"))
         self.action_Exit.setIconText(_translate("MainWindow", "Exit"))
+        self.actionCredentials_File.setText(_translate("MainWindow", "&Credentials File"))
