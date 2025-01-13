@@ -5,3 +5,6 @@ build/
 dist/
 app.spec
 __pycache__/
+*.ui
+*.pyc
+*.env

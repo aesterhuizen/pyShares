@@ -116,7 +116,9 @@ class MainWindow(QMainWindow):
         # self.mystocks_dict = {}
         # self.account_dict = {}
         # self.raise_amount = 0
-    
+        self.totalGains = 0.0
+        self.todayGains = 0.0
+
         # self.stock_quantity_to_sell = 0
         self.current_account_num = ""
         self.account_info = ''
@@ -142,14 +144,14 @@ class MainWindow(QMainWindow):
         #Create a thread manager    
         self.threadpool = QThreadPool()
         #load credentials file
-        self.env_path = "D:\dev\Python\Python3.11\Scripts\Robinhood\.accInfo.env"
+        self.env_path = "C:/Users/aeste/OneDrive/Documents/dev/Python/Python3.11/Scripts/PyQt6/pyShares/.accInfo.env"
         load_dotenv(self.env_path)
 
         #login to Robinhood
         otp = pyotp.TOTP(os.environ['robin_mfa']).now()
         r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
       
-       
+      
         #Get account numers and populate comboboxes
         self.account_info = os.environ['account_number']
         #There is an account number
@@ -164,7 +166,8 @@ class MainWindow(QMainWindow):
             self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
             self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
             self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
-
+            #get total gains for the day
+            self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
             #setup plot widget
             self.setup_plot(self.curAccountTickers_and_Quanties)
 
@@ -172,13 +175,13 @@ class MainWindow(QMainWindow):
           #Setup signals / Slots
        
         
-        icondir = os.path.join(os.path.dirname(__file__), 'fugue/icons')
+        
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
-        
+        icon = sys.argv[0].replace("app.py","icons/application--arrow.png")
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(f'{icondir}/application--arrow.png'), "Exit", self)
+        button_action = QAction(QIcon(icon), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
 
@@ -198,6 +201,20 @@ class MainWindow(QMainWindow):
         self.ui.btnClearSelec.clicked.connect(self.clear_selection_clicked)  
         #connect the list asset box
         self.ui.lstAssets.itemSelectionChanged.connect(self.lstAsset_clicked)
+        #setup status bar
+        lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
+        lblStatusBar.setMinimumWidth(50)
+        self.ui.statusBar.addWidget(lblStatusBar,1)
+
+        frm_TotalGains = "{0:.2f}".format(self.totalGains)
+        lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
+        lblStatusBar_pctT.setMinimumWidth(120)
+        self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
+
+        frm_TodayGains = "{0:.2f}".format(self.todayGains)
+        lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
+        lblStatusBar_pctToday.setMinimumWidth(120)
+        self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
           # show the Mainwindow
         self.show()
 
@@ -206,9 +223,12 @@ class MainWindow(QMainWindow):
 
     def lstAsset_clicked(self):
         
-        sel_items = [item.text() for item in self.ui.lstAssets.selectedItems()]
-        if self.ui.cmbAction.currentText() == "sell_selected":
-            if len(sel_items) > 0:
+        sel_items = [item.text().split(' ')[0] for item in self.ui.lstAssets.selectedItems()]
+        
+        if len(sel_items) > 0:
+            #check to see if the action is sell selected
+            if self.ui.cmbAction.currentText() == "sell_selected":
+            
                 strjoinlst = ",".join(sel_items)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setVisible(True)
@@ -217,18 +237,35 @@ class MainWindow(QMainWindow):
 
                 self.ui.lblRaiseAmount.setText("Sell Selected Asset:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
+
+            elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z" or self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
+
+                self.ui.lblRaiseAmount.setVisible(True)
+                self.ui.lblDollarValueToSell.setVisible(True)
+                self.ui.edtRaiseAmount.setVisible(True)
+                self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
+                self.ui.edtRaiseAmount.setText("")
             else:
                 self.ui.lblRaiseAmount.setVisible(False)
                 self.ui.lblDollarValueToSell.setVisible(False)
                 self.ui.edtRaiseAmount.setVisible(False)
-                self.ui.edtDollarValueToSell.setVisible(False)    
+                self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.lblRaiseAmount.setText("")
+                self.ui.edtRaiseAmount.setText("")
+            
         else:
-            self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
-            self.ui.edtRaiseAmount.setText("")
-            self.ui.lblRaiseAmount.setVisible(False)
-            self.ui.lblDollarValueToSell.setVisible(False)
-            self.ui.edtRaiseAmount.setVisible(False)
-            self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.lblRaiseAmount.setVisible(False)
+                self.ui.lblDollarValueToSell.setVisible(False)
+                self.ui.edtRaiseAmount.setVisible(False)
+                self.ui.edtDollarValueToSell.setVisible(False)
+                self.ui.lblRaiseAmount.setText("")
+                self.ui.edtRaiseAmount.setText("")
+
+
+        return
+
+                
         
         
 
@@ -325,17 +362,19 @@ class MainWindow(QMainWindow):
         if perform_action == "raise_x_sell_y_dollars" or perform_action == "raise_x_sell_y_dollars_except_z":
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
-            self.ui.lblRaiseAmount.setText("Raise Amount:")
+            self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
+            self.ui.edtRaiseAmount.setText("")
 
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.lblDollarValueToSell.setVisible(True)
-            #self.ui.lblDollarValueToSell.setText("Dollar Value to Sell:")
+            
         else:
             self.ui.edtRaiseAmount.setVisible(False)
             self.ui.lblRaiseAmount.setVisible(False)
             self.ui.edtDollarValueToSell.setVisible(False)
             self.ui.lblDollarValueToSell.setVisible(False)
-            self.clear_selection_clicked() 
+            
+        self.clear_selection_clicked()
         
    
 
