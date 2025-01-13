@@ -315,50 +315,49 @@ class MainWindow(QMainWindow):
             wait_cursor.setShape(wait_cursor.shape().WaitCursor)
 
             QApplication.setOverrideCursor(wait_cursor)
+            try:
+                self.env_path = get_cred_file.edtCred_path.text()
+                #load credentials file                                     
+                load_dotenv(self.env_path)
 
-            self.env_path = get_cred_file.edtCred_path.text()
-            #load credentials file                                     
-            load_dotenv(self.env_path)
-
-            #login to Robinhood
-            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
-            
-            #Get account numers and populate comboboxes
-            self.account_info = os.environ['account_number']
-            #There is an account number
-            if self.account_info != '':
-                if self.account_info.find(',') != -1:
-                    slice_account = self.account_info.split(',')
-                    for item in slice_account:
-                        self.ui.cmbAccount.addItem(item)
-                else:
-                    self.ui.cmbAccount.addItem(self.account_info)
+                #login to Robinhood
+                otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+                r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
                 
-                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
-                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
-                self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
-                #get total gains for the day
-                self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
-                #setup plot widget
-                self.setup_plot(self.curAccountTickers_and_Quanties)
-                #edit status bar
-            #lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
-            # lblStatusBar.setMinimumWidth(50)
-            # self.ui.statusBar.addWidget(lblStatusBar,1)
+                #Get account numers and populate comboboxes
+                self.account_info = os.environ['account_number']
+                #There is an account number
+                if self.account_info != '':
+                    if self.account_info.find(',') != -1:
+                        slice_account = self.account_info.split(',')
+                        for item in slice_account:
+                            self.ui.cmbAccount.addItem(item)
+                    else:
+                        self.ui.cmbAccount.addItem(self.account_info)
+                    
+                    self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
+                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                    self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
+                    #get total gains for the day
+                    self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                    #setup plot widget
+                    self.setup_plot(self.curAccountTickers_and_Quanties)
+                    #edit status bar
+            
+                frm_TotalGains = "{0:.2f}".format(self.totalGains)
+                frm_TodayGains = "{0:.2f}".format(self.todayGains)
 
-            frm_TotalGains = "{0:.2f}".format(self.totalGains)
-            frm_TodayGains = "{0:.2f}".format(self.todayGains)
+                lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
+                lbltotal.setText(f"Total Assets: {self.ui.lstAssets.count()}")
 
-            lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-            lbltotal.setText(f"Total Assets: {self.ui.lstAssets.count()}")
-
-            lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
-            lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
-            lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
-            lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
-
-            QApplication.restoreOverrideCursor()
+                lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
+                lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
+                lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
+                lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
+            finally:
+                #Restore the cursor
+                
+                QApplication.restoreOverrideCursor()
         else:
             return
 
