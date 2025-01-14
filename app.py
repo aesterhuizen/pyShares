@@ -525,18 +525,24 @@ class MainWindow(QMainWindow):
         #if it has update the lstAsset list and plot
         # if NOT return
         if self.current_account_num != self.ui.cmbAccount.currentText().split(' ')[0]:
+            wait_cursor = QCursor()
+            wait_cursor.setShape(wait_cursor.shape().WaitCursor)
 
-            self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
-            accountNum = self.current_account_num
-            if self.ui.lstAssets.count() > 0:
-                self.ui.lstAssets.clear()
-            #get tickers in portfolio
-            
-            self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(accountNum)
-            tickersPerf = self.curAccountTickers_and_Quanties
-            # add current trickets to Qtlist
-            self.print_cur_protfolio(tickersPerf)
-            self.setup_plot(tickersPerf)
+            QApplication.setOverrideCursor(wait_cursor)
+            try:
+                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
+                accountNum = self.current_account_num
+                if self.ui.lstAssets.count() > 0:
+                    self.ui.lstAssets.clear()
+                #get tickers in portfolio
+                
+                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(accountNum)
+                tickersPerf = self.curAccountTickers_and_Quanties
+                # add current trickets to Qtlist
+                self.print_cur_protfolio(tickersPerf)
+                self.setup_plot(tickersPerf)
+            finally:
+                QApplication.restoreOverrideCursor()
         
     
         
