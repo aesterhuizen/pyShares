@@ -569,21 +569,33 @@ class MainWindow(QMainWindow):
 
          #call the method to execute
             name_of_method = self.ui.cmbAction.currentText()
-            method = getattr(self, name_of_method,lambda: 'No operation of that name')
+
+           
+            list_method_names = [{"Sell Selected Stock(s)":'sell_selected',
+                                "Show Selected Stock(s) Information":'stock_info',
+                                "Sell Gains of Selected Stock(s)":'sell_gains',
+                                "Sell Selected Stock(s) Total Gain":'sell_gains_except_x',
+                                "Sell Selected Stock(s) Today's Gain":'sell_todays_return',
+                                "Sell Today's Gain Except Selected Stock(s)":'sell_todays_return_except_x',
+                                "Raise $ Amount by Selling y Dollar of Each Stock(s) Until Raise Amount Acheived":'raise_x_sell_y_dollars',
+                                "Raise $ Amount by Selling y Dollar of Each Stock(s) Until Raise Amount Acheived Except Selected Stock(s)":'raise_x_sell_y_dollars_except_z'
+                                }]
+            fn = getattr(self, list_method_names[0][name_of_method])
+            
           
             raise_amount = self.ui.edtRaiseAmount.text()
             dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
             
 
-            worker = Worker_Thread(method,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell) # Any other args, kwargs are passed to the run function
+            worker = Worker_Thread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell) # Any other args, kwargs are passed to the run function
             
             worker.signals.result.connect(self.print_output)
             worker.signals.finished.connect(self.thread_complete)
             worker.signals.progress.connect(self.progress_fn)
 
             # Execute
-            #self.threadpool.start(worker)
-            return method(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell, self.progress_fn)
+            self.threadpool.start(worker)
+            #return fn(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell, self.progress_fn)
             
 
 
@@ -724,6 +736,27 @@ class MainWindow(QMainWindow):
         else:
             return False,lst
 
+#----------------------------------------------------------------------------------------------------------------------------------
+# get stock information (plotting historicals etc...)
+# -------------------------------------------------------------------------------------------------------------------------------------   
+    def stock_info(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,progress_callback):
+        #Item[0] =  tickers
+        #Item[1] = Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3] = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+
+        tickersPerf = self.get_stocks_from_portfolio(acc_num)
+        n_tickersPerf = self.find_and_remove(tickersPerf, lst)
+        sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
+        progress_callback.emit(f"Stock Information: {lst}")
+
+        for item in sorderd_lst:
+            progress_callback.emit(f"Ticker: {item[0]} - Quantity: {item[4]} - Last Price: {item[3]} - Total Return: {item[1]} - Today's Return: {item[5]}")
+
+        return    
 #----------------------------------------------------------------------------------------------------------------------------------
 # sell__selected
 # -------------------------------------------------------------------------------------------------------------------------------------        
