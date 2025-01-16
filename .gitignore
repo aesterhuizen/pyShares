@@ -10,4 +10,4 @@ __pycache__/
 *.sqlite3
 *.csv
 data/
-*.txt
+env_path.txt

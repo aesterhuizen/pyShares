@@ -163,7 +163,8 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-       
+        self.ver_string = "v1.0.0"
+
         # self.stock_quantity_to_sell = 0
         # self.quantity_to_sell = 0
         # self.quantity_to_sell = 0
@@ -187,7 +188,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()       
         
         self.ui.setupUi(self)
-        self.setWindowTitle("PyShares - v1.0.0")
+        
         self.setGeometry(300, 300, 2500, 1000)
         
         self.ui.splt_horizontal.setSizes([650, 1600])
@@ -220,6 +221,12 @@ class MainWindow(QMainWindow):
             open_file.close()
             #load credentials file
             load_dotenv(self.env_path)
+            
+            if os.environ['debug'] == '1':
+                self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
+            else:
+                self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
+
             otp = pyotp.TOTP(os.environ['robin_mfa']).now()
             r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
             
@@ -249,6 +256,11 @@ class MainWindow(QMainWindow):
                 self.env_path = get_cred_file.edtCred_path.text()
                 #load credentials file                                     
                 load_dotenv(self.env_path)
+                if os.environ['debug'] == '1':
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
+                else:
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
+
                 #write env_path to file
                 open_file = open("env_path.txt","w")
                 open_file.write(self.env_path)
@@ -275,6 +287,8 @@ class MainWindow(QMainWindow):
                     self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
                     #setup plot widget
                     self.setup_plot(self.curAccountTickers_and_Quanties)
+            else:
+                self.setWindowTitle(f"PyShares - {self.ver_string}")
 
 
         
@@ -284,7 +298,8 @@ class MainWindow(QMainWindow):
 
         #Setup signals / Slots
     
-        
+       
+
         icon_path = os.path.join(base_path,"icons")
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
@@ -362,6 +377,10 @@ class MainWindow(QMainWindow):
 
                 #load credentials file                                     
                 load_dotenv(self.env_path)
+                if os.environ['debug'] == '1':
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
+                else:
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
 
                 #login to Robinhood
                 otp = pyotp.TOTP(os.environ['robin_mfa']).now()
@@ -931,14 +950,14 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}") 
         else:
-            self.ui.lstTerm.addItem(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}")
+            print(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}")
 
         file_buy_write = open("stocks_buy.csv","w")
         for index in range(int(n)):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration{index+1}")
             else:
-                self.ui.lstTerm.addItem(f"Iteration{index+1}")  
+                print(f"Iteration{index+1}")  
 
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
@@ -959,7 +978,7 @@ class MainWindow(QMainWindow):
                 if os.environ['debug'] == '0':
                     progress_callback.emit(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${tot}")
                 else:
-                    self.ui.lstTerm.addItem(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${tot}")
+                    print(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${tot}")
         
         stocks_format = ",".join(stock_symbols)
         file_buy_write.write(stocks_format)
@@ -970,7 +989,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${dollar_value_to_buy * len(lst)}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${dollar_value_to_buy * len(lst)}")
+            print(f"Operation Done! - Total=${dollar_value_to_buy * len(lst)}")
 
         return
 
@@ -1039,7 +1058,7 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                 progress_callback.emit(txt.format(dollar_value_to_buy, item[0],item[2],item[1]) )    
             else:
-                self.ui.lstTerm.addItem(txt.format(dollar_value_to_buy, item[0],item[2],item[1]) )
+                print(txt.format(dollar_value_to_buy, item[0],item[2],item[1]) )
 
             # Item[0] = stock_name
             # Item[1] = quantity to buy
@@ -1056,7 +1075,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${buying_power}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${buying_power}")
+            print(f"Operation Done! - Total=${buying_power}")
 
         return
  
@@ -1109,7 +1128,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Sell Selected: Total gains = ${dollar_value_to_sell}") 
         else:
-            self.ui.lstTerm.addItem(f"Sell Selected: Total gains = ${dollar_value_to_sell}") 
+            print(f"Sell Selected: Total gains = ${dollar_value_to_sell}") 
 
         file_sell_write = open("stocks_sell.csv","w")
         for index in range(int(n)):
@@ -1139,7 +1158,7 @@ class MainWindow(QMainWindow):
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
-                        self.ui.lstTerm.addItem(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
+                        print(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                
              
         
@@ -1152,7 +1171,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
         
         return
 #----------------------------------------------------------------------------------------------------------------------
@@ -1184,7 +1203,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Total gains = ${inse}")
         else:
-            self.ui.lstTerm.addItem(f"Total gains = ${inse}")
+            print(f"Total gains = ${inse}")
 
         file_sell_write = open("stocks_sell.csv","w")
         for index in range(int(n)):
@@ -1192,7 +1211,7 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration: {index+1}")
             else:
-                self.ui.lstTerm.addItem(f"Iteration: {index+1}")
+                print(f"Iteration: {index+1}")
             
             
           
@@ -1215,7 +1234,7 @@ class MainWindow(QMainWindow):
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
-                        self.ui.lstTerm.addItem(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
+                        print(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     
         
             
@@ -1228,7 +1247,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
         
         return
                 
@@ -1271,14 +1290,14 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Sell Gains: Total gains ~ ${tgains} exclude = {lst}")
         else:
-            self.ui.lstTerm.addItem(f"Sell Gains: Total gains ~ ${tgains} exclude = {lst}")
+            print(f"Sell Gains: Total gains ~ ${tgains} exclude = {lst}")
 
         file_sell_write = open(f"stocks_sell.csv","w")  
         for index in range(int(n)):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration{index+1}")
             else:
-                self.ui.lstTerm.addItem(f"Iteration{index+1}")
+                print(f"Iteration{index+1}")
 
             stock_symbols = []
 
@@ -1301,7 +1320,7 @@ class MainWindow(QMainWindow):
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
-                        self.ui.lstTerm.addItem(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
+                        print(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                 
             stocks_format = ",".join(stock_symbols)
             file_sell_write.write(stocks_format)
@@ -1313,7 +1332,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
 
         return
     
@@ -1345,7 +1364,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0': 
             progress_callback.emit(f"Sell Todays Return: Total gains = ${tgains}") 
         else:
-            self.ui.lstTerm.addItem(f"Sell Todays Return: Total gains = ${tgains}")
+            print(f"Sell Todays Return: Total gains = ${tgains}")
 
 
         file_sell_write = open("stocks_sell.csv","w")
@@ -1353,7 +1372,7 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration{index+1}")
             else:
-                self.ui.lstTerm.addItem(f"Iteration{index+1}")
+                print(f"Iteration{index+1}")
 
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
@@ -1378,7 +1397,7 @@ class MainWindow(QMainWindow):
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
-                        self.ui.lstTerm.addItem(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
+                        print(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
 
             
         stocks_format = ",".join(stock_symbols)
@@ -1389,7 +1408,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
 
         return
     
@@ -1439,7 +1458,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Sell Today's Return: ~ ${tgains}, exclude = {excludeList}")
         else:
-            self.ui.lstTerm.addItem(f"Sell Today's Return: ~ ${tgains}, exclude = {excludeList}")   
+            print(f"Sell Today's Return: ~ ${tgains}, exclude = {excludeList}")   
 
         for index in range(int(n)):
             print(f"Iteration{index+1}")
@@ -1469,7 +1488,7 @@ class MainWindow(QMainWindow):
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
-                        self.ui.lstTerm.addItem(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")   
+                        print(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")   
 
 
 
@@ -1482,7 +1501,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
 
         return
                 
@@ -1576,7 +1595,7 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot}")
             else:
-                self.ui.lstTerm.addItem(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot}")
+                print(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot}")
            
                     
             
@@ -1591,7 +1610,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
     
         return
 #---------------------------------------------------------------------------------------------------------------------------
@@ -1625,7 +1644,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {lst}: Total gains = ${f_g2} ")
         else:
-            self.ui.lstTerm.addItem(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {lst}: Total gains = ${f_g2} ")
+            print(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {lst}: Total gains = ${f_g2} ")
 
         while not (raised_amount >= n_raise_amount):
             #loop through the list of tickers and build a new list(sell_list) of quantities to sell
@@ -1687,7 +1706,7 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot} ")  
             else:
-                self.ui.lstTerm.addItem(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot} ")
+                print(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot} ")
             
           
                     
@@ -1703,7 +1722,7 @@ class MainWindow(QMainWindow):
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
-            self.ui.lstTerm.addItem(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${tgains_actual}")
 
         return
     # end of class MainWIndow
