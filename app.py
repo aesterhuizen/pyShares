@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
             base_path = os.path.abspath(".")
 
         #if env file is not found show the dialog box
-        if os.path.exists('env_path.txt'):
+        if os.path.exists(f'{base_path}/env_path.txt'):
             open_file = open("env_path.txt","r")
             self.env_path = open_file.read()
             open_file.close()
