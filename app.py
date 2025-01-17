@@ -11,12 +11,12 @@ from dotenv import load_dotenv, set_key
 matplotlib.use('QtAgg')
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, \
-                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
+                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QStringListModel, QListWidgetItem
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
-from layout import Ui_MainWindow
+from layout_experimental import Ui_MainWindow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
@@ -210,13 +210,13 @@ class MainWindow(QMainWindow):
         # If the application is run as a bundle, the PyInstaller bootloader
         # extends the sys module by a flag frozen=True and sets the app 
         # path into variable _MEIPASS'.
-            base_path = sys._MEIPASS
+            self.base_path = sys._MEIPASS
         else:
-            base_path = os.path.abspath(".")
+            self.base_path = os.path.abspath(".")
 
         #if env file is not found show the dialog box
-        if os.path.exists(f'{base_path}/env_path.txt'):
-            open_file = open("env_path.txt","r")
+        if os.path.exists(f'{self.base_path}/env_path.txt'):
+            open_file = open(f'{self.base_path}/env_path.txt',"r")
             self.env_path = open_file.read()
             open_file.close()
             #load credentials file
@@ -262,7 +262,7 @@ class MainWindow(QMainWindow):
                     self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
 
                 #write env_path to file
-                open_file = open("env_path.txt","w")
+                open_file = open(f'{self.base_path}/env_path.txt',"w")
                 open_file.write(self.env_path)
                 open_file.close()
                 #login to Robinhood
@@ -298,9 +298,7 @@ class MainWindow(QMainWindow):
 
         #Setup signals / Slots
     
-       
-
-        icon_path = os.path.join(base_path,"icons")
+        icon_path = os.path.join(self.base_path,"icons")
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
         self.ui.actionCredentials_File.triggered.connect(self.Show_msgCredentials)
@@ -351,6 +349,9 @@ class MainWindow(QMainWindow):
 
         lblStatusBar_pctToday.setMinimumWidth(120)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
+
+        #setup tooltips
+      
         # show the Mainwindow
         self.show()
             
@@ -371,7 +372,7 @@ class MainWindow(QMainWindow):
             try:
                 self.env_path = get_cred_file.edtCred_path.text()
                 #write env_path to file
-                open_file = open("env_path.txt","w")
+                open_file = open(f'{self.base_path}/env_path.txt',"w")
                 open_file.write(self.env_path)
                 open_file.close()
 
@@ -715,14 +716,35 @@ class MainWindow(QMainWindow):
 
         txt = "{:<5}\t{:>5}"
       
+        model = QStringListModel()
+        items = ['Item 1', 'Item 2', 'Item 3', 'Item 4']
+        model.setStringList(items)
+        
 
         for item in curlist:
-            tmp_list.append(txt.format(item[0],item[4]) )
+            lastTradePrice = r.get_quotes(item[0], "last_trade_price")[0]
+            label = QListWidgetItem(f"{item[0]} \t {item[4]}",self.ui.lstAssets)
+            label.setToolTip(f"""
+            <b>Label Tooltip</b><br>
+            <i>This is another tooltip with rich text.</i><br>
+            <table border="1">
+                <tr>
+                    <th>{lastTradePrice}</th>
+                    <th>Header 2</th>
+                </tr>
+                <tr>
+                    <td>Data 1</td>
+                    <td>Data 2</td>
+                </tr>
+            </table>
+        """)
+            #tmp_list.sort()
+            #tmp_list.insert(0,txt.format("Ticker","Quantity"))
+            #add items to the QTList list
+            self.ui.listView.setModel(model)
             
-        tmp_list.sort()
-        tmp_list.insert(0,txt.format("Ticker","Quantity"))
-        #add items to the QTList list
-        self.ui.lstAssets.addItems(tmp_list)
+            
+        
         
         open_file = open("current_portfolio.csv","w")
         join_list = ",".join(tmp_list)
@@ -946,7 +968,7 @@ class MainWindow(QMainWindow):
         
         
         n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
-        sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
+        sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}") 
         else:
@@ -961,7 +983,7 @@ class MainWindow(QMainWindow):
 
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
-            for item in sorderd_lst:
+            for item in sorted_lst:
                 quantity_to_buy = dollar_value_to_buy / float(item[3])   
                 tot = "{0:.2f}".format(quantity_to_buy*float(item[3]))
                 frm_quantity = "{0:.2f}".format(float(quantity_to_buy))
@@ -973,8 +995,8 @@ class MainWindow(QMainWindow):
                 #Item 0 =  tickers     #Item 2 = stock_quantity_to_buy  #Item 3 = last price
                 stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
                 
-                lprise = float(item[3])+0.02
-                last_price = "{0:.2f}".format(lprise)
+                lprize = float(item[3])+0.02
+                last_price = "{0:.2f}".format(lprize)
                 if os.environ['debug'] == '0':
                     progress_callback.emit(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${tot}")
                 else:
