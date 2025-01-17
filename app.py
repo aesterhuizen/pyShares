@@ -11,12 +11,12 @@ from dotenv import load_dotenv, set_key
 matplotlib.use('QtAgg')
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, \
-                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QStringListModel, QListWidgetItem
+                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QTableWidget, QTableWidgetItem
                             
-from PyQt6.QtGui import QAction, QIcon, QCursor
+from PyQt6.QtGui import QAction, QIcon, QCursor, QColor
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
 
-from layout_experimental import Ui_MainWindow
+from layout import Ui_MainWindow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
@@ -329,10 +329,10 @@ class MainWindow(QMainWindow):
         self.ui.edtDollarValueToSell.textChanged.connect(self.edtDollarValueToSell_changed)
         #connect clear selection button
         self.ui.btnClearSelec.clicked.connect(self.clear_selection_clicked)  
-        #connect the list asset box
-        self.ui.lstAssets.itemSelectionChanged.connect(self.lstAsset_clicked)
+        #connect the Asset table box
+        self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         #setup status bar
-        lblStatusBar = QLabel(f"Total Assets: {self.ui.lstAssets.count()}")
+        lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
         lblStatusBar.setMinimumWidth(50)
         lblStatusBar.setObjectName("lblStatusBar")
         self.ui.statusBar.addWidget(lblStatusBar,1)
@@ -425,9 +425,9 @@ class MainWindow(QMainWindow):
             return
 
 
-    def lstAsset_clicked(self):
+    def tblAsset_clicked(self):
         
-        sel_items = [item.text().split(' ')[0] for item in self.ui.lstAssets.selectedItems()]
+        sel_items = [item.text().split(' ')[0] for item in self.ui.tblAssets.selectedItems()]
         
         if len(sel_items) > 0:
             #check to see if the action is sell selected
@@ -709,47 +709,77 @@ class MainWindow(QMainWindow):
 
     def print_cur_protfolio(self, curlist):
        
+        #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
 
-        # print ("Current Protfolio: ")
-        # print ("Ticker\tQuantity")
-        tmp_list = []
-
-        txt = "{:<5}\t{:>5}"
-      
-        model = QStringListModel()
-        items = ['Item 1', 'Item 2', 'Item 3', 'Item 4']
-        model.setStringList(items)
+        #set header
+        table = self.ui.tblAssets
         
 
-        for item in curlist:
+        table.setColumnCount(5)
+        table.setRowCount(len(curlist))
+        table.setHorizontalHeaderLabels(["Ticker","Quantity","Last Price","Today's Return","Total Return"])
+
+        
+        
+        for i, item in enumerate(curlist):
             lastTradePrice = r.get_quotes(item[0], "last_trade_price")[0]
-            label = QListWidgetItem(f"{item[0]} \t {item[4]}",self.ui.lstAssets)
-            label.setToolTip(f"""
-            <b>Label Tooltip</b><br>
-            <i>This is another tooltip with rich text.</i><br>
-            <table border="1">
-                <tr>
-                    <th>{lastTradePrice}</th>
-                    <th>Header 2</th>
-                </tr>
-                <tr>
-                    <td>Data 1</td>
-                    <td>Data 2</td>
-                </tr>
-            </table>
-        """)
-            #tmp_list.sort()
-            #tmp_list.insert(0,txt.format("Ticker","Quantity"))
-            #add items to the QTList list
-            self.ui.listView.setModel(model)
+            avg_buy_price = item[7]
+            previous_close = r.get_quotes(item[0], "previous_close")[0]
+            todays_return = (float(lastTradePrice) - float(previous_close))*float(item[4])
+            total_return = (float(lastTradePrice) - float(avg_buy_price))*float(item[4]) 
+                            
+
+            item_ticker = QTableWidgetItem(item[0])
+            item_stock_quantity = QTableWidgetItem("{0:.2f}".format(float(item[4])))
+            item_price = QTableWidgetItem("{0:.2f}".format(float(lastTradePrice)))
+            item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
+            item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
+
+
+            if total_return > 0.0:
+                item_ticker.setIcon(QIcon("icons/up.png"))
+                item_ticker.setForeground(QColor("green"))
+                item_stock_quantity.setForeground(QColor("green"))
+                item_price.setForeground(QColor("green"))
+                item_todayreturn.setForeground(QColor("green"))
+                item_totreturn.setForeground(QColor("green"))
+
+            else:
+                item_ticker.setForeground(QColor("red"))
+                item_ticker.setIcon(QIcon("icons/down.png"))
+                item_stock_quantity.setForeground(QColor("red"))
+                item_price.setForeground(QColor("red"))
+                item_todayreturn.setForeground(QColor("red"))
+                item_totreturn.setForeground(QColor("red"))
+                
+
+            
+                                                
+            table.setItem(i,0,item_ticker)
+            table.setItem(i,1,item_stock_quantity)
+            table.setItem(i,2,item_price)
+            table.setItem(i,3,item_todayreturn)
+            table.setItem(i,4,item_totreturn)
+
+            
+           
+          
+        
             
             
         
         
-        open_file = open("current_portfolio.csv","w")
-        join_list = ",".join(tmp_list)
-        open_file.write(join_list)
-        open_file.close()
+        # open_file = open("current_portfolio.csv","w")
+        # join_list = ",".join(tmp_list)
+        # open_file.write(join_list)
+        # open_file.close()
         return
 
     def get_stocks_from_portfolio(self, acc_num):
@@ -788,7 +818,7 @@ class MainWindow(QMainWindow):
         #item[5]=today's return
         #item[6]= 1 year history
 
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week))
+        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price))
         return tickersPerf
 
     def cal_total_gains(self, list_p):
