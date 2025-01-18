@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
 
             elif self.ui.cmbAction.currentText() == "buy_selected" :
 
-                strjoinlst = ",".join(sel_items)
+                strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setText("Dollar value to Buy:")
@@ -457,7 +457,7 @@ class MainWindow(QMainWindow):
                 
                 self.ui.edtRaiseAmount.setText(strjoinlst)
             elif self.ui.cmbAction.currentText() == "buy_selected_with_x":
-                strjoinlst = ",".join(sel_items)
+                strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setText("Buy Dollar value of each Stock(s):")
