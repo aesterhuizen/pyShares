@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         self.setGeometry(300, 300, 2500, 1000)
         
         self.ui.splt_horizontal.setSizes([650, 1600])
-        self.ui.splt_Vertical.setSizes([450, 50])
+        self.ui.vertical_splitter.setSizes([450, 50])
         
         # set the meta data textboxes and labels to invisible
         self.ui.edtRaiseAmount.setVisible(False)
@@ -411,7 +411,7 @@ class MainWindow(QMainWindow):
                 frm_TodayGains = "{0:.2f}".format(self.todayGains)
 
                 lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-                lbltotal.setText(f"Total Assets: {self.ui.lstAssets.count()}")
+                lbltotal.setText(f"Total Assets: {self.ui.tblAsset.count()}")
 
                 lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
                 lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
@@ -427,13 +427,15 @@ class MainWindow(QMainWindow):
 
     def tblAsset_clicked(self):
         
-        sel_items = [item.text().split(' ')[0] for item in self.ui.tblAssets.selectedItems()]
+        sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
-        if len(sel_items) > 0:
+        selected_tickers = [sel_items[i:i+5][0] for i in range(0,len(sel_items),5)]
+
+        if len(selected_tickers) > 0:
             #check to see if the action is sell selected
             if self.ui.cmbAction.currentText() == "sell_selected":
             
-                strjoinlst = ",".join(sel_items)
+                strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True)
@@ -507,7 +509,7 @@ class MainWindow(QMainWindow):
         
 
     def clear_selection_clicked(self):
-        self.ui.lstAssets.clearSelection()
+        self.ui.tblAssets.clearSelection()
 
 
     def closeMenu_clicked(self):
@@ -628,7 +630,7 @@ class MainWindow(QMainWindow):
             self.ui.edtDollarValueToSell.setVisible(False)
             self.ui.lblDollarValueToSell.setVisible(False)
             
-        self.clear_selection_clicked()
+        #self.clear_selection_clicked()
         
    
 
@@ -645,8 +647,8 @@ class MainWindow(QMainWindow):
             try:
                 self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
                 accountNum = self.current_account_num
-                if self.ui.lstAssets.count() > 0:
-                    self.ui.lstAssets.clear()
+                if self.ui.tblAssets.rowCount() > 0:
+                    self.ui.tblAssets.clear()
                 #get tickers in portfolio
                 
                 self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(accountNum)
@@ -880,12 +882,12 @@ class MainWindow(QMainWindow):
 
 
 
-            if len(self.ui.lstAssets.selectedItems()) == 0:
+            if len(self.ui.tblAssets.selectedItems()) == 0:
                 msg = QMessageBox.warning(self,"Selection","Must select at least 1 item from the Asset list.",QMessageBox.StandardButton.Ok)
                 if msg == QMessageBox.StandardButton.Ok:
                     return False,lst
             else:
-                lst = self.ui.lstAssets.selectedItems()
+                lst = self.ui.tblAssets.selectedItems()
                 check_two = True
         else:
             lst = ['dont care']
