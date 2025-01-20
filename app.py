@@ -56,7 +56,7 @@ class msgBoxGetCredentialFile(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Set Data File")
+        self.setWindowTitle("Get Data File")
 
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -100,7 +100,7 @@ class msgBoxGetCredentialFile(QDialog):
     def browse_clicked(self):
         options = QFileDialog.Option.DontUseNativeDialog
        
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open File", f"{os.path.curdir}", "All Files (*);;Python Files (*.py)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(None, "Open File", f"{os.path.curdir}", "Environment Files (*.env)", options=options)
         if file_name:
             self.edtCred_path.setText(file_name)
 
@@ -147,7 +147,7 @@ class msgBoxGetAccounts(QDialog):
 
 class MplCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=7, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
@@ -164,6 +164,10 @@ class MainWindow(QMainWindow):
 
         
         self.ver_string = "v1.0.0"
+        self.icon_path = ''
+        self.base_path = ''
+        self.env_file = ''
+        self.data_path = ''
 
         # self.stock_quantity_to_sell = 0
         # self.quantity_to_sell = 0
@@ -206,32 +210,49 @@ class MainWindow(QMainWindow):
         #Create a thread manager    
         self.threadpool = QThreadPool()
         #load credentials file
-        if getattr(sys, 'frozen', False):
-        # If the application is run as a bundle, the PyInstaller bootloader
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        #bundle, the PyInstaller bootloader
         # extends the sys module by a flag frozen=True and sets the app 
         # path into variable _MEIPASS'.
             self.base_path = sys._MEIPASS
+           
         else:
             self.base_path = os.path.abspath(".")
 
-        #if env file is not found show the dialog box
-        if os.path.exists(f'{self.base_path}/env_path.txt'):
-            open_file = open(f'{self.base_path}/env_path.txt',"r")
-            self.env_path = open_file.read()
-            open_file.close()
+        self.icon_path = os.path.join(self.base_path,"icons")
+        self.data_path = os.path.join(os.environ['LOCALAPPDATA'], "pyShares")
+        self.env_file = os.path.join(self.data_path,"env_path.txt")
+      
+        
+        if os.path.exists(self.env_file):
+            #write env_path to file
+            with open(self.env_file,"r") as open_file:
+                self.env_path = open_file.read()
+        
+            
+        
+
+            
             #load credentials file
-            load_dotenv(self.env_path)
+            load_dotenv(self.env_path, override=True)
             
             if os.environ['debug'] == '1':
                 self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
             else:
                 self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
 
-            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+           
+            #login to Robinhood
+            try:
+                otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+                result = r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+            except Exception as e:
+                self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                return
             
             #Get account numers and populate comboboxes
             self.account_info = os.environ['account_number']
+            self.ui.cmbAccount.clear()
             #There is an account number
             if self.account_info != '':
                 if self.account_info.find(',') != -1:
@@ -241,36 +262,65 @@ class MainWindow(QMainWindow):
                 else:
                     self.ui.cmbAccount.addItem(self.account_info)
                 
-                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
-                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
+                
+                try:
+                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                except Exception as e:
+                    if e.args[0] == "Invalid account number":
+                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                        
+                        
+            
                 self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                 #get total gains for the day
                 self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
                 #setup plot widget
                 self.setup_plot(self.curAccountTickers_and_Quanties)
-        else: #env_path empty
+        else: #self.data_path is empty create path and file
             get_cred_file = msgBoxGetCredentialFile()
             button = get_cred_file.exec() #show the popup box for the user to enter account number
 
             if button == 1:
                 self.env_path = get_cred_file.edtCred_path.text()
+             
+
                 #load credentials file                                     
-                load_dotenv(self.env_path)
+                load_dotenv(self.env_path,override=True,)
                 if os.environ['debug'] == '1':
                     self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
                 else:
                     self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
 
-                #write env_path to file
-                open_file = open(f'{self.base_path}/env_path.txt',"w")
-                open_file.write(self.env_path)
-                open_file.close()
-                #login to Robinhood
-                otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-                r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+                #create temp path #write env_path to file
+                os.makedirs(self.data_path,exist_ok=True)
+                os.chmod(self.data_path,0o777)
+
+                
+                with open(self.env_file,"x") as open_file:
+                    open_file.write(self.env_path)
+                os.chmod(self.env_file,0o666)
+
+                #try and see if we are already logged in, if not login
+               
+                try:
+                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                except Exception as e:
+                    if e.args[0] == "Invalid account number":
+                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                    else:
+                   
+                        #login to Robinhood
+                        try:
+                            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+                            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+                        except Exception as e:
+                            self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                            return
                 
                 #Get account numers and populate comboboxes
                 self.account_info = os.environ['account_number']
+                self.ui.cmbAccount.clear()
                 #There is an account number
                 if self.account_info != '':
                     if self.account_info.find(',') != -1:
@@ -281,13 +331,20 @@ class MainWindow(QMainWindow):
                         self.ui.cmbAccount.addItem(self.account_info)
                     
                     self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
-                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                    
+                    try:
+                        self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                    except Exception as e:
+                        if e.args[0] == "Invalid account number":
+                            self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                            return
+                    
                     self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                     #get total gains for the day
                     self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
                     #setup plot widget
                     self.setup_plot(self.curAccountTickers_and_Quanties)
-            else:
+            else: #user pressed cancel at cridential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
 
 
@@ -298,19 +355,19 @@ class MainWindow(QMainWindow):
 
         #Setup signals / Slots
     
-        icon_path = os.path.join(self.base_path,"icons")
+        
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
         self.ui.actionCredentials_File.triggered.connect(self.Show_msgCredentials)
         
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(icon_path +'/application--arrow.png'), "Exit", self)
+        button_action = QAction(QIcon(self.icon_path +'/application--arrow.png'), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
 
         #add credentials button
-        button_cred_action = QAction(QIcon(icon_path +'/animal-monkey.png'), "Credentials", self)
+        button_cred_action = QAction(QIcon(self.icon_path +'/animal-monkey.png'), "Credentials", self)
         button_cred_action.triggered.connect(self.Show_msgCredentials)
         button_cred_action = self.ui.toolBar.addAction(button_cred_action)
 
@@ -371,24 +428,25 @@ class MainWindow(QMainWindow):
             QApplication.setOverrideCursor(wait_cursor)
             try:
                 self.env_path = get_cred_file.edtCred_path.text()
-                #write env_path to file
-                open_file = open(f'{self.base_path}/env_path.txt',"w")
-                open_file.write(self.env_path)
-                open_file.close()
-
-                #load credentials file                                     
-                load_dotenv(self.env_path)
-                if os.environ['debug'] == '1':
-                    self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
-                else:
-                    self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
-
-                #login to Robinhood
-                otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-                r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
                 
-                #Get account numers and populate comboboxes
+
+                if os.path.exists(self.env_file):
+                    #read env_path file
+                    with open(self.env_file,"w") as open_file:
+                        open_file.write(self.env_path)
+                else:
+                    os.makedirs(self.data_path,exist_ok=True)
+                    os.chmod(self.data_path,0o777)
+
+                    with open(self.env_file,"x") as open_file:
+                        open_file.write(self.env_path)
+                    os.chmod(self.env_file,0o666)
+            
+                #load credentials file                                     
+                load_dotenv(self.env_path, override=True)
+                 #Get account numers and populate comboboxes
                 self.account_info = os.environ['account_number']
+                self.ui.cmbAccount.clear()
                 #There is an account number
                 if self.account_info != '':
                     if self.account_info.find(',') != -1:
@@ -398,8 +456,50 @@ class MainWindow(QMainWindow):
                     else:
                         self.ui.cmbAccount.addItem(self.account_info)
                     
-                    self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
-                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                    self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]  
+                
+                if os.environ['debug'] == '1':
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - Debug ({self.env_path})")
+                else:
+                    self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
+
+                #check to see if the account number has changed
+                try:
+                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num )
+                except Exception as e:
+                    if e.args[0] == "Invalid account number":
+                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                        return
+                    else:
+                        
+                        #login to Robinhood
+                        try:
+                            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+                            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+                        except Exception as e:
+                            QMessageBox.critical(self,"Error",f"Error: {e.args[0]}",QMessageBox.StandardButton.Ok)
+                            return
+                
+                #Get account numers and populate comboboxes
+                self.account_info = os.environ['account_number']
+                self.ui.cmbAccount.clear()
+                #There is an account number
+                if self.account_info != '':
+                    if self.account_info.find(',') != -1:
+                        slice_account = self.account_info.split(',')
+                        for item in slice_account:
+                            self.ui.cmbAccount.addItem(item)
+                    else:
+                        self.ui.cmbAccount.addItem(self.account_info)
+                    
+                    self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
+                    try:   
+                        self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
+                    except Exception as e:
+                        if e.args[0] == "Invalid account number":
+                            self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                            return
+                        
                     self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                     #get total gains for the day
                     self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
@@ -411,7 +511,7 @@ class MainWindow(QMainWindow):
                 frm_TodayGains = "{0:.2f}".format(self.todayGains)
 
                 lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-                lbltotal.setText(f"Total Assets: {self.ui.tblAsset.count()}")
+                lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
 
                 lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
                 lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
@@ -421,7 +521,7 @@ class MainWindow(QMainWindow):
                 #Restore the cursor
                 
                 QApplication.restoreOverrideCursor()
-        else:
+        else: #user pressed cancel at cridential dialog
             return
 
 
@@ -558,7 +658,7 @@ class MainWindow(QMainWindow):
         self.plot.axes.set_ylabel('$value of stock')
         self.plot.axes.set_title('Stocks Ticker/Quantity')
         self.plot.draw()
-       
+        
         return
 
 
@@ -650,12 +750,19 @@ class MainWindow(QMainWindow):
                 if self.ui.tblAssets.rowCount() > 0:
                     self.ui.tblAssets.clear()
                 #get tickers in portfolio
-                
-                self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(accountNum)
+                try:
+                    self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(accountNum)
+                except Exception as e:
+                    if e.args[0] == "Invalid account number":
+                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                        self.plot.axes.clear()
+                        self.plot.draw()
+                        return
                 tickersPerf = self.curAccountTickers_and_Quanties
                 # add current trickets to Qtlist
                 self.print_cur_protfolio(tickersPerf)
                 self.setup_plot(tickersPerf)
+               
             finally:
                 QApplication.restoreOverrideCursor()
         
@@ -746,7 +853,7 @@ class MainWindow(QMainWindow):
 
 
             if total_return > 0.0:
-                item_ticker.setIcon(QIcon("icons/up.png"))
+                item_ticker.setIcon(QIcon(f"{self.icon_path}\\up.png"))
                 item_ticker.setForeground(QColor("green"))
                 item_stock_quantity.setForeground(QColor("green"))
                 item_price.setForeground(QColor("green"))
@@ -755,7 +862,7 @@ class MainWindow(QMainWindow):
 
             else:
                 item_ticker.setForeground(QColor("red"))
-                item_ticker.setIcon(QIcon("icons/down.png"))
+                item_ticker.setIcon(QIcon(f"{self.icon_path}\\down.png"))
                 item_stock_quantity.setForeground(QColor("red"))
                 item_price.setForeground(QColor("red"))
                 item_todayreturn.setForeground(QColor("red"))
@@ -785,8 +892,14 @@ class MainWindow(QMainWindow):
         return
 
     def get_stocks_from_portfolio(self, acc_num):
-            
+
         positions = r.get_open_stock_positions(acc_num)
+        if len(positions) == 0:
+            raise Exception("Invalid account number")
+        else:
+            self.ui.lstTerm.clear()
+            
+
         # Get Ticker symbols
         tickers = [r.get_symbol_by_url(item["instrument"]) for item in positions]
 

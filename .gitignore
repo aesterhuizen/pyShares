@@ -9,5 +9,4 @@ __pycache__/
 *.env
 *.sqlite3
 *.csv
-data/
 env_path.txt
