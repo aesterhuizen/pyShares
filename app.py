@@ -274,7 +274,7 @@ class MainWindow(QMainWindow):
             
                 self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                 #get total gains for the day
-                self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                self.totalGains,self.todayGains = self.cal_today_total_gains(self.curAccountTickers_and_Quanties)
                 #setup plot widget
                 self.setup_plot(self.curAccountTickers_and_Quanties)
         else: #self.data_path is empty create path and file
@@ -341,7 +341,7 @@ class MainWindow(QMainWindow):
                     
                     self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                     #get total gains for the day
-                    self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.curAccountTickers_and_Quanties)
                     #setup plot widget
                     self.setup_plot(self.curAccountTickers_and_Quanties)
             else: #user pressed cancel at cridential dialog
@@ -394,13 +394,13 @@ class MainWindow(QMainWindow):
         lblStatusBar.setObjectName("lblStatusBar")
         self.ui.statusBar.addWidget(lblStatusBar,1)
 
-        frm_TotalGains = "{0:.2f}".format(self.totalGains)
+        frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
         lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
         lblStatusBar_pctT.setMinimumWidth(120)
         self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
 
-        frm_TodayGains = "{0:.2f}".format(self.todayGains)
+        frm_TodayGains = "{0:,.2f}".format(self.todayGains)
         lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
         lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
 
@@ -502,13 +502,13 @@ class MainWindow(QMainWindow):
                         
                     self.print_cur_protfolio(self.curAccountTickers_and_Quanties)
                     #get total gains for the day
-                    self.totalGains,self.todayGains = self.cal_total_gains(self.curAccountTickers_and_Quanties)
+                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.curAccountTickers_and_Quanties)
                     #setup plot widget
                     self.setup_plot(self.curAccountTickers_and_Quanties)
                     #edit status bar
             
-                frm_TotalGains = "{0:.2f}".format(self.totalGains)
-                frm_TodayGains = "{0:.2f}".format(self.todayGains)
+                frm_TotalGains = "{0:,.2f}".format(self.totalGains)
+                frm_TodayGains = "{0:,.2f}".format(self.todayGains)
 
                 lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
                 lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
@@ -846,8 +846,8 @@ class MainWindow(QMainWindow):
                             
 
             item_ticker = QTableWidgetItem(item[0])
-            item_stock_quantity = QTableWidgetItem("{0:.2f}".format(float(item[4])))
-            item_price = QTableWidgetItem("{0:.2f}".format(float(lastTradePrice)))
+            item_stock_quantity = QTableWidgetItem("{0:,.2f}".format(float(item[4])))
+            item_price = QTableWidgetItem("{0:,.2f}".format(float(lastTradePrice)))
             item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
             item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
 
@@ -890,7 +890,12 @@ class MainWindow(QMainWindow):
         # open_file.write(join_list)
         # open_file.close()
         return
-
+    def get_tickers_from_selected_lstAssets(self):
+        sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
+        
+        selected_tickers = [sel_items[i:i+5][0] for i in range(0,len(sel_items),5)]
+        return selected_tickers
+    
     def get_stocks_from_portfolio(self, acc_num):
 
         positions = r.get_open_stock_positions(acc_num)
@@ -936,7 +941,7 @@ class MainWindow(QMainWindow):
         tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price))
         return tickersPerf
 
-    def cal_total_gains(self, list_p):
+    def cal_today_total_gains(self, list_p):
         
         grand_total_gains = 0.0
         todays_gains = 0.0
@@ -1060,13 +1065,13 @@ class MainWindow(QMainWindow):
                     stock_market_prices = r.stocks.get_latest_price(stock_name)
                     market_price_of_stock = float(stock_market_prices[0])
 
-                    buy_price = float("{0:.2f}".format(market_price_of_stock))
+                    buy_price = float("{0:,.2f}".format(market_price_of_stock))
 
 
 
                     #calc what quantity of the stock can be bought with the hlfgain
                     per_quantity = hlf_gain / buy_price
-                    frm_per_quantity = float("{0:.2f}".format(per_quantity) )
+                    frm_per_quantity = float("{0:,.2f}".format(per_quantity) )
 
                     #---------------- market_price < price sold -------------------------------------------------
                     if market_price_of_stock < float(price_sold):
@@ -1130,8 +1135,8 @@ class MainWindow(QMainWindow):
             #sell stocks if quantity_to_sell > 0 
             for item in sorted_lst:
                 quantity_to_buy = dollar_value_to_buy / float(item[3])   
-                tot = "{0:.2f}".format(quantity_to_buy*float(item[3]))
-                frm_quantity = "{0:.2f}".format(float(quantity_to_buy))
+                tot = "{0:,.2f}".format(quantity_to_buy*float(item[3]))
+                frm_quantity = "{0:,.2f}".format(float(quantity_to_buy))
                 if os.environ['debug'] == '0':
                     buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02)
                 time.sleep(5)
@@ -1141,7 +1146,7 @@ class MainWindow(QMainWindow):
                 stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
                 
                 lprize = float(item[3])+0.02
-                last_price = "{0:.2f}".format(lprize)
+                last_price = "{0:,.2f}".format(lprize)
                 if os.environ['debug'] == '0':
                     progress_callback.emit(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${tot}")
                 else:
@@ -1189,7 +1194,7 @@ class MainWindow(QMainWindow):
                     break    
 
                 quantity_to_buy = dollar_value_to_buy / float(item[3])     
-                strquantity_to_buy = "{0:.2f}".format(quantity_to_buy)
+                strquantity_to_buy = "{0:,.2f}".format(quantity_to_buy)
                     
 
             
@@ -1304,7 +1309,7 @@ class MainWindow(QMainWindow):
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst:
 #
-                frm_quantity = "{0:.2f}".format(float(dollar_value_to_sell))
+                frm_quantity = "{0:,.2f}".format(float(dollar_value_to_sell))
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if float(item[4]) > float(dollar_value_to_sell) :
                     if os.environ['debug'] == '0':
@@ -1318,10 +1323,10 @@ class MainWindow(QMainWindow):
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
-                    tot = "{0:.2f}".format(dollar_value_to_sell*float(item[3]))
+                    tot = "{0:,.2f}".format(dollar_value_to_sell*float(item[3]))
                     tgains_actual += float(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
+                    last_price = "{0:,.2f}".format(float(item[3]))
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
@@ -1333,12 +1338,12 @@ class MainWindow(QMainWindow):
         file_sell_write.write(stocks_format)
             
             
-
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         file_sell_write.close()
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
         
         return
 #----------------------------------------------------------------------------------------------------------------------
@@ -1353,9 +1358,9 @@ class MainWindow(QMainWindow):
         #calc total gains
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
 
-        grand_total_gains,today_gains = self.cal_total_gains(tickersPerf)
+        grand_total_gains,today_gains = self.cal_today_total_gains(tickersPerf)
       
-        inse = "{0:.2f}".format(float(grand_total_gains))
+        inse = "{0:,.2f}".format(float(grand_total_gains*int(n)))
            
           
         sorderd_lst = sorted(tickersPerf,key=lambda x: x[0])
@@ -1384,7 +1389,7 @@ class MainWindow(QMainWindow):
           
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
-                frm_quantity = "{0:.2f}".format(float(item[2]))
+                frm_quantity = "{0:,.2f}".format(float(item[2]))
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
@@ -1394,10 +1399,10 @@ class MainWindow(QMainWindow):
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{item[2]}:{item[3]}")
-                    tot = "{0:.2f}".format(float(item[2])*float(item[3]))
+                    tot = "{0:,.2f}".format(float(item[2])*float(item[3]))
                     tgains_actual += float(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
+                    last_price = "{0:,.2f}".format(float(item[3]))
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
@@ -1409,12 +1414,12 @@ class MainWindow(QMainWindow):
             file_sell_write.write(stocks_format)
             
             
-
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         file_sell_write.close()
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
         
         return
                 
@@ -1449,15 +1454,15 @@ class MainWindow(QMainWindow):
             if item[5] >= 0.0:    
                 tot_tgains += item[5]
 
-        tgains = tot_tgains * int(n) 
-                
-            
+        
+        n_lst = self.get_tickers_from_selected_lstAssets()
+        fmt_tot_gains = "{0:,.2f}".format(tot_gains*int(n)) 
           
             
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Sell Gains: Total gains ~ ${tgains} exclude = {lst}")
+            progress_callback.emit(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {n_lst}")
         else:
-            print(f"Sell Gains: Total gains ~ ${tgains} exclude = {lst}")
+            print(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {n_lst}")
 
         file_sell_write = open(f"stocks_sell.csv","w")  
         for index in range(int(n)):
@@ -1471,19 +1476,19 @@ class MainWindow(QMainWindow):
             
                 #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
-                frm_quantity = "{0:.2f}".format(float(item[2]))
+                frm_quantity = "{0:,.2f}".format(float(item[2]))
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd')
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:,.2f}".format(float(item[2])),timeInForce='gfd')
                     time.sleep(5)
                                              
                         #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{item[2]}:{item[3]}")
-                    tot = "{0:.2f}".format(float(item[2])*float(item[3]))
+                    tot = "{0:,.2f}".format(float(item[2])*float(item[3]))
                     tgains_actual += float(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
+                    last_price = "{0:,.2f}".format(float(item[3]))
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
@@ -1495,7 +1500,7 @@ class MainWindow(QMainWindow):
             
                   
         file_sell_write.close()
-        tgains_actual= "{0:.2f}".format(tgains_actual)
+        tgains_actual= "{0:,.2f}".format(tgains_actual*int(n))
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
         else:
@@ -1525,13 +1530,13 @@ class MainWindow(QMainWindow):
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         
         sorderd_lst = sorted(tickersPerf,key=lambda x: x[0])
-        grand_total_gains,tgains = self.cal_total_gains(tickersPerf)
-            
-        g2 = grand_total_gains * int(n) 
+        grand_total_gains,tgains = self.cal_today_total_gains(sorderd_lst)
+        fmt_tgains = "{0:,.2f}".format(tgains*int(n))     
+       
         if os.environ['debug'] == '0': 
-            progress_callback.emit(f"Sell Todays Return: Total gains = ${tgains}") 
+            progress_callback.emit(f"Sell Todays Return: Total gains = ${fmt_tgains}") 
         else:
-            print(f"Sell Todays Return: Total gains = ${tgains}")
+            print(f"Sell Todays Return: Total gains = ${fmt_tgains}")
 
 
         file_sell_write = open("stocks_sell.csv","w")
@@ -1546,7 +1551,7 @@ class MainWindow(QMainWindow):
             for item in sorderd_lst: #
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
-                frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
+                frm_amount_to_sell = "{0:,.2f}".format(amount_to_sell)
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
@@ -1557,10 +1562,10 @@ class MainWindow(QMainWindow):
                
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{frm_amount_to_sell}:{item[3]}")
-                    tot = "{0:.2f}".format(float(item[2])*float(item[3]))
+                    tot = "{0:,.2f}".format(amount_to_sell*float(item[3]))
                     tgains_actual += float(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
+                    last_price = "{0:,.2f}".format(float(item[3]))
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
@@ -1569,13 +1574,13 @@ class MainWindow(QMainWindow):
             
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
-        
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         file_sell_write.close() 
            
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
 
         return
     
@@ -1584,7 +1589,7 @@ class MainWindow(QMainWindow):
 #---------------------------------------------------------------------------------------------------------------------------
 # Sell_todays_return_x (exclude list)
 #---------------------------------------------------------------------------------------------------------------------------------
-    def sell_todays_return_except_x(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
+    def  sell_todays_return_except_x(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
                       #Item 0 =  tickers
                     #Item 1 = Total_return
                     #Item 2 = stock_quantity_to_sell/buy
@@ -1604,7 +1609,7 @@ class MainWindow(QMainWindow):
             #exclude the tickets in excludeList
         
             
-        n_tickersPerf = self.find_and_remove(tickersPerf, excludeList)
+        n_tickersPerf = self.find_and_remove(tickersPerf, lst)
           
         sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         for item in sorderd_lst:
@@ -1613,19 +1618,18 @@ class MainWindow(QMainWindow):
             if item[5] >= 0.0:    
                 tgains += item[5]
         
-        tgains = tgains * int(n) 
-            
+      
         
         
+            n_lst = self.get_tickers_from_selected_lstAssets()                        
                                     
-                                    
-        
+        fmt_tgains = "{0:,.2f}".format(tgains*int(n)) 
         
         file_sell_write = open(f"stocks_sell.csv","w")
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Sell Today's Return: ~ ${tgains}, exclude = {excludeList}")
+            progress_callback.emit(f"Sell Today's Return: ~ ${fmt_tgains}, exclude = {n_lst}")
         else:
-            print(f"Sell Today's Return: ~ ${tgains}, exclude = {excludeList}")   
+            print(f"Sell Today's Return: ~ ${fmt_tgains}, exclude = {n_lst}")   
 
         for index in range(int(n)):
             print(f"Iteration{index+1}")
@@ -1635,7 +1639,7 @@ class MainWindow(QMainWindow):
             for item in sorderd_lst: #
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
-                frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
+                frm_amount_to_sell = "{0:,.2f}".format(amount_to_sell)
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
@@ -1648,10 +1652,10 @@ class MainWindow(QMainWindow):
                         
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{frm_amount_to_sell}:{item[3]}")
-                    tot = "{0:.2f}".format(float(item[2])*float(item[3]))
+                    tot = "{0:,.2f}".format(amount_to_sell*float(item[3]))
                     tgains_actual += float(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
+                    last_price = "{0:,.2f}".format(float(item[3]))
                     if os.environ['debug'] == '0':
                         progress_callback.emit(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${tot}")
                     else:
@@ -1664,11 +1668,12 @@ class MainWindow(QMainWindow):
             file_sell_write.write(stocks_format)
         
         file_sell_write.close()
-        stock_symbols = []    
+        stock_symbols = []   
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n)) 
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
 
         return
                 
@@ -1682,13 +1687,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
 
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-     
-
-            #exclude the tickets in excludeList
-        
-            
-        #n_tickersPerf = self.find_and_remove(tickersPerf, excludeList)
-          
+               
         sorderd_lst = sorted(tickersPerf,key=lambda x: x[0])
         
         
@@ -1715,7 +1714,7 @@ class MainWindow(QMainWindow):
                     break    
 
                 quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
-                strquantity_to_sell = "{0:.2f}".format(quantity_to_sell)
+                strquantity_to_sell = "{0:,.2f}".format(quantity_to_sell)
                     
 
                 
@@ -1725,7 +1724,7 @@ class MainWindow(QMainWindow):
                         exist_quantity = sell_list[i][1]
                         # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                             
-                        sell_list[i][1] = "{0:.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
+                        sell_list[i][1] = "{0:,.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
                         raised_amount += quantity_to_sell*float(item[3])
                         found = True
                         break
@@ -1754,10 +1753,10 @@ class MainWindow(QMainWindow):
             
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
-            tot = "{0:.2f}".format(float(item[1])*float(item[2]))
+            tot = "{0:,.2f}".format(float(item[1])*float(item[2]))
             tgains_actual += float(tot)
 
-            last_price = "{0:.2f}".format(float(item[2]))
+            last_price = "{0:,.2f}".format(float(item[2]))
     
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot}")
@@ -1773,11 +1772,11 @@ class MainWindow(QMainWindow):
         file_sell_write.write(stocks_format)
         file_sell_write.close()
         stock_symbols = []   
-
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
     
         return
 #---------------------------------------------------------------------------------------------------------------------------
@@ -1789,18 +1788,32 @@ class MainWindow(QMainWindow):
         found  = False
         stock_symbols = []
 
+        tot_gains = 0.0
+        tgains = 0.0
+
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-        grand_total_gains,tgains = self.cal_total_gains(tickersPerf)
-        
-        g2 = grand_total_gains * int(n)
-        f_g2 = "{0:.2f}".format(g2)
-            #exclude the tickets in excludeList
+     
+
+        #exclude the tickets in excludeList
         
             
         n_tickersPerf = self.find_and_remove(tickersPerf, lst)
           
         sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
-        
+        #Item[0]=  tickers
+        #Item[1] = Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3] = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        n_lst = self.get_tickers_from_selected_lstAssets()
+
+        for item in sorderd_lst:
+            if item[1] >= 0.0:    
+                tot_gains += item[1]
+            if item[5] >= 0.0:    
+                tgains += item[5]
+
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0
         n_raise_amount = float(raise_amount)
@@ -1809,9 +1822,9 @@ class MainWindow(QMainWindow):
         index = 0
         tgains_actual = 0.0
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {lst}: Total gains = ${f_g2} ")
+            progress_callback.emit(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {n_lst}: Total gains = ${tot_gains * int(n)} ")
         else:
-            print(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {lst}: Total gains = ${f_g2} ")
+            print(f"Raise {n_raise_amount} by selling ${n_dollar_value_to_sell} of each stock exclude = {n_lst}: Total gains = ${tot_gains *int(n)} ")
 
         while not (raised_amount >= n_raise_amount):
             #loop through the list of tickers and build a new list(sell_list) of quantities to sell
@@ -1827,14 +1840,14 @@ class MainWindow(QMainWindow):
                     break    
 
                 quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
-                strquantity_to_sell = "{0:.2f}".format(quantity_to_sell)
+                strquantity_to_sell = "{0:,.2f}".format(quantity_to_sell)
                 
                                        
                 for i,value  in enumerate(sell_list): #check if already in list and return index
                     #if found in list and you have enough shares to sell
                     if (value[0] == item[0]) and (item[4] >= quantity_to_sell) :
                         exist_quantity = sell_list[i][1]
-                        sell_list[i][1] = "{0:.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
+                        sell_list[i][1] = "{0:,.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
                         raised_amount += quantity_to_sell*float(item[3])
                         found = True
                         break
@@ -1865,10 +1878,10 @@ class MainWindow(QMainWindow):
             time.sleep(5)
             
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
-            tot = "{0:.2f}".format(float(item[1])*float(item[2]))
+            tot = "{0:,.2f}".format(float(item[1])*float(item[2]))
             tgains_actual += float(tot)
 
-            last_price = "{0:.2f}".format(float(item[2]))
+            last_price = "{0:,.2f}".format(float(item[2]))
     
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"{n_dollar_value_to_sell} dollars of {item[0]} sold at market price ${last_price} - Total: ${tot} ")  
@@ -1885,11 +1898,11 @@ class MainWindow(QMainWindow):
         file_sell_write.write(stocks_format)
         file_sell_write.close()
         stock_symbols = []  
-
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         if os.environ['debug'] == '0':
-            progress_callback.emit(f"Operation Done! - Total=${tgains_actual}")
+            progress_callback.emit(f"Operation Done! - Total=${fmt_tgains_actual}")
         else:
-            print(f"Operation Done! - Total=${tgains_actual}")
+            print(f"Operation Done! - Total=${fmt_tgains_actual}")
 
         return
     # end of class MainWIndow
