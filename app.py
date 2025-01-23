@@ -219,6 +219,7 @@ class MainWindow(QMainWindow):
         else:
             self.base_path = os.path.abspath(".")
 
+        #set the program paths
         self.icon_path = os.path.join(self.base_path,"icons")
         self.data_path = os.path.join(os.environ['LOCALAPPDATA'], "pyShares")
         self.env_file = os.path.join(self.data_path,"env_path.txt")
@@ -268,7 +269,7 @@ class MainWindow(QMainWindow):
                     self.curAccountTickers_and_Quanties = self.get_stocks_from_portfolio(self.current_account_num)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
-                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                        self.ui.lstTerm.addItem(f"Error!: {e.args[0]}")
                         
                         
             
@@ -397,14 +398,14 @@ class MainWindow(QMainWindow):
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
         lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
-        lblStatusBar_pctT.setMinimumWidth(120)
+        lblStatusBar_pctT.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
 
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
         lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
         lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
 
-        lblStatusBar_pctToday.setMinimumWidth(120)
+        lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
 
         #setup tooltips
@@ -826,18 +827,32 @@ class MainWindow(QMainWindow):
         #item[5]=today's return
         #item[6]= 1 year history
         #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
+        join_list = []
         #set header
         table = self.ui.tblAssets
         
 
-        table.setColumnCount(5)
+        table.setColumnCount(6)
         table.setRowCount(len(curlist))
-        table.setHorizontalHeaderLabels(["Ticker","Quantity","Last Price","Today's Return","Total Return"])
-
         
+        for colwidth in range(4):
+            table.setColumnWidth(colwidth,75)
+
+        table.setColumnWidth(4,85)
+        table.setColumnWidth(5,85)
+        
+        
+        table.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
+
+        open_file = open("current_portfolio.csv","w")
         
         for i, item in enumerate(curlist):
+            join_list.append(item[0])
+            
+
             lastTradePrice = r.get_quotes(item[0], "last_trade_price")[0]
             avg_buy_price = item[7]
             previous_close = r.get_quotes(item[0], "previous_close")[0]
@@ -847,48 +862,45 @@ class MainWindow(QMainWindow):
 
             item_ticker = QTableWidgetItem(item[0])
             item_stock_quantity = QTableWidgetItem("{0:,.2f}".format(float(item[4])))
-            item_price = QTableWidgetItem("{0:,.2f}".format(float(lastTradePrice)))
+            item_price = QTableWidgetItem("{0:,.2f}".format(float(lastTradePrice)))        
+            item_change = QTableWidgetItem("{:.2f}".format(item[9]) )
             item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
             item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
 
-
-            if total_return > 0.0:
-                item_ticker.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+            #if the price is greater than 0.0 then the stock is up
+            if item[9] > 0.0:
+               
                 item_ticker.setForeground(QColor("green"))
-                item_stock_quantity.setForeground(QColor("green"))
                 item_price.setForeground(QColor("green"))
+                item_change.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                item_change.setForeground(QColor("green"))
+                item_stock_quantity.setForeground(QColor("green"))
                 item_todayreturn.setForeground(QColor("green"))
                 item_totreturn.setForeground(QColor("green"))
+                
 
             else:
                 item_ticker.setForeground(QColor("red"))
-                item_ticker.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                item_stock_quantity.setForeground(QColor("red"))
                 item_price.setForeground(QColor("red"))
+                item_change.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                item_change.setForeground(QColor("red"))
+                item_stock_quantity.setForeground(QColor("red"))
                 item_todayreturn.setForeground(QColor("red"))
                 item_totreturn.setForeground(QColor("red"))
                 
-
-            
-                                                
+                                      
             table.setItem(i,0,item_ticker)
-            table.setItem(i,1,item_stock_quantity)
-            table.setItem(i,2,item_price)
-            table.setItem(i,3,item_todayreturn)
-            table.setItem(i,4,item_totreturn)
+            table.setItem(i,1,item_price)
+            table.setItem(i,2,item_change)
+            table.setItem(i,3,item_stock_quantity)
+            table.setItem(i,4,item_todayreturn)
+            table.setItem(i,5,item_totreturn)
 
             
            
           
-        
-            
-            
-        
-        
-        # open_file = open("current_portfolio.csv","w")
-        # join_list = ",".join(tmp_list)
-        # open_file.write(join_list)
-        # open_file.close()
+        open_file.write(",".format(join_list))
+        open_file.close()
         return
     def get_tickers_from_selected_lstAssets(self):
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
@@ -897,6 +909,9 @@ class MainWindow(QMainWindow):
         return selected_tickers
     
     def get_stocks_from_portfolio(self, acc_num):
+
+
+       
 
         positions = r.get_open_stock_positions(acc_num)
         if len(positions) == 0:
@@ -913,6 +928,11 @@ class MainWindow(QMainWindow):
 
         previous_close = r.get_quotes(tickers, "previous_close")
     
+        pct_change = [(float(lastPrice[i]) - float(previous_close[i]))/float(previous_close[i])*100  for i in range(len(tickers))]
+        change = [float(lastPrice[i]) - float(previous_close[i]) for i in range(len(tickers))]
+        
+
+        #change = lastPrice - previous_close
 
         # Get your quantities
         quantities = [float(item["quantity"]) for item in positions]
@@ -930,15 +950,18 @@ class MainWindow(QMainWindow):
         # build tuple to iterate through and sell stocks
         history_week = r.get_stock_historicals(tickers, interval='hour', span='week', bounds='regular', info=None)
 
-            #Item 0 =  tickers
+        #Item 0 =  tickers
         #Item 1 = Total_return
         #Item 2 = stock_quantity_to_sell/buy
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
         #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price))
+        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change))
         return tickersPerf
 
     def cal_today_total_gains(self, list_p):
