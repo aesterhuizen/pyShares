@@ -847,7 +847,8 @@ class MainWindow(QMainWindow):
         
         table.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
 
-        open_file = open("current_portfolio.csv","w")
+        cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
+        open_file = open(cur_portfolio_file,"w")
         
         for i, item in enumerate(curlist):
             join_list.append(item[0])
@@ -1325,7 +1326,8 @@ class MainWindow(QMainWindow):
         else:
             print(f"Sell Selected: Total gains = ${dollar_value_to_sell}") 
 
-        file_sell_write = open("stocks_sell.csv","w")
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             progress_callback.emit(f"Iteration{index+1}")
             stock_symbols = []
@@ -1400,7 +1402,8 @@ class MainWindow(QMainWindow):
         else:
             print(f"Total gains = ${inse}")
 
-        file_sell_write = open("stocks_sell.csv","w")
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             stock_symbols = []    
             if os.environ['debug'] == '0':
@@ -1487,7 +1490,8 @@ class MainWindow(QMainWindow):
         else:
             print(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {n_lst}")
 
-        file_sell_write = open(f"stocks_sell.csv","w")  
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")  
         for index in range(int(n)):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration{index+1}")
@@ -1561,8 +1565,8 @@ class MainWindow(QMainWindow):
         else:
             print(f"Sell Todays Return: Total gains = ${fmt_tgains}")
 
-
-        file_sell_write = open("stocks_sell.csv","w")
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             if os.environ['debug'] == '0':
                 progress_callback.emit(f"Iteration{index+1}")
@@ -1648,12 +1652,14 @@ class MainWindow(QMainWindow):
                                     
         fmt_tgains = "{0:,.2f}".format(tgains*int(n)) 
         
-        file_sell_write = open(f"stocks_sell.csv","w")
+        
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Sell Today's Return: ~ ${fmt_tgains}, exclude = {n_lst}")
         else:
             print(f"Sell Today's Return: ~ ${fmt_tgains}, exclude = {n_lst}")   
 
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             print(f"Iteration{index+1}")
             stock_symbols = []
@@ -1789,8 +1795,8 @@ class MainWindow(QMainWindow):
                     
             
     
-    
-        file_sell_write = open("stocks_sell.csv","w")
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
         file_sell_write.close()
@@ -1915,8 +1921,8 @@ class MainWindow(QMainWindow):
                     
             
     
-    
-        file_sell_write = open("stocks_sell.csv","w")
+        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+        file_sell_write = open(file_path,"w")
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
         file_sell_write.close()
