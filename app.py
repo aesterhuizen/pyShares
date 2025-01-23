@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDi
                             QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QTableWidget, QTableWidgetItem
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor
-from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize
+from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize, QTimer,Qt
 
 from layout import Ui_MainWindow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -194,7 +194,7 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
         
         self.setGeometry(300, 300, 2500, 1000)
-        
+                
         self.ui.splt_horizontal.setSizes([650, 1600])
         self.ui.vertical_splitter.setSizes([450, 50])
         
@@ -408,16 +408,71 @@ class MainWindow(QMainWindow):
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
 
-        #setup tooltips
-      
+        # #create a worker thread to update the asset list every 10 seconds 
+        # update_thread = Worker_Thread(self.updateLstAssets,self.curAccountTickers_and_Quanties)
+        # #connect signals of thread
+        # update_thread.signals.result.connect(self.print_output)
+        # update_thread.signals.finished.connect(self.thread_complete)
+        # update_thread.signals.progress.connect(self.lstAssets_update_progress_fn)
+
+        # self.threadpool.start(update_thread)
+        
+        #create timer to update the status bar and lst assets every 10 seconds
+        timer = QTimer(self)
+        timer.setInterval(10000)
+        #timer.timeout.connect(self.updateStatusBar)
+        #timer.timeout.connect(self.updateLstAssets(self.curAccountTickers_and_Quanties))
+        timer.start()
+        
+        
+
+        
+
         # show the Mainwindow
         self.show()
             
             
       
-     
+    def lstAssets_update_progress_fn(self, n):
+        self.ui.lstTerm.addItem(n)
+        return
 
+    def updateStatusBar(self):
+       
 
+        frm_TotalGains = "{0:,.2f}".format(self.totalGains)
+        frm_TodayGains = "{0:,.2f}".format(self.todayGains)
+
+        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
+        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+
+        lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
+        lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
+        lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
+        lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
+    
+    def updateLstAssets(self,lst_assets):
+        #setup timer for status bar and lstAssets
+        
+         #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+    
+    
+        for item in lst_assets:
+            last_price = r.get_quotes(item[0], "last_trade_price")[0]
+            prev_close = r.get_quotes(item[0], "previous_close")[0]
+            change = float(last_price) - float(prev_close)
+            #update the list
+            print("{0:,.2f}".format(change))
+        
 
     def Show_msgCredentials(self):
         get_cred_file = msgBoxGetCredentialFile()
@@ -834,13 +889,15 @@ class MainWindow(QMainWindow):
         #set header
         table = self.ui.tblAssets
         
-
+        
         table.setColumnCount(6)
         table.setRowCount(len(curlist))
         
-        for colwidth in range(4):
-            table.setColumnWidth(colwidth,75)
-
+        
+        table.setColumnWidth(0,65)
+        table.setColumnWidth(1,65)
+        table.setColumnWidth(2,75)
+        table.setColumnWidth(3,75)
         table.setColumnWidth(4,85)
         table.setColumnWidth(5,85)
         
@@ -852,6 +909,7 @@ class MainWindow(QMainWindow):
         
         for i, item in enumerate(curlist):
             join_list.append(item[0])
+            join_list.append(str(item[4]))
             
 
             lastTradePrice = r.get_quotes(item[0], "last_trade_price")[0]
@@ -899,8 +957,8 @@ class MainWindow(QMainWindow):
 
             
            
-          
-        open_file.write(",".format(join_list))
+        plst = ",".join(join_list)
+        open_file.write(plst)
         open_file.close()
         return
     def get_tickers_from_selected_lstAssets(self):
@@ -1306,12 +1364,16 @@ class MainWindow(QMainWindow):
 # sell__selected
 # -------------------------------------------------------------------------------------------------------------------------------------        
     def sell_selected(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
-    #Item 0 =  tickers
+   #Item 0 =  tickers
         #Item 1 = Total_return
         #Item 2 = stock_quantity_to_sell/buy
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
         stock_symbols = []
         tgains_actual = 0.0 
@@ -1390,13 +1452,16 @@ class MainWindow(QMainWindow):
           
         sorderd_lst = sorted(tickersPerf,key=lambda x: x[0])
           
-            
-                #Item 0 =  tickers
-                #Item 1 = Total_return
-                #Item 2 = stock_quantity_to_sell/buy
-                #Item 3 = last price
-                #item[4]= your quantities
-                #item[5]=today's return
+          #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
         if os.environ['debug'] == '0':
             progress_callback.emit(f"Total gains = ${inse}")
         else:
@@ -1454,12 +1519,16 @@ class MainWindow(QMainWindow):
 # sell_gains_x exclude a list of stocks
 # -------------------------------------------------------------------------------------------------------------------------------------        
     def sell_gains_except_x(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
-        #Item 0 =  tickers
+     #Item 0 =  tickers
         #Item 1 = Total_return
         #Item 2 = stock_quantity_to_sell/buy
         #Item 3 = last price
         #item[4]= your quantities
-        #item[5]=today's return}
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
     
         tot_gains = 0.0
         tot_tgains = 0.0
@@ -1541,12 +1610,16 @@ class MainWindow(QMainWindow):
 # sell__todays_return
 # -------------------------------------------------------------------------------------------------------------------------------------        
     def sell_todays_return(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
-          #Item 0 =  tickers
-                    #Item 1 = Total_return
-                    #Item 2 = stock_quantity_to_sell/buy
-                    #Item 3 = last price
-                    #item[4]= your quantities
-                    #item[5]=today's return
+         #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
 
     
@@ -1617,12 +1690,16 @@ class MainWindow(QMainWindow):
 # Sell_todays_return_x (exclude list)
 #---------------------------------------------------------------------------------------------------------------------------------
     def  sell_todays_return_except_x(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with,progress_callback):
-                      #Item 0 =  tickers
-                    #Item 1 = Total_return
-                    #Item 2 = stock_quantity_to_sell/buy
-                    #Item 3 = last price
-                    #item[4]= your quantities
-                    #item[5]=today's return
+              #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
         excludeList = []
         stock_symbols = []
@@ -1732,12 +1809,16 @@ class MainWindow(QMainWindow):
         while not (raised_amount >= n_raise_amount):
 
             for item in sorderd_lst:
-                #Item 0 =  tickers
-                #Item 1 = Total_return
-                #Item 2 = stock_quantity_to_sell/buy
-                #Item 3 = last price
-                #item[4]= your quantities
-                #item[5]=today's return
+             #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
 
                 if raised_amount >= n_raise_amount:
                     break    
@@ -1829,12 +1910,16 @@ class MainWindow(QMainWindow):
         n_tickersPerf = self.find_and_remove(tickersPerf, lst)
           
         sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
-        #Item[0]=  tickers
-        #Item[1] = Total_return
-        #Item[2] = stock_quantity_to_sell/buy
-        #Item[3] = last price
+      #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
         n_lst = self.get_tickers_from_selected_lstAssets()
 
         for item in sorderd_lst:
