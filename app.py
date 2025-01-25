@@ -4,7 +4,9 @@ import time
 import pyotp
 import robin_stocks.robinhood as r
 import matplotlib
-
+from scipy.interpolate import make_interp_spline
+import matplotlib.pyplot as plt 
+import numpy as np 
 
 from dotenv import load_dotenv, set_key
 
@@ -51,6 +53,71 @@ class Worker_Thread(QRunnable):
         finally:
             self.signals.finished.emit()  # Done
         #comment in app.py
+
+class MplCanvas(FigureCanvasQTAgg):
+    def __init__(self, parent=None, width=7, height=4, dpi=100):
+          
+        fig = plt.figure(figsize=(width, height), dpi=dpi, layout='constrained')
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+
+      
+    
+    def add_plot_to_figure(self,ticker_lst,selected_tickers):
+
+      
+
+       #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+        x_data = []; y_data = []
+        dict = {}
+    
+        n_col = 1
+        n_row = 1
+
+        hist_dict = r.get_stock_historicals(selected_tickers, interval='hour', span='week', bounds='regular', info=None)
+       
+        if len(selected_tickers) >= 2:
+            n_row = 1
+            n_col = len(selected_tickers)
+    
+        fig = Figure(figsize=(5,4), dpi=100,layout='constrained')
+        axs = fig.add_subplot(n_row,n_col,layout='constrained')
+        
+        for n_row in range(0,n_row):
+            for n_col in range(0,n_col):
+                ax = axs[n_row][n_col]
+
+                if len(selected_tickers) == 0:
+                   sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+                   for item in sorted_list:
+                       x_data.append(item[0])
+                       y_data.append(float(item[4])*float(item[3]))
+
+
+
+                ax.grid(True)
+                ax.plot(x_data, y_data)
+                ax.set_xlabel('Stocks')
+                ax.set_ylabel('$value of stock')
+                self.axes.set_title('Stocks Ticker/Quantity')
+                
+        #print default plot
+      
+        return ax
+
+
+    
+
 
 class msgBoxGetCredentialFile(QDialog):
     def __init__(self, parent=None):
@@ -145,14 +212,6 @@ class msgBoxGetAccounts(QDialog):
         return
    
 
-class MplCanvas(FigureCanvasQTAgg):
-
-    def __init__(self, parent=None, width=7, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super().__init__(fig)
-
-
 class MainWindow(QMainWindow):
 
     
@@ -186,13 +245,14 @@ class MainWindow(QMainWindow):
         self.current_account_num = ""
         self.account_info = ''
         self.curAccountTickers_and_Quanties = []
-        self.plot = MplCanvas(self, width=5, height=4, dpi=100)
+       
         
         # setup UI
         self.ui = Ui_MainWindow()       
         
         self.ui.setupUi(self)
-        
+        self.plot = MplCanvas(self, width=5, height=4, dpi=100)
+        self.ui.grdGraph.addWidget(self.plot)
         self.setGeometry(300, 300, 2500, 1000)
                 
         self.ui.splt_horizontal.setSizes([650, 1600])
@@ -206,7 +266,7 @@ class MainWindow(QMainWindow):
         self.ui.lblBuyWithAmount.setVisible(False)
         self.ui.edtBuyWithAmount.setVisible(False)
 
-        self.ui.grdGraph.addWidget(self.plot)
+        
         #Create a thread manager    
         self.threadpool = QThreadPool()
         #load credentials file
@@ -249,7 +309,7 @@ class MainWindow(QMainWindow):
                 result = r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                return
+                
             
             #Get account numers and populate comboboxes
             self.account_info = os.environ['account_number']
@@ -585,11 +645,15 @@ class MainWindow(QMainWindow):
         
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
-        selected_tickers = [sel_items[i:i+5][0] for i in range(0,len(sel_items),5)]
+        selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
 
         if len(selected_tickers) > 0:
+            if self.ui.cmbAction.currentText() == "stock_info":
+                self.plot.add_plot_to_figure(self.curAccountTickers_and_Quanties, selected_tickers)
+                self.plot.draw()
+            
             #check to see if the action is sell selected
-            if self.ui.cmbAction.currentText() == "sell_selected":
+            elif self.ui.cmbAction.currentText() == "sell_selected":
             
                 strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -700,21 +764,27 @@ class MainWindow(QMainWindow):
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
-        x_data = []; y_data = []; bar_labels = []
-        sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+        # x_data = []; y_data = []; bar_labels = []
+        # sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
 
-        for item in sorted_list:
-            x_data.append(item[0])
-            y_data.append(float(item[4])*float(item[3])) 
+        # for item in sorted_list:
+        #     x_data.append(item[0])
+        #     y_data.append(float(item[4])*float(item[3])) 
             
-        self.plot.axes.clear()
-        self.plot.axes.grid(True)
-        self.plot.axes.bar(x_data, y_data)
-        self.plot.axes.set_xlabel('Stocks')
-        self.plot.axes.set_ylabel('$value of stock')
-        self.plot.axes.set_title('Stocks Ticker/Quantity')
-        self.plot.draw()
+        # self.plot.axes.clear()
+        # self.plot.axes.grid(True)
+        # self.plot.axes.bar(x_data, y_data)
+        # self.plot.axes.set_xlabel('Stocks')
+        # self.plot.axes.set_ylabel('$value of stock')
+        # self.plot.axes.set_title('Stocks Ticker/Quantity')
+        # self.plot.draw()
+        # tickersPerf = self.get_stocks_from_portfolio(self.current_account_num)
+        # n_tickersPerf = self.find_and_remove(tickersPerf, self.get_tickers_from_selected_lstAssets())
+        # sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         
+        self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets())
+
+        self.plot.draw()
         return
 
 
