@@ -1,0 +1,13 @@
+fugue/
+*.log
+!test.log
+build/
+dist/
+app.spec
+__pycache__/
+*.pyc
+*.env
+*.sqlite3
+*.csv
+env_path.txt
+*.ipynb
