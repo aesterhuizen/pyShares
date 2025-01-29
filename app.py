@@ -491,9 +491,11 @@ class MainWindow(QMainWindow):
         self.ui.cmbAccount.activated.connect(self.account_clicked)
         #connect sigals and slots Actions combo box
         self.ui.cmbAction.activated.connect(self.cmbAction_clicked)
-        
+        #connect signal/slot for label Iteration button
+        self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
         #connect signal/slot for Execute button
         self.ui.btnExecute.clicked.connect(self.btnExecute_clicked)
+        self.ui.btnExecute.setEnabled(False)
         #connect GetAccount button
         self.ui.btnStoreAccounts.clicked.connect(self.StoreAccounts)
         #connect signal/slot for edtRaiseAmount
@@ -708,9 +710,9 @@ class MainWindow(QMainWindow):
             if self.ui.cmbAction.currentText() == "stock_info":
                 self.plot.add_plot_to_figure(self.curAccountTickers_and_Quanties, selected_tickers,self.ui.cmbAction.currentText())
                 self.plot.draw()
-            
+                
             #check to see if the action is sell selected
-            if self.ui.cmbAction.currentText() == "sell_selected":
+            elif self.ui.cmbAction.currentText() == "sell_selected":
             
                 strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -770,7 +772,8 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText("")
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
-                self.ui.btnExecute.setEnabled(True)
+                
+                
             
         else:
                 self.ui.lblRaiseAmount.setVisible(False)
@@ -781,7 +784,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText("")
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
-                self.ui.btnExecute.setEnabled(False)
+                
                 
                 #self.setup_plot(self.curAccountTickers_and_Quanties)
 
@@ -803,27 +806,30 @@ class MainWindow(QMainWindow):
         #close the app
         sys.exit()
 
+    def ledit_Iteration_textChanged(self):
+        if re.match(r'^[1-9]+$',self.ui.ledit_Iteration.text()):
+            self.ui.btnExecute.setEnabled(True)
+        else:
+            self.ui.btnExecute.setEnabled(False)
+
     def edtBuyWithAmount_changed(self):
-        if self.ui.edtBuyWithAmount.text() == re.match(r'^[1-9]+$',self.ui.edtBuyWithAmount.text()):
+        if re.match(r'^[1-9]+$',self.ui.edtBuyWithAmount.text()):
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
 
     def edtDollarValueToSell_changed(self):
-        match_txt = re.match(r'^([1-9])+$',self.ui.edtDollarValueToSell.text())
-        
-
-        if self.ui.edtDollarValueToSell.text() == match_txt.group(1):
+        if re.match(r'^([1-9])+$',self.ui.edtDollarValueToSell.text()):
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
 
     def edtRaiseAmount_changed(self):
         
-        if self.ui.edtRaiseAmount.text() == re.match(r'^[A-Z,]+$',self.ui.edtRaiseAmount.text()):
+        if re.match(r'^[A-Z,]+$',self.ui.edtRaiseAmount.text()) :
             return
 
-        if self.ui.edtRaiseAmount.text() == re.match(r'^[1-9]+$',self.ui.edtRaiseAmount.text()):
+        if re.match(r'^[1-9]+$',self.ui.edtRaiseAmount.text()):
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
@@ -874,9 +880,9 @@ class MainWindow(QMainWindow):
         
         if self.ui.cmbAction.currentText() == "stock_info":
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-                
+            self.ui.btnExecute.setEnabled(False)    
 
-        if perform_action == "raise_x_sell_y_dollars" or perform_action == "raise_x_sell_y_dollars_except_z":
+        elif perform_action == "raise_x_sell_y_dollars" or perform_action == "raise_x_sell_y_dollars_except_z":
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
@@ -887,6 +893,7 @@ class MainWindow(QMainWindow):
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
             
         elif perform_action == "buy_lower_with_gains":
+            #FIX ME
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
@@ -908,14 +915,19 @@ class MainWindow(QMainWindow):
           
         else: #default
             self.ui.edtRaiseAmount.setVisible(False)
+            self.ui.edtRaiseAmount.setText("")
             self.ui.lblRaiseAmount.setVisible(False)
             self.ui.edtDollarValueToSell.setVisible(False)
+            self.ui.edtDollarValueToSell.setText("")
+            self.ui.edtBuyWithAmount.setText("")
             self.ui.lblDollarValueToSell.setVisible(False)
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
             self.clear_selection_clicked()
             self.setup_plot(self.curAccountTickers_and_Quanties)
             
+
             
+        
         return
         
    
@@ -1192,7 +1204,7 @@ class MainWindow(QMainWindow):
         lst = []
 
 
-        if self.ui.ledit_Iteration.text() == "" or self.ui.ledit_Iteration.text() == "0":
+        if not re.match(r'^[1-9]+$',self.ui.ledit_Iteration.text()):
             msg = QMessageBox.warning(self,"Iteration","Must enter a number of iterations to sell",QMessageBox.StandardButton.Ok)
             if msg == QMessageBox.StandardButton.Ok:
                 return False,lst
