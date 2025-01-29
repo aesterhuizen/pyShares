@@ -158,21 +158,9 @@ class MpfCanvas(FigureCanvasQTAgg):
                 ax_plot.axes.set_xlabel('Date')
                 ax_plot.set_ylabel('Price')             
             
-                
-                
-                
-
             return
 
-           
-       
-      
-        
-
-
-    
-
-
+ 
 class msgBoxGetCredentialFile(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
