@@ -920,6 +920,7 @@ class MainWindow(QMainWindow):
             self.ui.edtDollarValueToSell.setVisible(False)
             self.ui.edtDollarValueToSell.setText("")
             self.ui.edtBuyWithAmount.setText("")
+            self.ui.ledit_Iteration.setText("")
             self.ui.lblDollarValueToSell.setVisible(False)
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
             self.clear_selection_clicked()
