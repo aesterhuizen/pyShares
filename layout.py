@@ -188,7 +188,7 @@ class Ui_MainWindow(object):
         self.vertical_splitter.setObjectName("vertical_splitter")
         self.tblAssets = QtWidgets.QTableWidget(parent=self.vertical_splitter)
         self.tblAssets.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
-        self.tblAssets.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.MultiSelection)
+        self.tblAssets.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.tblAssets.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tblAssets.setShowGrid(False)
         self.tblAssets.setObjectName("tblAssets")
