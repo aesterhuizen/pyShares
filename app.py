@@ -772,9 +772,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText("")
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
-                
-                
-                #self.setup_plot(self.curAccountTickers_and_Quanties)
+                self.setup_plot(self.curAccountTickers_and_Quanties)
 
 
         return
@@ -785,6 +783,7 @@ class MainWindow(QMainWindow):
 
     def clear_selection_clicked(self):
         self.ui.tblAssets.clearSelection()
+        self.setup_plot(self.curAccountTickers_and_Quanties)
 
 
     def closeMenu_clicked(self):
@@ -1056,6 +1055,15 @@ class MainWindow(QMainWindow):
             item_change = QTableWidgetItem("{:.2f}".format(item[9]) )
             item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
             item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
+
+            #set flags on Qtablewidgetitem as not editable
+
+            item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            item_stock_quantity.setFlags(item_stock_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             #if the price is greater than 0.0 then the stock is up
             if item[9] > 0.0:
