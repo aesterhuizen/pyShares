@@ -21,7 +21,7 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_3">
-    <item row="0" column="0">
+    <item row="0" column="1">
      <widget class="QSplitter" name="splt_horizontal">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -47,7 +47,7 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>650</width>
+         <width>300</width>
          <height>0</height>
         </size>
        </property>
@@ -423,9 +423,6 @@
              <enum>Qt::Vertical</enum>
             </property>
             <widget class="QTableWidget" name="tblAssets">
-             <property name="editTriggers">
-              <set>QAbstractItemView::SelectedClicked</set>
-             </property>
              <property name="selectionMode">
               <enum>QAbstractItemView::SingleSelection</enum>
              </property>
@@ -488,6 +485,9 @@
         <enum>QFrame::Sunken</enum>
        </property>
        <layout class="QGridLayout" name="gridLayout">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetDefaultConstraint</enum>
+        </property>
         <item row="0" column="0">
          <layout class="QGridLayout" name="grdGraph"/>
         </item>

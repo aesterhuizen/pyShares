@@ -3,256 +3,32 @@ import sys,traceback # type: ignore
 import time
 import pyotp
 import robin_stocks.robinhood as r
-import matplotlib
-import matplotlib.pyplot as plt 
+
 import numpy as np 
+import matplotlib
 import pandas as pd
 import mplfinance as mpf
-import re
 
-from dotenv import load_dotenv, set_key
-
-matplotlib.use('QtAgg')
-
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog, QDialogButtonBox, \
-                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit, QTableWidget, QTableWidgetItem
-                            
-from PyQt6.QtGui import QAction, QIcon, QCursor, QColor
-from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSlot, pyqtSignal, QSize, QTimer,Qt
-
-from layout import Ui_MainWindow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-class WorkerSignals(QObject):
-    finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
-    progress = pyqtSignal(object)
+matplotlib.use('QtAgg')
 
-class Worker_Thread(QRunnable):
-    def __init__(self,fn, *args, **kwargs):
-        super().__init__()
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-        self.signals = WorkerSignals()
-        # Add the callback to our kwargs
-        self.kwargs['progress_callback'] = self.signals.progress
-    
-    @pyqtSlot()
-    def run(self):
-        
-        # Retrieve args/kwargs here; and fire processing using them
-        try:
-            result = self.fn(*self.args, **self.kwargs)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        else:
-            self.signals.result.emit(result)  # Return the result of the processing
-        finally:
-            self.signals.finished.emit()  # Done
-        #comment in app.py
-
-class MpfCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=7, height=4):
-          
-        self.fig = mpf.figure(figsize=(width, height),style='charles',tight_layout=True)
-        ax = self.fig.add_subplot(111)
-        super().__init__(self.fig)
-
-      
-    
-    def add_plot_to_figure(self,ticker_lst,selected_tickers,action_selection):
-
-       
-
-       #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
-        x_data = []; y_data = []
-        
-    
-        n_col = 1
-        n_row = 1
-
-        if  len(selected_tickers) == 0:
-            self.fig.clear()
-            n_row = 1
-            n_col = 1
-            index=1
-            
-            
-            
-            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
-            #self.axes = fig.add_subplot(111)
-                
-            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-            for item in sorted_list:
-                x_data.append(item[0])
-                y_data.append(float(item[4])*float(item[3]))
-
-            ax = self.fig.add_subplot(n_row,n_col,index)
-
-            ax.grid(True)
-            ax.bar(x_data, y_data)
-            ax.set_xlabel('Stocks')
-            ax.set_ylabel('$value of stock')
-            ax.set_title('Stocks Ticker/Quantity')
-            ax.tick_params(axis='x', rotation=55)
-            
-
-            return
-        elif action_selection == "stock_info" and len(selected_tickers) > 0:
-            
-            self.fig.clear()
-
-            max_col = 4
-            n_row = 1
-            n_col=1
-            index = 1
-     
-            
-
-            hist_dict = r.get_stock_historicals(selected_tickers, interval='hour', span='week', bounds='regular', info=None)
-            df = pd.DataFrame(hist_dict)
-            #format datatable
-            fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
-            date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
-            
-            df["begins_at"] = date_timeIndex # set the Date column as the index
-            float_op = [float(item) for item in df['open_price']]
-            float_cl = [float(item) for item in df['close_price']]
-            float_hi = [float(item) for item in df['high_price']]
-            float_lo = [float(item) for item in df['low_price']]
+import re
 
 
-            df['open_price'] = float_op
-            df['close_price'] = float_cl
-            df['high_price'] = float_hi
-            df['low_price'] = float_lo
-            df.rename(columns={'open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
-            df.set_index('begins_at',inplace=True) # Set the Date column as the index
-            
-          
-           
-            #split tickets in seperate plots
-            for item in selected_tickers:
-                df_plot = df[df['symbol'] == item]
-                
-                
-                df_plot_slice = df_plot[['Open','Close','High','Low']] # Select required columns    
-                ax_plot = self.fig.add_subplot(n_row,n_col,index)
-                mpf.plot(df_plot_slice,ax=ax_plot,type='candle',axtitle='blueskies',xrotation=15)
-                ax_plot.set_title(f"{item} - 1 week")
-                ax_plot.axes.set_xlabel('Date')
-                ax_plot.set_ylabel('Price')             
-            
-            return
+from dotenv import load_dotenv, set_key
 
- 
-class msgBoxGetCredentialFile(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
 
-        self.setWindowTitle("Get Data File")
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox,QLabel, QTableWidget, QTableWidgetItem
+                            
+from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont,QStandardItemModel,QStandardItem
+from PyQt6.QtCore import QThreadPool, QSize, QTimer,Qt
 
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        
-        # Access individual buttons
-        self.okButton = self.buttonBox.button(QDialogButtonBox.StandardButton.Ok)
-        self.cancelButton = self.buttonBox.button(QDialogButtonBox.StandardButton.Cancel)
-        self.okButton.setEnabled(False)
+from layout import Ui_MainWindow
 
-        # Connect signals
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        #self.buttonBox.setEnabled(False)
-
-        vlayout = QVBoxLayout()
-       
-        message = QLabel("Path to Credential File: ")
-        self.edtCred_path = QLineEdit('<credential file>')
-        btnBrowse = QPushButton("Browse")
-        self.edtCred_path.textChanged.connect(self.textChanged)
-        
-        hlayout = QHBoxLayout()
-        hlayout.addWidget(self.edtCred_path)
-        hlayout.addWidget(btnBrowse)
-
-        btnBrowse.clicked.connect(self.browse_clicked)
-
-        
-        vlayout.addWidget(message)
-        vlayout.addLayout(hlayout)
-        vlayout.addWidget(self.buttonBox)
-
-        self.setLayout(vlayout)
-    
-    def textChanged(self):
-        if self.edtCred_path.text() == "<credential file>":
-            self.okButton.setEnabled(False)
-        else:
-            self.okButton.setEnabled(True)
-
-    def browse_clicked(self):
-        options = QFileDialog.Option.DontUseNativeDialog
-       
-        file_name, _ = QFileDialog.getOpenFileName(None, "Open File", f"{os.path.curdir}", "Environment Files (*.env)", options=options)
-        if file_name:
-            self.edtCred_path.setText(file_name)
-
-        
-        return
-    
-
-class msgBoxGetAccounts(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.setWindowTitle("Add Account")
-
-        QBtn = QDialogButtonBox.StandardButton.Ok 
-
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.setEnabled(False)
-        self.buttonBox.accepted.connect(self.accept)
-        #self.buttonBox.rejected.connect(self.reject)
-        #self.buttonBox.setEnabled(False)
-
-        vlayout = QVBoxLayout()
-       
-        message = QLabel("Account number: ")
-        self.ledit = QLineEdit('0')
-        self.ledit.textChanged.connect(self.textChanged)
-        
-
-        
-        vlayout.addWidget(message)
-        vlayout.addWidget(self.ledit)
-        #vlayout.addWidget(hlayout)
-        vlayout.addWidget(self.buttonBox)
-        self.setLayout(vlayout)
-
-    def textChanged(self):
-        if self.ledit.text() == "":
-            self.buttonBox.setEnabled(False)
-        else:
-            self.buttonBox.setEnabled(True)
-
-        return
-   
+from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts
+from WorkerThread import Worker_Thread
 
 class MainWindow(QMainWindow):
 
@@ -269,7 +45,8 @@ class MainWindow(QMainWindow):
         self.base_path = ''
         self.env_file = ''
         self.data_path = ''
-
+        
+        
         # self.stock_quantity_to_sell = 0
         # self.quantity_to_sell = 0
         # self.quantity_to_sell = 0
@@ -297,7 +74,7 @@ class MainWindow(QMainWindow):
         self.ui.grdGraph.addWidget(self.plot)
         self.setGeometry(300, 300, 2500, 1000)
                 
-        self.ui.splt_horizontal.setSizes([650, 1600])
+        self.ui.splt_horizontal.setSizes([10, 550])
         self.ui.vertical_splitter.setSizes([450, 50])
         
         # set the meta data textboxes and labels to invisible
@@ -514,21 +291,21 @@ class MainWindow(QMainWindow):
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
 
-        # #create a worker thread to update the asset list every 10 seconds 
-        # update_thread = Worker_Thread(self.updateLstAssets,self.curAccountTickers_and_Quanties)
-        # #connect signals of thread
-        # update_thread.signals.result.connect(self.print_output)
-        # update_thread.signals.finished.connect(self.thread_complete)
-        # update_thread.signals.progress.connect(self.lstAssets_update_progress_fn)
 
-        # self.threadpool.start(update_thread)
+        if os.environ['debug'] == '0':
+            
+            # #create a worker thread to update the asset list every 10 seconds 
+            update_thread = Worker_Thread(self.updateLstAssets,self.curAccountTickers_and_Quanties)
+            #connect signals of thread
+            update_thread.signals.result.connect(self.print_output)
+            update_thread.signals.finished.connect(self.thread_complete)
+            update_thread.signals.progress.connect(self.lstAsset_update_progress_fn)
+
+            self.threadpool.start(update_thread)
+        else:
+           self.updateLstAssets(self.curAccountTickers_and_Quanties,self.lstAsset_update_progress_fn)
         
-        # #create timer to update the status bar and lst assets every 10 seconds
-        # timer = QTimer(self)
-        # timer.setInterval(10000)
-        # #timer.timeout.connect(self.updateStatusBar)
-        # #timer.timeout.connect(self.updateLstAssets(self.curAccountTickers_and_Quanties))
-        # timer.start()
+        
         
         
 
@@ -538,14 +315,111 @@ class MainWindow(QMainWindow):
         self.show()
             
    
-      
-    def lstAssets_update_progress_fn(self, n):
+    def lstAsset_update_progress_fn(self, lst_elements_to_update):
+        temp_lst = self.curAccountTickers_and_Quanties.copy()
+       
+        for i in range(len(temp_lst)):
+          
+            if lst_elements_to_update[i][2] > 0:
+
+                item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
+                item_price.setBackground(QColor("black"))
+                item_price.setForeground(QColor("green"))
+                item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+                item_change = QTableWidgetItem("{:.2f}".format(lst_elements_to_update[i][2]) )
+                item_change.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                item_change.setForeground(QColor("green"))
+                item_change.setBackground(QColor("black"))
+                item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
+
+                
+                item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
+                item_todayreturn.setBackground(QColor("black"))
+                item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_todayreturn.setForeground(QColor("green"))
+                item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
+                item_totreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][5]) )
+                item_totreturn.setBackground(QColor("black"))
+                item_totreturn.setForeground(QColor("green"))
+                item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+            
+            else:
+            
+                item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
+                item_price.setBackground(QColor("black"))
+                item_price.setForeground(QColor("red"))
+                item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+                item_change = QTableWidgetItem("{:.2f}".format(lst_elements_to_update[i][2]) )
+                item_change.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                item_change.setForeground(QColor("red"))
+                item_change.setBackground(QColor("black"))
+                item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
+
+                item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
+                item_todayreturn.setBackground(QColor("black"))
+                item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_todayreturn.setForeground(QColor("red"))
+                item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
+                item_totreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][5]) )
+                item_totreturn.setBackground(QColor("black"))
+                item_totreturn.setForeground(QColor("red"))
+                item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
+            
+            self.ui.tblAssets.setItem(i,1,item_price) 
+            self.ui.tblAssets.setItem(i,2,item_change) 
+            self.ui.tblAssets.setItem(i,4,item_todayreturn)
+            self.ui.tblAssets.setItem(i,5,item_totreturn)
+            
+                    
+                    #Item[0] =  tickers
+                    #Item[1]= Total_return
+                    #Item[2] = stock_quantity_to_sell/buy
+                    #Item[3]= last price
+                    #item[4]= your quantities
+                    #item[5]=today's return
+                    #item[6]= 1 year history
+                    #item[7]= average buy price
+                    #item[8]=%change in price
+                    #item[9]=change in price since previous close
+                  
+                    # temp_lst[i][1] = lst_elements_to_update[i][1]
+                    # temp_lst[i][2] = lst_elements_to_update[i][2]
+                    # temp_lst[i][3] = lst_elements_to_update[i][3]
+                    # temp_lst[i][4] = lst_elements_to_update[i][4]
+                    # temp_lst[i][5] = lst_elements_to_update[i][5]
+
+                    
+
+
+
+        self.updateStatusBar(temp_lst)
+
+        return
+        
+
+
+
+
+
+    def lstTerm_update_progress_fn(self, n):
         self.ui.lstTerm.addItem(n)
         return
 
-    def updateStatusBar(self):
-       
-
+    def updateStatusBar(self,temp_lst):
+        self.curAccountTickers_and_Quanties = temp_lst
+        self.totalGains,self.todayGains = self.cal_today_total_gains(self.curAccountTickers_and_Quanties)
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
 
@@ -556,29 +430,47 @@ class MainWindow(QMainWindow):
         lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
         lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
         lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
+        
         return
     
-    def updateLstAssets(self,lst_assets):
+    def updateLstAssets(self,lst_assets,progress_callback):
         #setup timer for status bar and lstAssets
         
-         #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
+         #Item[0] =  tickers
+        #Item[1]= Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3]= last price
         #item[4]= your quantities
         #item[5]=today's return
         #item[6]= 1 year history
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-    
-    
-        for item in lst_assets:
-            last_price = r.get_quotes(item[0], "last_trade_price")[0]
-            prev_close = r.get_quotes(item[0], "previous_close")[0]
-            change = float(last_price) - float(prev_close)
-            #update the list
-            print("{0:,.2f}".format(change))
+        #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
+        #updated_items = update_current_assets()
+
+        #update the list every 15 seconds
+        while (time.sleep(15) == 0):
+            #update the list every 15 seconds
+            
+                   
+
+           
+            lst_elements_to_update = []
+            for item in lst_assets:
+                last_price = r.get_quotes(item[0], "last_trade_price")[0]
+                prev_close = r.get_quotes(item[0], "previous_close")[0]
+                total_return = (float(last_price) - float(item[7])) * float(item[4])
+                todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
+
+                change = float(last_price) - float(prev_close)    
+                lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
+
+                #update the list
+            if os.environ['debug'] == '0':
+                progress_callback.emit(lst_elements_to_update)
+            else:    
+                self.lstAsset_update_progress_fn(lst_elements_to_update)
         
 
     def Show_msgCredentials(self):
@@ -1033,7 +925,7 @@ class MainWindow(QMainWindow):
         
         
         table.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
-
+       
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
         
@@ -1048,6 +940,7 @@ class MainWindow(QMainWindow):
             todays_return = (float(lastTradePrice) - float(previous_close))*float(item[4])
             total_return = (float(lastTradePrice) - float(avg_buy_price))*float(item[4]) 
                             
+          
 
             item_ticker = QTableWidgetItem(item[0])
             item_stock_quantity = QTableWidgetItem("{0:,.2f}".format(float(item[4])))
@@ -1056,6 +949,21 @@ class MainWindow(QMainWindow):
             item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
             item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
 
+            #set backgroung color of the row
+            item_ticker.setBackground(QColor("black"))
+            item_stock_quantity.setBackground(QColor("black"))
+            item_price.setBackground(QColor("black"))
+            item_change.setBackground(QColor("black"))
+            item_todayreturn.setBackground(QColor("black"))
+            item_totreturn.setBackground(QColor("black"))
+
+            #set font size
+            item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
+            item_stock_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
+            item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
+            item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
+            item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
+            item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
             #set flags on Qtablewidgetitem as not editable
 
             item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -1517,10 +1425,10 @@ class MainWindow(QMainWindow):
 
         stock_symbols = []
         tgains_actual = 0.0 
-        
+       
+
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-        
-        
+        frm_quantity = "{0:,.2f}".format(float(dollar_value_to_sell))        
         n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
         sorderd_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         if os.environ['debug'] == '0':
@@ -1531,16 +1439,19 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
-            progress_callback.emit(f"Iteration{index+1}")
+            if os.environ['debug'] == '0':
+                progress_callback.emit(f"Iteration{index+1}")
+            else:
+                print(f"Iteration{index+1}")
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst:
-#
-                frm_quantity = "{0:,.2f}".format(float(dollar_value_to_sell))
+
+                shares_to_sell = float(dollar_value_to_sell)/float(item[3])
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
-                if float(item[4]) > float(dollar_value_to_sell) :
+                if float(item[4]*float(item[3])) > float(dollar_value_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_quantity,timeInForce='gfd')
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(shares_to_sell),timeInForce='gfd')
                     time.sleep(5)
 
                     # while sell_info['id'] is not None:
@@ -1550,15 +1461,15 @@ class MainWindow(QMainWindow):
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
-                    tot = dollar_value_to_sell*float(item[3])
+                    tot = float(dollar_value_to_sell)
                     tgains_actual += float(tot)
 
                     last_price = "{0:,.2f}".format(float(item[3]))
                     frm_tot = "{0:,.2f}".format(tot)
                     if os.environ['debug'] == '0':
-                        progress_callback.emit(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
+                        progress_callback.emit(f"${frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
                     else:
-                        print(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
+                        print(f"${frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
                
              
         
@@ -1718,7 +1629,7 @@ class MainWindow(QMainWindow):
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:,.2f}".format(float(item[2])),timeInForce='gfd')
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd')
                     time.sleep(5)
                                              
                         #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -1794,7 +1705,7 @@ class MainWindow(QMainWindow):
             for item in sorderd_lst: #
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
-                frm_amount_to_sell = "{0:,.2f}".format(amount_to_sell)
+                frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
@@ -1889,7 +1800,7 @@ class MainWindow(QMainWindow):
             for item in sorderd_lst: #
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
-                frm_amount_to_sell = "{0:,.2f}".format(amount_to_sell)
+                frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
@@ -1979,7 +1890,7 @@ class MainWindow(QMainWindow):
                         exist_quantity = sell_list[i][1]
                         # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                             
-                        sell_list[i][1] = "{0:,.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
+                        sell_list[i][1] = "{0:.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
                         raised_amount += quantity_to_sell*float(item[3])
                         found = True
                         break
@@ -2106,7 +2017,7 @@ class MainWindow(QMainWindow):
                     #if found in list and you have enough shares to sell
                     if (value[0] == item[0]) and (item[4] >= quantity_to_sell) :
                         exist_quantity = sell_list[i][1]
-                        sell_list[i][1] = "{0:,.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
+                        sell_list[i][1] = "{0:.2f}".format(float(exist_quantity) + float(strquantity_to_sell))
                         raised_amount += quantity_to_sell*float(item[3])
                         found = True
                         break
@@ -2167,8 +2078,106 @@ class MainWindow(QMainWindow):
     # end of class MainWIndow
 
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    main_window = MainWindow()
+class MpfCanvas(FigureCanvasQTAgg):
+    def __init__(self, parent=None, width=7, height=4):
+          
+        self.fig = mpf.figure(figsize=(width, height),style='charles',tight_layout=True)
+        ax = self.fig.add_subplot(111)
+        super().__init__(self.fig)
+
+      
     
-    sys.exit(app.exec())
+    def add_plot_to_figure(self,ticker_lst,selected_tickers,action_selection):
+
+       
+
+       #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+        x_data = []; y_data = []
+        
+    
+        n_col = 1
+        n_row = 1
+
+        if  len(selected_tickers) == 0:
+            self.fig.clear()
+            n_row = 1
+            n_col = 1
+            index=1
+            
+            
+            
+            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
+            #self.axes = fig.add_subplot(111)
+                
+            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+            for item in sorted_list:
+                x_data.append(item[0])
+                y_data.append(float(item[4])*float(item[3]))
+
+            ax = self.fig.add_subplot(n_row,n_col,index)
+
+            ax.grid(True)
+            ax.bar(x_data, y_data)
+            ax.set_xlabel('Stocks')
+            ax.set_ylabel('$value of stock')
+            ax.set_title('Stocks Ticker/Quantity')
+            ax.tick_params(axis='x', rotation=55)
+            
+
+            return
+        elif action_selection == "stock_info" and len(selected_tickers) > 0:
+            
+            self.fig.clear()
+
+            max_col = 4
+            n_row = 1
+            n_col=1
+            index = 1
+     
+            
+
+            hist_dict = r.get_stock_historicals(selected_tickers, interval='hour', span='week', bounds='regular', info=None)
+            df = pd.DataFrame(hist_dict)
+            #format datatable
+            fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
+            date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
+            
+            df["begins_at"] = date_timeIndex # set the Date column as the index
+            float_op = [float(item) for item in df['open_price']]
+            float_cl = [float(item) for item in df['close_price']]
+            float_hi = [float(item) for item in df['high_price']]
+            float_lo = [float(item) for item in df['low_price']]
+
+
+            df['open_price'] = float_op
+            df['close_price'] = float_cl
+            df['high_price'] = float_hi
+            df['low_price'] = float_lo
+            df.rename(columns={'open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
+            df.set_index('begins_at',inplace=True) # Set the Date column as the index
+            
+          
+           
+            #split tickets in seperate plots
+            for item in selected_tickers:
+                df_plot = df[df['symbol'] == item]
+                
+                
+                df_plot_slice = df_plot[['Open','Close','High','Low','Volume']] # Select required columns    
+                ax_plot = self.fig.add_subplot(n_row,n_col,index)
+                mpf.plot(df_plot_slice,ax=ax_plot,type='candle',xrotation=15)
+                ax_plot.set_title(f"{item} - 1 week")
+                ax_plot.axes.set_xlabel('Date')
+                ax_plot.set_ylabel('Price')             
+            
+            return
