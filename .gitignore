@@ -3,7 +3,6 @@ fugue/
 !test.log
 build/
 dist/
-app.spec
 __pycache__/
 *.pyc
 *.env
@@ -11,3 +10,4 @@ __pycache__/
 *.csv
 env_path.txt
 *.ipynb
+*.spec
