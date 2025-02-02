@@ -344,22 +344,19 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
-        
+        dont_update_plot = True
         lst_elements_to_update = []
         get_selected_tickers = []
         #update the list every 10 seconds
 
         time.sleep(10)
         
-        #see if user selected anything in the lstAsset list
-        try:
-            #selected_tickers = self.get_tickers_from_selected_lstAssets()
-            get_selected_tickers = self.get_tickers_from_selected_lstAssets()
-        except Exception as e:
-            dont_update_plot = False
 
+        #monitor the lstAsset selection
+        get_selected_tickers = self.get_tickers_from_selected_lstAssets()
+       
         
-        print(f"Thread: got selected tickers {get_selected_tickers}")
+        
 
         for item in lst_assets:
             last_price = r.get_quotes(item[0], "last_trade_price")[0]
@@ -436,16 +433,10 @@ class MainWindow(QMainWindow):
             self.ui.tblAssets.setItem(i,4,item_todayreturn)
             self.ui.tblAssets.setItem(i,5,item_totreturn)
      
-        print("List Updated!")
-       
+              
         
         self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
-        # else:
-        #     print(f"Set is {dont_update_plot}")
-        #     print(f"Selected tickers is {get_selected}")
-        
-
-        # self.plot.draw()
+        self.plot.draw()
         self.updateStatusBar(self.ticker_lst)
 
         return
@@ -662,20 +653,32 @@ class MainWindow(QMainWindow):
 
     def closeMenu_clicked(self):
        
-        if self.worker_thread is not None:
-            self.worker_thread.stop()
-            self.worker_thread.join()
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+       
+        try:
+            QApplication.setOverrideCursor(cursor)
+            
+            if self.worker_thread is not None:
+                self.worker_thread.stop()
+                self.worker_thread.join(timeout=2)
 
-        if self.update_thread is not None:    
-            self.update_thread.stop()
-            self.update_thread.join()
+            if self.update_thread is not None:    
+                self.update_thread.stop()
+                self.update_thread.join(timeout=2)
 
-        r.logout()
-        self.close()
+            r.logout()
+            self.close()
+        except Exception as e:
+            print(e)
+            
+        finally:
+            QApplication.restoreOverrideCursor()
+            sys.exit()
         #close the robinhood session
         
         #close the app
-        sys.exit()
+        
 
     def ledit_Iteration_textChanged(self):
         if re.match(r'^[1-9]+$',self.ui.ledit_Iteration.text()):
