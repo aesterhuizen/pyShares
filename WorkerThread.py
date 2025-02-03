@@ -17,6 +17,7 @@ class WorkerThread(Thread):
         try:
             while not self.stop_event.is_set():
                 result = self.fn(*self.args, **self.kwargs)
+                
         except Exception as e:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]

@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         self.account_info = ''
         #main list of tickers and performance metrics
         self.ticker_lst = []
+        self.lstupdated_tblAssets = []
         
         
         # setup UI
@@ -363,7 +364,7 @@ class MainWindow(QMainWindow):
             prev_close = r.get_quotes(item[0], "previous_close")[0]
             total_return = (float(last_price) - float(item[7])) * float(item[4])
             todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
-
+            quantity = item[4]
             change = float(last_price) - float(prev_close)    
             lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
 
@@ -372,7 +373,12 @@ class MainWindow(QMainWindow):
           
             if lst_elements_to_update[i][2] > 0:
 
-                
+                item_ticker = QTableWidgetItem(lst_elements_to_update[i][0])
+                item_ticker.setBackground(QColor("black"))  
+                item_ticker.setForeground(QColor("green"))
+                item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
                 item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
                 item_price.setBackground(QColor("black"))
                 item_price.setForeground(QColor("green"))
@@ -386,7 +392,12 @@ class MainWindow(QMainWindow):
                 item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
 
-                
+                item_quantity = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][3]) )
+                item_quantity.setBackground(QColor("black"))
+                item_quantity.setForeground(QColor("green"))
+                item_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_quantity.setFlags(item_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
                 item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
                 item_todayreturn.setBackground(QColor("black"))
                 item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
@@ -401,6 +412,12 @@ class MainWindow(QMainWindow):
 
             
             else:
+
+                item_ticker = QTableWidgetItem(lst_elements_to_update[i][0])
+                item_ticker.setBackground(QColor("black"))  
+                item_ticker.setForeground(QColor("red"))
+                item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
             
                 item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
                 item_price.setBackground(QColor("black"))
@@ -415,6 +432,13 @@ class MainWindow(QMainWindow):
                 item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
 
+                item_quantity = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][3]) )
+                item_quantity.setBackground(QColor("black"))
+                item_quantity.setForeground(QColor("red"))
+                item_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                item_quantity.setFlags(item_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+
                 item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
                 item_todayreturn.setBackground(QColor("black"))
                 item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
@@ -428,12 +452,15 @@ class MainWindow(QMainWindow):
                 item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 
             
+            self.ui.tblAssets.setItem(i,0,item_ticker)
             self.ui.tblAssets.setItem(i,1,item_price) 
-            self.ui.tblAssets.setItem(i,2,item_change) 
+            self.ui.tblAssets.setItem(i,2,item_change)
+            self.ui.tblAssets.setItem(i,3,item_quantity) 
             self.ui.tblAssets.setItem(i,4,item_todayreturn)
             self.ui.tblAssets.setItem(i,5,item_totreturn)
      
               
+        self.lstupdated_tblAssets = lst_elements_to_update
         
         self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
         self.plot.draw()
@@ -2172,5 +2199,31 @@ class MpfCanvas(FigureCanvasQTAgg):
                 ax_plot.set_title(f"{item} - 1 week")
                 ax_plot.axes.set_xlabel('Date')
                 ax_plot.set_ylabel('Price')             
+        
+            return
+        elif action_selection != "stock_info" and len(selected_tickers) > 0:
+            self.fig.clear()
+            n_row = 1
+            n_col = 1
+            index=1
             
+            
+            
+            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
+            #self.axes = fig.add_subplot(111)
+                
+            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+            for item in sorted_list:
+                x_data.append(item[0])
+                y_data.append(float(item[4])*float(item[3]))
+
+            ax = self.fig.add_subplot(n_row,n_col,index)
+
+            ax.grid(True)
+            ax.bar(x_data, y_data)
+            ax.set_xlabel('Stocks')
+            ax.set_ylabel('$value of stock')
+            ax.set_title('Stocks Ticker/Quantity')
+            ax.tick_params(axis='x', rotation=55)
             return
