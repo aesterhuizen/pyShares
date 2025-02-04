@@ -142,6 +142,7 @@ class MainWindow(QMainWindow):
                 
                 try:
                     self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                     
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error!: {e.args[0]}")
@@ -210,6 +211,7 @@ class MainWindow(QMainWindow):
                     
                     try:
                         self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                        
                     except Exception as e:
                         if e.args[0] == "Invalid account number":
                             self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -280,27 +282,14 @@ class MainWindow(QMainWindow):
 
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
-
+        #set ticker_lst = prev_lst
+        self.prev_ticker_lst = self.ticker_lst
 
         if os.environ['debug'] == '0':
-            
             # #create a worker thread to update the asset list every 10 seconds 
-            self.update_thread = WorkerThread(self.updateLstAssets,self.ticker_lst)
-            #connect signals of thread
-            # self.update_thread.signals.result.connect(self.print_output)
-            # self.update_thread.signals.finished.connect(self.thread_complete)
-            # self.update_thread.signals.progress.connect(self.lstAsset_update_progress_fn)
-
+            self.update_thread = WorkerThread(self.updateLstAssets)
             self.update_thread.start()
-        else:
-           self.updateLstAssets(self.ticker_lst)
-        
-        
-        
-        
-
-        
-
+  
         # show the Mainwindow
         self.show()
             
@@ -330,7 +319,7 @@ class MainWindow(QMainWindow):
         
         return
     
-    def updateLstAssets(self,lst_assets):
+    def updateLstAssets(self):
         #setup timer for status bar and lstAssets
         
          #Item[0] =  tickers
@@ -345,16 +334,18 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
-        dont_update_plot = True
+        lst_assets = []
         lst_elements_to_update = []
         get_selected_tickers = []
         #update the list every 10 seconds
-
+        
         time.sleep(10)
         
 
         #monitor the lstAsset selection
         get_selected_tickers = self.get_tickers_from_selected_lstAssets()
+        if self.ticker_lst != self.prev_ticker_lst: #ticker list changes get latest list
+            lst_assets = self.ticker_lst
        
         
         
@@ -369,103 +360,50 @@ class MainWindow(QMainWindow):
             lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
 
         #update table
-        for i in range(len(lst_elements_to_update)):
-          
-            if lst_elements_to_update[i][2] > 0:
-
-                item_ticker = QTableWidgetItem(lst_elements_to_update[i][0])
-                item_ticker.setBackground(QColor("black"))  
-                item_ticker.setForeground(QColor("green"))
-                item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-                item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
-                item_price.setBackground(QColor("black"))
-                item_price.setForeground(QColor("green"))
-                item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-                item_change = QTableWidgetItem("{:.2f}".format(lst_elements_to_update[i][2]) )
-                item_change.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                item_change.setForeground(QColor("green"))
-                item_change.setBackground(QColor("black"))
-                item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
-
-                item_quantity = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][3]) )
-                item_quantity.setBackground(QColor("black"))
-                item_quantity.setForeground(QColor("green"))
-                item_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_quantity.setFlags(item_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-                item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
-                item_todayreturn.setBackground(QColor("black"))
-                item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_todayreturn.setForeground(QColor("green"))
-                item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
-                item_totreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][5]) )
-                item_totreturn.setBackground(QColor("black"))
-                item_totreturn.setForeground(QColor("green"))
-                item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
+        for row in range(len(lst_elements_to_update)):
+            for col in range(1,len(lst_elements_to_update[row])):
+                table_item = QTableWidgetItem()
+                    
+                if col == 2 and lst_elements_to_update[row][col] > 0.0:
+                    # found change item add up/down arrow depending on the value
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                    table_item.setForeground(QColor("green"))
+                elif col ==2 and lst_elements_to_update[row][col] < 0.0:
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                    table_item.setForeground(QColor("red"))
+                elif col == 2 and lst_elements_to_update[row][col] == 0.0:
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                    table_item.setForeground(QColor("grey"))
+                else:
+                    if col == 0:
+                        table_item.setText(lst_elements_to_update[row][col])
+                    else:
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
+                    if lst_elements_to_update[row][2] > 0.0:
+                        table_item.setForeground(QColor("green"))
+                    elif lst_elements_to_update[row][2] < 0.0:
+                        table_item.setForeground(QColor("red"))
+           
+                table_item.setBackground(QColor("black"))
+                table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                self.ui.tblAssets.setItem(row,col,table_item)
             
-            else:
 
-                item_ticker = QTableWidgetItem(lst_elements_to_update[i][0])
-                item_ticker.setBackground(QColor("black"))  
-                item_ticker.setForeground(QColor("red"))
-                item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            
-                item_price = QTableWidgetItem("{0:,.2f}".format(float(lst_elements_to_update[i][1]) ))
-                item_price.setBackground(QColor("black"))
-                item_price.setForeground(QColor("red"))
-                item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-                item_change = QTableWidgetItem("{:.2f}".format(lst_elements_to_update[i][2]) )
-                item_change.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                item_change.setForeground(QColor("red"))
-                item_change.setBackground(QColor("black"))
-                item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
-
-                item_quantity = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][3]) )
-                item_quantity.setBackground(QColor("black"))
-                item_quantity.setForeground(QColor("red"))
-                item_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_quantity.setFlags(item_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-
-                item_todayreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][4]) )
-                item_todayreturn.setBackground(QColor("black"))
-                item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_todayreturn.setForeground(QColor("red"))
-                item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
-                item_totreturn = QTableWidgetItem("{0:,.2f}".format(lst_elements_to_update[i][5]) )
-                item_totreturn.setBackground(QColor("black"))
-                item_totreturn.setForeground(QColor("red"))
-                item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
-            
-            self.ui.tblAssets.setItem(i,0,item_ticker)
-            self.ui.tblAssets.setItem(i,1,item_price) 
-            self.ui.tblAssets.setItem(i,2,item_change)
-            self.ui.tblAssets.setItem(i,3,item_quantity) 
-            self.ui.tblAssets.setItem(i,4,item_todayreturn)
-            self.ui.tblAssets.setItem(i,5,item_totreturn)
+               
      
-              
+        
         self.lstupdated_tblAssets = lst_elements_to_update
         
         self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
         self.plot.draw()
         self.updateStatusBar(self.ticker_lst)
-
+        if os.environ["debug"] == '1':
+            print("thread running...Updated!")
+        
         return
         
 
@@ -852,16 +790,15 @@ class MainWindow(QMainWindow):
                 #get tickers in portfolio
                 try:
                     self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
+                    tickersPerf = self.ticker_lst
+                    # add current trickets to Qtlist
+                    self.print_cur_protfolio(tickersPerf)
+                    self.setup_plot(tickersPerf)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        self.plot.axes.clear()
-                        self.plot.draw()
                         return
-                tickersPerf = self.ticker_lst
-                # add current trickets to Qtlist
-                self.print_cur_protfolio(tickersPerf)
-                self.setup_plot(tickersPerf)
+               
                
             finally:
                 QApplication.restoreOverrideCursor()
@@ -926,103 +863,75 @@ class MainWindow(QMainWindow):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-
         join_list = []
+        lst_elements_to_update = []
         #set header
-        table = self.ui.tblAssets
         
         
-        table.setColumnCount(6)
-        table.setRowCount(len(curlist))
+        
+        self.ui.tblAssets.setColumnCount(6)
+        self.ui.tblAssets.setRowCount(len(curlist))
         
         
-        table.setColumnWidth(0,65)
-        table.setColumnWidth(1,65)
-        table.setColumnWidth(2,75)
-        table.setColumnWidth(3,75)
-        table.setColumnWidth(4,85)
-        table.setColumnWidth(5,85)
+        self.ui.tblAssets.setColumnWidth(0,65)
+        self.ui.tblAssets.setColumnWidth(1,65)
+        self.ui.tblAssets.setColumnWidth(2,75)
+        self.ui.tblAssets.setColumnWidth(3,75)
+        self.ui.tblAssets.setColumnWidth(4,85)
+        self.ui.tblAssets.setColumnWidth(5,85)
         
         
-        table.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
+        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
        
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
         
-        for i, item in enumerate(curlist):
-            join_list.append(item[0])
-            join_list.append(str(item[4]))
+        for item in curlist:
+            last_price = r.get_quotes(item[0], "last_trade_price")[0]
+            prev_close = r.get_quotes(item[0], "previous_close")[0]
+            total_return = (float(last_price) - float(item[7])) * float(item[4])
+            todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
+            quantity = item[4]
+            change = float(last_price) - float(prev_close)    
+            lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
+
+        #update table
+        for row in range(len(lst_elements_to_update)):
+            join_list.append(lst_elements_to_update[row][0])
+            join_list.append(str(lst_elements_to_update[row][3]))
+            for col in range(len(lst_elements_to_update[row])):
+                table_item = QTableWidgetItem()
+                    
+                if col == 2 and lst_elements_to_update[row][col] > 0.0:
+                    # found change item add up/down arrow depending on the value
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                    table_item.setForeground(QColor("green"))
+                elif col ==2 and lst_elements_to_update[row][col] < 0.0:
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                    table_item.setForeground(QColor("red"))
+                elif col == 2 and lst_elements_to_update[row][col] == 0.0:
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                    table_item.setForeground(QColor("grey"))
+                else:
+                    if col == 0:
+                        table_item.setText(lst_elements_to_update[row][col])
+                    else:
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
+                    if lst_elements_to_update[row][2] > 0.0:
+                        table_item.setForeground(QColor("green"))
+                    elif lst_elements_to_update[row][2] < 0.0:
+                        table_item.setForeground(QColor("red"))
+           
+                table_item.setBackground(QColor("black"))
+                table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                self.ui.tblAssets.setItem(row,col,table_item)
             
-
-            lastTradePrice = r.get_quotes(item[0], "last_trade_price")[0]
-            avg_buy_price = item[7]
-            previous_close = r.get_quotes(item[0], "previous_close")[0]
-            todays_return = (float(lastTradePrice) - float(previous_close))*float(item[4])
-            total_return = (float(lastTradePrice) - float(avg_buy_price))*float(item[4]) 
-                            
-          
-
-            item_ticker = QTableWidgetItem(item[0])
-            item_stock_quantity = QTableWidgetItem("{0:,.2f}".format(float(item[4])))
-            item_price = QTableWidgetItem("{0:,.2f}".format(float(lastTradePrice)))        
-            item_change = QTableWidgetItem("{:.2f}".format(item[9]) )
-            item_totreturn = QTableWidgetItem("{0:,.2f}".format(total_return))
-            item_todayreturn = QTableWidgetItem("{0:,.2f}".format(todays_return))
-
-            #set backgroung color of the row
-            item_ticker.setBackground(QColor("black"))
-            item_stock_quantity.setBackground(QColor("black"))
-            item_price.setBackground(QColor("black"))
-            item_change.setBackground(QColor("black"))
-            item_todayreturn.setBackground(QColor("black"))
-            item_totreturn.setBackground(QColor("black"))
-
-            #set font size
-            item_ticker.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            item_stock_quantity.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            item_price.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            item_change.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            item_todayreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            item_totreturn.setFont(QFont("Arial",10,QFont.Weight.Bold))
-            #set flags on Qtablewidgetitem as not editable
-
-            item_ticker.setFlags(item_ticker.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            item_stock_quantity.setFlags(item_stock_quantity.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            item_price.setFlags(item_price.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            item_change.setFlags(item_change.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            item_todayreturn.setFlags(item_todayreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            item_totreturn.setFlags(item_totreturn.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-            #if the price is greater than 0.0 then the stock is up
-            if item[9] > 0.0:
-               
-                item_ticker.setForeground(QColor("green"))
-                item_price.setForeground(QColor("green"))
-                item_change.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                item_change.setForeground(QColor("green"))
-                item_stock_quantity.setForeground(QColor("green"))
-                item_todayreturn.setForeground(QColor("green"))
-                item_totreturn.setForeground(QColor("green"))
                 
-
-            else:
-                item_ticker.setForeground(QColor("red"))
-                item_price.setForeground(QColor("red"))
-                item_change.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                item_change.setForeground(QColor("red"))
-                item_stock_quantity.setForeground(QColor("red"))
-                item_todayreturn.setForeground(QColor("red"))
-                item_totreturn.setForeground(QColor("red"))
-                
-                                      
-            table.setItem(i,0,item_ticker)
-            table.setItem(i,1,item_price)
-            table.setItem(i,2,item_change)
-            table.setItem(i,3,item_stock_quantity)
-            table.setItem(i,4,item_todayreturn)
-            table.setItem(i,5,item_totreturn)
-
-            
+           
            
         plst = ",".join(join_list)
         open_file.write(plst)
