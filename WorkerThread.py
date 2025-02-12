@@ -42,7 +42,9 @@ class CommandThread(Thread):
         self.kwargs = kwargs
         self.stop_event = Event()
 
-    
+    def stop(self):
+        self.stop_event.set()
+
     def run(self):
         
         # Retrieve args/kwargs here; and fire processing using them

@@ -286,11 +286,11 @@ class MainWindow(QMainWindow):
         #set ticker_lst = prev_lst
         self.prev_ticker_lst = self.ticker_lst
         
-        args = ("Update")
+        
         #if os.environ['debug'] == '0':
             # #create a worker thread to update the asset list every 10 seconds 
-        self.update_thread = UpdateThread(self.updateLstAssets)
-        self.update_thread.start()
+        # self.update_thread = UpdateThread(self.updateLstAssets)
+        # self.update_thread.start()
   
         # show the Mainwindow
         self.show()
@@ -597,6 +597,8 @@ class MainWindow(QMainWindow):
                 self.ui.edtDollarValueToSell.setVisible(True)
                 self.ui.lblRaiseAmount.setText("Sell Assets Except:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
+                self.ui.edtBuyWithAmount.setText("")
+                self.ui.edtBuyWithAmount.setVisible(False)
                
                     
             elif self.ui.cmbAction.currentText() == "sell_gains_except_x":
@@ -617,6 +619,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText("")
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
+               
                 
                 
             
@@ -744,9 +747,20 @@ class MainWindow(QMainWindow):
         print("THREAD COMPLETE!")
    
               
-
+    def Cancel_operation(self):
+        if self.command_thread.is_alive():
+            self.command_thread.stop()
+        self.ui.btnExecute.setEnabled(False)
+        return
+    
     def btnExecute_clicked(self):
-        self.Execute_operation()
+        if self.ui.btnExecute.text() == "Execute ...":
+            self.ui.btnExecute.setText("Cancel")
+            self.Execute_operation()
+        elif self.ui.btnExecute.text() == "Cancel":
+            self.ui.btnExecute.setText("Execute ...")
+            self.Cancel_operation()
+            
     
 
     def cmbAction_clicked(self):
@@ -829,6 +843,7 @@ class MainWindow(QMainWindow):
                     # add current trickets to Qtlist
                     self.print_cur_protfolio(tickersPerf)
                     self.setup_plot(tickersPerf)
+                    self.updateStatusBar(tickersPerf)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -1168,7 +1183,7 @@ class MainWindow(QMainWindow):
                     if market_price_of_stock < float(price_sold):
                         if (market_price_of_stock*per_quantity) <= total_gains:
                             if os.environ['debug'] == '0':
-                                buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price)
+                                buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
                                 time.sleep(5)
                             #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                             stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{buy_price}")
@@ -1227,7 +1242,7 @@ class MainWindow(QMainWindow):
                 tot = quantity_to_buy*float(item[3])
                 frm_quantity = "{0:,.2f}".format(float(quantity_to_buy))
                 if os.environ['debug'] == '0':
-                    buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02)
+                    buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02,account_number=acc_num)
                 time.sleep(5)
 
                     
@@ -1307,7 +1322,7 @@ class MainWindow(QMainWindow):
             frm_quantity += 0.02
             str_quantity = str(frm_quantity)
             if os.environ['debug'] == '0':
-                buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=item[3]+0.2)
+                buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=item[3]+0.2,account_number=acc_num)
             time.sleep(5)
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
@@ -1392,18 +1407,23 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
+            if self.command_thread.stop_event.is_set():
+                break
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst:
-
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    break
+                
                 shares_to_sell = float(dollar_value_to_sell)/float(item[3])
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if float(item[4]*float(item[3])) > float(dollar_value_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(shares_to_sell),timeInForce='gfd')
-                    time.sleep(5)
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(shares_to_sell),timeInForce='gfd',account_number=acc_num)
+                   
 
                     # while sell_info['id'] is not None:
                     #     time.sleep(5)
@@ -1421,7 +1441,7 @@ class MainWindow(QMainWindow):
                     
                
              
-        
+       
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
             
@@ -1467,21 +1487,23 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
+            if self.command_thread.stop_event.is_set():
+                break
             stock_symbols = []    
             self.lstTerm_update_progress_fn(f"Iteration: {index+1}")
-         
-            
-            
-          
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
                 frm_quantity = "{0:,.2f}".format(float(item[2]))
-
+                
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    break
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd')
-                    time.sleep(5)
+                        
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                    
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{item[2]}:{item[3]}")
@@ -1498,7 +1520,7 @@ class MainWindow(QMainWindow):
             file_sell_write.write(stocks_format)
             
             
-        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual)
         file_sell_write.close()
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
         
@@ -1553,18 +1575,23 @@ class MainWindow(QMainWindow):
         
         for index in range(int(n)):
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
-
+            if self.command_thread.stop_event.is_set():
+                break
             stock_symbols = []
 
             
                 #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    break
+
                 frm_quantity = "{0:,.2f}".format(float(item[2]))
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd')
-                    time.sleep(5)
+                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                    
                                              
                         #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f"{item[0]}:{item[2]}:{item[3]}")
@@ -1574,9 +1601,10 @@ class MainWindow(QMainWindow):
                     last_price = "{0:,.2f}".format(float(item[3]))
                     frm_tot = "{0:,.2f}".format(tot)
                     self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
-                
-            stocks_format = ",".join(stock_symbols)
-            file_sell_write.write(stocks_format)
+
+        
+        stocks_format = ",".join(stock_symbols)
+        file_sell_write.write(stocks_format)
                 
             
                   
@@ -1622,13 +1650,17 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
-        
+            if self.command_thread.stop_event.is_set():
+                break
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
 
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    break
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
                 frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
@@ -1636,7 +1668,7 @@ class MainWindow(QMainWindow):
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd')
+                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
                     time.sleep(5)
                     
                
@@ -1649,7 +1681,7 @@ class MainWindow(QMainWindow):
                     frm_tot = "{0:,.2f}".format(tot)
                     self.lstTerm_update_progress_fn(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
 
-            
+        
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
         fmt_tgains_actual = "{0:.2f}".format(tgains_actual*int(n))
@@ -1708,11 +1740,16 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
+            if self.command_thread.stop_event.is_set():
+                break
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
-            stock_symbols = []
+            
 
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    break
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
                 frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
@@ -1720,8 +1757,8 @@ class MainWindow(QMainWindow):
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd')
-                    time.sleep(5)
+                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
+                   
                     
                 
 
@@ -1739,7 +1776,7 @@ class MainWindow(QMainWindow):
 
 
             
-            stocks_format = ",".join(self.stock_symbols)
+            stocks_format = ",".join(stock_symbols)
             file_sell_write.write(stocks_format)
         
         file_sell_write.close()
@@ -1769,6 +1806,7 @@ class MainWindow(QMainWindow):
         
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0
+        
         n_raise_amount = float(raise_amount)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
         frmt_dollar_value = "{0:,.2f}".format(n_dollar_value_to_sell)
@@ -1778,18 +1816,19 @@ class MainWindow(QMainWindow):
         tgains_actual = 0.0
         self.lstTerm_update_progress_fn(f"Raise ${frmt_raise_amount} by selling ${frmt_dollar_value} dollars of each stock: Total gains = ${n_raise_amount}")
         while not (raised_amount >= n_raise_amount):
-
+            if self.command_thread.stop_event.is_set():
+                break
             for item in sorderd_lst:
-             #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
+                    #Item 0 =  tickers
+                #Item 1 = Total_return
+                #Item 2 = stock_quantity_to_sell/buy
+                #Item 3 = last price
+                #item[4]= your quantities
+                #item[5]=today's return
+                #item[6]= 1 year history
+                #item[7]= average buy price
+                #item[8]=%change in price
+                #item[9]=change in price since previous close
 
                 if raised_amount >= n_raise_amount:
                     break    
@@ -1821,7 +1860,10 @@ class MainWindow(QMainWindow):
         
 
         for item in sell_list:    
-             # Item[0] = stock_name
+            time.sleep(5)
+            if self.command_thread.stop_event.is_set():
+                break
+            # Item[0] = stock_name
             # Item[1] = quantity to sell
             # Item[2] = last price        
             frm_quantity = float(item[1])
@@ -1829,8 +1871,8 @@ class MainWindow(QMainWindow):
             str_quantity = str(frm_quantity)
             
             if os.environ['debug'] == '0':
-                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd')
-            time.sleep(5)
+                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+            
             
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
@@ -1839,7 +1881,7 @@ class MainWindow(QMainWindow):
 
             last_price = "{0:,.2f}".format(float(item[2]))
             frm_tot = "{0:,.2f}".format(tot)
-            self.lstTerm_update_progress_fn(f"{frmt_dollar_value} dollars of {item[0]} sold at market price ${last_price} - Total: ${frm_tot}")
+            self.lstTerm_update_progress_fn(f"{str_quantity} shares of {item[0]} sold at market price ${last_price} - Total: ${frm_tot}")
            
                     
             
@@ -1907,8 +1949,12 @@ class MainWindow(QMainWindow):
         
 
         while not (raised_amount >= n_raise_amount):
+            if self.command_thread.stop_event.is_set():
+                break
             #loop through the list of tickers and build a new list(sell_list) of quantities to sell
             for item in sorderd_lst:
+                if self.command_thread.stop_event.is_set():
+                    break
                 #Item[0] =  tickers
                 #Item[1] = Total_return
                 #Item[2] = stock_quantity_to_sell/buy
@@ -1946,7 +1992,10 @@ class MainWindow(QMainWindow):
         
 
         for item in sell_list:        
-              # Item[0] = stock_name
+            time.sleep(5)
+            if self.command_thread.stop_event.is_set():
+                break
+            # Item[0] = stock_name
             # Item[1] = quantity to sell
             # Item[2] = last price    
             frm_quantity = float(item[2])
@@ -1954,8 +2003,8 @@ class MainWindow(QMainWindow):
             str_quantity = str(frm_quantity)
             
             if os.environ['debug'] == '0':
-                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd')
-            time.sleep(5)
+                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+           
             
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
             tot = float(item[1])*float(item[2])
