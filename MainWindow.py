@@ -287,10 +287,10 @@ class MainWindow(QMainWindow):
         self.prev_ticker_lst = self.ticker_lst
         
         
-        #if os.environ['debug'] == '0':
+        if os.environ['debug'] == '0':
             # #create a worker thread to update the asset list every 10 seconds 
-        # self.update_thread = UpdateThread(self.updateLstAssets)
-        # self.update_thread.start()
+            self.update_thread = UpdateThread(self.updateLstAssets)
+            self.update_thread.start()
   
         # show the Mainwindow
         self.show()
