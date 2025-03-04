@@ -1,4 +1,3 @@
-from PyQt6.QtCore import QObject
 import sys, traceback
 from threading import Thread,Event
 
@@ -18,17 +17,13 @@ class UpdateThread(Thread):
             
                 while not self.stop_event.is_set():
                     result = self.fn(*self.args, **self.kwargs)
-            
-            
-            
-            
-            
-                
         except Exception as e:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             #self.signals.error.emit((exctype, value, traceback.format_exc()))
             print(f"Error: {e}")
+        finally:
+            {}
 
       
     def stop(self):

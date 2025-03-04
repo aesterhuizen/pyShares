@@ -26,7 +26,7 @@ from dotenv import load_dotenv, set_key
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox,QLabel, QTableWidget, QTableWidgetItem
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont,QStandardItemModel,QStandardItem
-from PyQt6.QtCore import QThreadPool, QSize, QTimer,Qt
+from PyQt6.QtCore import QSize,Qt
 
 from layout import Ui_MainWindow
 
@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.4"
+        self.ver_string = "v1.0.7"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -74,7 +74,23 @@ class MainWindow(QMainWindow):
                 
         self.ui.splt_horizontal.setSizes([10, 550])
         self.ui.vertical_splitter.setSizes([450, 50])
+        #add combo box items to the action combobox
+        self.ui.cmbAction.addItem("stock_info")
+        self.ui.cmbAction.addItem("sell")
+        self.ui.cmbAction.addItem("sell_gains")
+        self.ui.cmbAction.addItem("sell_todays_return")
+        self.ui.cmbAction.addItem("sell_selected")
+        self.ui.cmbAction.addItem("sell_gains_except_x")
+        self.ui.cmbAction.addItem("sell_todays_return_except_x")
+        self.ui.cmbAction.addItem("buy")
+        self.ui.cmbAction.addItem("buy_selected")
+        self.ui.cmbAction.addItem("buy_selected_with_x")
+        self.ui.cmbAction.addItem("buy_lower_with_gains")
+        self.ui.cmbAction.addItem("raise_x_sell_y_dollars")
+        self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
         
+        #set refresh icon on button
+        self.ui.btnRefresh.setIcon(QIcon(self.icon_path +'/refresh.png'))
         # set the meta data textboxes and labels to invisible
         self.ui.edtRaiseAmount.setVisible(False)
         self.ui.lblRaiseAmount.setVisible(False)
@@ -186,6 +202,8 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                    elif e.args[0] == "No stocks in account":
+                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                     else:
                    
                         #login to Robinhood
@@ -250,7 +268,11 @@ class MainWindow(QMainWindow):
         #connect sigals and slots Actions combo box
         self.ui.cmbAction.activated.connect(self.cmbAction_clicked)
         #connect signal/slot for label Iteration button
+        #connect selectAll button
+        self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
+        #connect refresh button
+        self.ui.btnRefresh.clicked.connect(self.Refresh)
         #connect signal/slot for Execute button
         self.ui.btnExecute.clicked.connect(self.btnExecute_clicked)
         self.ui.btnExecute.setEnabled(False)
@@ -297,7 +319,26 @@ class MainWindow(QMainWindow):
             
     
           
+    def closeEvent(self, event):
+        # Perform any cleanup or save operations here
+        try:
+            if self.update_thread is not None:
+                self.update_thread.stop()
+                self.update_thread.join(timeout=2)
+            if self.command_thread is not None:
+                self.command_thread.stop()
+                self.command_thread.join(timeout=2)
+            r.logout()
+        except Exception as e:
+            print(e)
+        finally:
+            event.accept()  # Accept the event to close the window
 
+    def Refresh(self):
+        self.get_stocks_from_portfolio(self.current_account_num)
+        self.print_cur_protfolio(self.ticker_lst)
+        self.setup_plot(self.ticker_lst)
+        self.updateStatusBar(self.ticker_lst)
 
 
 
@@ -344,70 +385,71 @@ class MainWindow(QMainWindow):
         #update the list every 10 seconds
         
         time.sleep(10)
-        
-        
-        
-        #monitor the lstAsset selection
-        get_selected_tickers = self.get_tickers_from_selected_lstAssets()
-        if self.ticker_lst != self.prev_ticker_lst: #ticker list changes get latest list
+        # if there is stocks in list update it every 10 seconds
+        if len(self.ticker_lst) != 0: 
             lst_assets = self.ticker_lst
-       
+        
+         
+                #monitor the lstAsset selection
+            get_selected_tickers = self.get_tickers_from_selected_lstAssets()
         
         
-
-        for item in lst_assets:
-            last_price = r.get_quotes(item[0], "last_trade_price")[0]
-            prev_close = r.get_quotes(item[0], "previous_close")[0]
-            total_return = (float(last_price) - float(item[7])) * float(item[4])
-            todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
-            quantity = item[4]
-            change = float(last_price) - float(prev_close)    
-            lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
-
-        #update table
-        for row in range(len(lst_elements_to_update)):
-            for col in range(1,len(lst_elements_to_update[row])):
-                table_item = QTableWidgetItem()
-                    
-                if col == 2 and lst_elements_to_update[row][col] > 0.0:
-                    # found change item add up/down arrow depending on the value
-                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                    table_item.setForeground(QColor("green"))
-                elif col ==2 and lst_elements_to_update[row][col] < 0.0:
-                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                    table_item.setForeground(QColor("red"))
-                elif col == 2 and lst_elements_to_update[row][col] == 0.0:
-                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
-                    table_item.setForeground(QColor("white"))
-                else:
-                    if col == 0:
-                        table_item.setText(lst_elements_to_update[row][col])
-                    else:
-                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
-                    if lst_elements_to_update[row][2] > 0.0:
-                        table_item.setForeground(QColor("green"))
-                    elif lst_elements_to_update[row][2] < 0.0:
-                        table_item.setForeground(QColor("red"))
-           
-                table_item.setBackground(QColor("black"))
-                table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
-                self.ui.tblAssets.setItem(row,col,table_item)
+            
             
 
-               
-     
+            for item in lst_assets:
+                last_price = r.get_quotes(item[0], "last_trade_price")[0]
+                prev_close = r.get_quotes(item[0], "previous_close")[0]
+                total_return = (float(last_price) - float(item[7])) * float(item[4])
+                todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
+                quantity = item[4]
+                change = float(last_price) - float(prev_close)    
+                lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
+
+            #update table
+            for row in range(len(lst_elements_to_update)):
+                for col in range(1,len(lst_elements_to_update[row])):
+                    table_item = QTableWidgetItem()
+                        
+                    if col == 2 and lst_elements_to_update[row][col] > 0.0:
+                        # found change item add up/down arrow depending on the value
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                        table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                        table_item.setForeground(QColor("green"))
+                    elif col ==2 and lst_elements_to_update[row][col] < 0.0:
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                        table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                        table_item.setForeground(QColor("red"))
+                    elif col == 2 and lst_elements_to_update[row][col] == 0.0:
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                        table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                        table_item.setForeground(QColor("white"))
+                    else:
+                        if col == 0:
+                            table_item.setText(lst_elements_to_update[row][col])
+                        else:
+                            table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
+                        if lst_elements_to_update[row][2] > 0.0:
+                            table_item.setForeground(QColor("green"))
+                        elif lst_elements_to_update[row][2] < 0.0:
+                            table_item.setForeground(QColor("red"))
+            
+                    table_item.setBackground(QColor("black"))
+                    table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                    self.ui.tblAssets.setItem(row,col,table_item)
+                
+
+                
         
-        self.lstupdated_tblAssets = lst_elements_to_update
-        
-        self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
-        self.plot.draw()
-        self.updateStatusBar(self.ticker_lst)
-        if os.environ["debug"] == '1':
-            print("thread running...LstAssets Updated!")
+            
+            self.lstupdated_tblAssets = lst_elements_to_update
+            
+            self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
+            self.plot.draw()
+            self.updateStatusBar(self.ticker_lst)
+            if os.environ["debug"] == '1':
+                print("thread running...LstAssets Updated!")
         
         
         
@@ -670,7 +712,9 @@ class MainWindow(QMainWindow):
             if self.update_thread is not None:
                 self.update_thread.stop()
                 self.update_thread.join(timeout=2)
-
+            if self.command_thread is not None:
+                self.command_thread.stop()
+                self.command_thread.join(timeout=2)
           
 
             r.logout()
@@ -794,13 +838,25 @@ class MainWindow(QMainWindow):
 
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
-            self.ui.lblRaiseAmount.setText("Buy Amount (USD):")
+            self.ui.lblRaiseAmount.setText("Buy with Amount (USD):")
             self.ui.edtRaiseAmount.setText("")
 
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.lblDollarValueToSell.setVisible(True) 
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-          
+        elif perform_action == "buy":
+                
+            self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+            self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+            self.ui.lblRaiseAmount.setVisible(True)
+            self.ui.edtRaiseAmount.setVisible(True)
+            self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
+            self.ui.lblDollarValueToSell.setVisible(True)
+            self.ui.edtDollarValueToSell.setVisible(True)
+            self.ui.edtBuyWithAmount.setVisible(True)
+            self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+            self.ui.lblBuyWithAmount.setVisible(True)
+
         else: #default
             self.ui.edtRaiseAmount.setVisible(False)
             self.ui.edtRaiseAmount.setText("")
@@ -840,14 +896,18 @@ class MainWindow(QMainWindow):
                 try:
                     self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
                     tickersPerf = self.ticker_lst
-                    # add current trickets to Qtlist
                     self.print_cur_protfolio(tickersPerf)
                     self.setup_plot(tickersPerf)
                     self.updateStatusBar(tickersPerf)
                 except Exception as e:
-                    if e.args[0] == "Invalid account number":
+                    if e.args[0] == "No stocks in account":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        return
+                        self.ticker_lst = []
+                        self.print_cur_protfolio(self.ticker_lst)
+                        self.setup_plot(self.ticker_lst)
+                        self.updateStatusBar(self.ticker_lst)
+                    
+                    
                
                
             finally:
@@ -893,12 +953,20 @@ class MainWindow(QMainWindow):
 
             # start thread
             self.command_thread.start()
+
+            if self.ui.btnExecute.text() == "Cancel":
+                self.ui.btnExecute.setText("Execute ...")
             
         return 
             
 
 
-
+    def SelectAll_clicked(self):
+        #select all items in the list
+        self.ui.tblAssets.selectAll()
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+        self.ui.tblAssets.setFocus()
+        return
     def print_cur_protfolio(self, curlist):
        
         #Item 0 =  tickers
@@ -968,7 +1036,7 @@ class MainWindow(QMainWindow):
                         table_item.setText(lst_elements_to_update[row][col])
                     else:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
-                    if lst_elements_to_update[row][2] > 0.0:
+                    if lst_elements_to_update[row][2] > 0.0: #change item[2]
                         table_item.setForeground(QColor("green"))
                     elif lst_elements_to_update[row][2] < 0.0:
                         table_item.setForeground(QColor("red"))
@@ -985,6 +1053,7 @@ class MainWindow(QMainWindow):
         open_file.write(plst)
         open_file.close()
         return
+    
     def get_tickers_from_selected_lstAssets(self):
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
@@ -998,7 +1067,7 @@ class MainWindow(QMainWindow):
 
         positions = r.get_open_stock_positions(acc_num)
         if len(positions) == 0:
-            raise Exception("Invalid account number")
+            raise Exception("No stocks in account")
         else:
             self.ui.lstTerm.clear()
             
@@ -1102,7 +1171,7 @@ class MainWindow(QMainWindow):
             self.ui.cmbAction.currentText() == "sell_gains_except_x" or \
             self.ui.cmbAction.currentText() == "sell_todays_return_except_x" or \
             self.ui.cmbAction.currentText() == "sell_gains_x_except_z" or \
-            self.ui.cmbAccount.currentText() == "buy_selected_with_x":
+            self.ui.cmbAction.currentText() == "buy_selected_with_x":
 
 
 
@@ -1116,6 +1185,11 @@ class MainWindow(QMainWindow):
         else:
             lst = ['dont care']
             check_two = True
+            
+                
+
+                
+            
 
         if check_one and check_two:
             return txtIter,lst
@@ -1183,8 +1257,12 @@ class MainWindow(QMainWindow):
                     if market_price_of_stock < float(price_sold):
                         if (market_price_of_stock*per_quantity) <= total_gains:
                             if os.environ['debug'] == '0':
-                                buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
-                                time.sleep(5)
+                                try:
+                                    buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
+                                except Exception as e:
+                                    self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                                    return  
+                            time.sleep(5)
                             #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                             stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{buy_price}")
                             print(f"{frm_per_quantity} shares of {stock_name} bought at {buy_price}" )
@@ -1205,6 +1283,108 @@ class MainWindow(QMainWindow):
 #----------------------------------------------------------------------------------------------------------------------------------
 # buy_selected
 # # -------------------------------------------------------------------------------------------------------------------------------------   
+    def buy(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+        
+               
+        #Item[0] =  tickers
+        #Item[1] = Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3] = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        
+        stocks_to_buy = []
+        
+        buy_list = []
+        dollar_value_to_buy = float(dollar_value_to_sell)
+        buying_with_amount = float(buying_with)
+
+        stock_symbols = []
+        money_left = buying_with_amount
+        found = False
+        tgains_actual = 0.0
+        #tickersPerf = self.get_stocks_from_portfolio(acc_num)
+        stocks_to_buy = raise_amount.split(',')
+
+        
+        while not (money_left <= 0.0):
+            if self.command_thread.stop_event.is_set():
+                break
+            for item in stocks_to_buy:
+                if money_left <= 0.0:
+                    break    
+                last_price = r.get_quotes(item, "last_trade_price")[0]
+                quantity_to_buy = dollar_value_to_buy / float(last_price)     
+                frm_quantity_to_buy = "{0:.2f}".format(float(quantity_to_buy))
+
+                for i,value in enumerate(buy_list): #check if already in list and return index
+                    #if found in list add the quantity to buy
+                    if value[0] == item:
+                        exist_quantity = buy_list[i][1]
+                        buy_list[i][1] = exist_quantity + quantity_to_buy
+                        money_left -= quantity_to_buy*float(last_price)
+                        found = True
+                        break
+                                
+                if not found:
+                    itm = [item,quantity_to_buy,float(last_price)]
+                    buy_list.append(itm)
+                    money_left -= quantity_to_buy*float(last_price)   
+                
+            
+            
+            
+        
+
+        for item in buy_list:    
+            time.sleep(5)
+            if self.command_thread.stop_event.is_set():
+                break
+            # Item[0] = stock_name
+            # Item[1] = quantity to buy
+            # Item[2] = last price        
+            frm_quantity = "{0:.2f}".format(item[1])
+            
+            
+            if os.environ['debug'] == '0':
+                try:
+                    buy_info = r.order_buy_market(symbol=item[0],quantity=frm_quantity,timeInForce='gfd',account_number=acc_num)
+                    if 'detail' in buy_info and buy_info['detail'] is not None:
+                        self.lstTerm_update_progress_fn(f"Error: {buy_info['detail']}")
+                    if 'quantity' in buy_info and buy_info['quantity'] is not None:
+                        self.lstTerm_update_progress_fn(f"Error: {buy_info['quantity']}")
+                except Exception as e:
+                    self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                    return
+            
+            
+            #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
+            stock_symbols.append("{0}:{1}:{2}".format(item[0],frm_quantity,item[2]) ) 
+            tot = float(item[1])*float(item[2])
+            tgains_actual += float(tot)
+
+            last_price = "{0:,.2f}".format(float(item[2]))
+            frm_tot = "{0:,.2f}".format(tot)
+            self.lstTerm_update_progress_fn(f"{frm_quantity} shares of {item[0]} bought at market price ${last_price} - Total: ${frm_tot}")
+           
+                    
+            
+    
+        file_path = os.path.join(self.data_path,"stocks_buy.csv")
+        file_buy_write = open(file_path,"w")
+        stocks_format = ",".join(stock_symbols)
+        file_buy_write.write(stocks_format)
+        file_buy_write.close()
+        stock_symbols = []   
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
+        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
+        
+    
+        return
+#----------------------------------------------------------------------------------------------------------------------------------
+# buy_selected
+# # -------------------------------------------------------------------------------------------------------------------------------------   
     def buy_selected(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
         
                
@@ -1215,11 +1395,13 @@ class MainWindow(QMainWindow):
         #item[4]= your quantities
         #item[5]=today's return
         #item[6]= 1 year history
+        
+        stocks_to_buy = []
+        
         dollar_value_to_buy = float(dollar_value_to_sell)
         stock_symbols = []
         
         tgains_actual = 0.0
-       
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         
         
@@ -1240,9 +1422,13 @@ class MainWindow(QMainWindow):
             for item in sorted_lst:
                 quantity_to_buy = dollar_value_to_buy / float(item[3])   
                 tot = quantity_to_buy*float(item[3])
-                frm_quantity = "{0:,.2f}".format(float(quantity_to_buy))
+                frm_quantity = "{0:.2f}".format(float(quantity_to_buy))
                 if os.environ['debug'] == '0':
-                    buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02,account_number=acc_num)
+                    try:
+                        buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02,account_number=acc_num)
+                    except Exception as e:
+                        self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                        return
                 time.sleep(5)
 
                     
@@ -1322,7 +1508,13 @@ class MainWindow(QMainWindow):
             frm_quantity += 0.02
             str_quantity = str(frm_quantity)
             if os.environ['debug'] == '0':
-                buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=item[3]+0.2,account_number=acc_num)
+                try:
+                    buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=item[3]+0.2,account_number=acc_num)
+                    if 'detail' in buy_info and buy_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {buy_info['detail']}")
+                except Exception as e:
+                        self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                        return
             time.sleep(5)
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
@@ -1422,12 +1614,16 @@ class MainWindow(QMainWindow):
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if float(item[4]*float(item[3])) > float(dollar_value_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(shares_to_sell),timeInForce='gfd',account_number=acc_num)
-                   
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(shares_to_sell),timeInForce='gfd',account_number=acc_num)
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
+                    
 
-                    # while sell_info['id'] is not None:
-                    #     time.sleep(5)
-                    #     stock_order = r.get_stock_order_info(orderID=sell_info['id'])
+                    
 
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -1501,8 +1697,13 @@ class MainWindow(QMainWindow):
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
                     
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -1590,7 +1791,13 @@ class MainWindow(QMainWindow):
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
                     
                                              
                         #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -1668,8 +1875,16 @@ class MainWindow(QMainWindow):
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
-                    time.sleep(5)
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                                
+                            
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
+                    
                     
                
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -1757,7 +1972,13 @@ class MainWindow(QMainWindow):
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
                 if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
                     if os.environ['debug'] == '0':
-                        sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
                    
                     
                 
@@ -1871,7 +2092,13 @@ class MainWindow(QMainWindow):
             str_quantity = str(frm_quantity)
             
             if os.environ['debug'] == '0':
-                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+                try:
+                    sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+                    if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                except Exception as e:
+                    self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                    return
             
             
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
@@ -2003,7 +2230,13 @@ class MainWindow(QMainWindow):
             str_quantity = str(frm_quantity)
             
             if os.environ['debug'] == '0':
-                sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+                try:
+                    sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+                    if 'detail' in sell_info and sell_info['detail'] is not None:
+                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                except Exception as e:
+                    self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                    return
            
             
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
