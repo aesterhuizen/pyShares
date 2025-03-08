@@ -196,38 +196,6 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="btnRefresh">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>21</width>
-                  <height>21</height>
-                 </size>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>21</width>
-                  <height>21</height>
-                 </size>
-                </property>
-                <property name="toolTip">
-                 <string extracomment="Refresh Current protfolio ..."/>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="icon">
-                 <iconset>
-                  <normaloff>icons/refresh.png</normaloff>icons/refresh.png</iconset>
-                </property>
-               </widget>
-              </item>
-              <item>
                <spacer name="verticalSpacer">
                 <property name="orientation">
                  <enum>Qt::Vertical</enum>

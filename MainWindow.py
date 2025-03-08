@@ -89,8 +89,7 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
         
-        #set refresh icon on button
-        self.ui.btnRefresh.setIcon(QIcon(self.icon_path +'/refresh.png'))
+       
         # set the meta data textboxes and labels to invisible
         self.ui.edtRaiseAmount.setVisible(False)
         self.ui.lblRaiseAmount.setVisible(False)
@@ -271,8 +270,7 @@ class MainWindow(QMainWindow):
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
-        #connect refresh button
-        self.ui.btnRefresh.clicked.connect(self.Refresh)
+        
         #connect signal/slot for Execute button
         self.ui.btnExecute.clicked.connect(self.btnExecute_clicked)
         self.ui.btnExecute.setEnabled(False)
@@ -334,11 +332,7 @@ class MainWindow(QMainWindow):
         finally:
             event.accept()  # Accept the event to close the window
 
-    def Refresh(self):
-        self.get_stocks_from_portfolio(self.current_account_num)
-        self.print_cur_protfolio(self.ticker_lst)
-        self.setup_plot(self.ticker_lst)
-        self.updateStatusBar(self.ticker_lst)
+  
 
 
 
@@ -1346,14 +1340,13 @@ class MainWindow(QMainWindow):
             # Item[2] = last price        
             frm_quantity = "{0:.2f}".format(item[1])
             
-            
+            last_price = r.get_quotes(item, "last_trade_price")[0]
+            buy_price = float(last_price) + 0.02
+            frm_buy_price = "{0:.2f}".format(buy_price)
+
             if os.environ['debug'] == '0':
                 try:
-                    buy_info = r.order_buy_market(symbol=item[0],quantity=frm_quantity,timeInForce='gfd',account_number=acc_num)
-                    if 'detail' in buy_info and buy_info['detail'] is not None:
-                        self.lstTerm_update_progress_fn(f"Error: {buy_info['detail']}")
-                    if 'quantity' in buy_info and buy_info['quantity'] is not None:
-                        self.lstTerm_update_progress_fn(f"Error: {buy_info['quantity']}")
+                    buy_info = r.order_buy_limit(symbol=item[0],quantity=frm_quantity,limitPrice=frm_buy_price,timeInForce='gfd',account_number=acc_num)
                 except Exception as e:
                     self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                     return
@@ -1379,7 +1372,8 @@ class MainWindow(QMainWindow):
         stock_symbols = []   
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
+        #update ticker list for updated portfolio
+        self.ticker_lst = self.get_stocks_from_portfolio(acc_num)
     
         return
 #----------------------------------------------------------------------------------------------------------------------------------
