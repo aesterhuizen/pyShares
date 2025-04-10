@@ -89,7 +89,11 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
         
-       
+        #add combo box items to Dollar Share selector
+        self.ui.cmbDollarShare.addItem("Buy in USD")
+        self.ui.cmbDollarShare.addItem("Buy in Shares")
+        self.ui.cmbDollarShare.setVisible(False)
+
         # set the meta data textboxes and labels to invisible
         self.ui.edtRaiseAmount.setVisible(False)
         self.ui.lblRaiseAmount.setVisible(False)
@@ -240,7 +244,7 @@ class MainWindow(QMainWindow):
                     self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
                     #setup plot widget
                     self.setup_plot(self.ticker_lst)
-            else: #user pressed cancel at cridential dialog
+            else: #user pressed cancel at credential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
 
         #Setup signals / Slots
@@ -261,7 +265,9 @@ class MainWindow(QMainWindow):
         button_cred_action.triggered.connect(self.Show_msgCredentials)
         button_cred_action = self.ui.toolBar.addAction(button_cred_action)
 
-      
+       
+        #connect function to combo dollar/value selector
+        self.ui.cmbDollarShare.activated.connect(self.cmbDollarShare_clicked)
         #connect sigals and slots Account combo box
         self.ui.cmbAccount.activated.connect(self.account_clicked)
         #connect sigals and slots Actions combo box
@@ -306,8 +312,8 @@ class MainWindow(QMainWindow):
         #set ticker_lst = prev_lst
         self.prev_ticker_lst = self.ticker_lst
         
-        
-        
+        # result = {}
+        # result = r.helper.request_get("https://robinhood.com/lists/custom/a764433c-deb9-47af-a05c-35391b76fa60")
         # #create an update worker thread to update the asset list every 10 seconds 
         self.update_thread = UpdateThread(self.updateLstAssets)
         self.update_thread.start()
@@ -556,7 +562,38 @@ class MainWindow(QMainWindow):
         else: #user pressed cancel at cridential dialog
             return
 
-
+    def btnWithdraw_clicked(self):
+        bank_accounts = r.get_linked_bank_accounts()
+        ach_relationship = bank_accounts[self.ui.cmbAccount.currentText() - 1]['url']
+        withdrawl = r.withdrawl_funds_to_bank_account(ach_relationship, 1.0)
+        return
+    
+    def cmbDollarShare_clicked(self):
+        dollar_share = self.ui.cmbDollarShare.currentText()
+        if dollar_share == "Buy in USD":
+           self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+           self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+           self.ui.lblRaiseAmount.setVisible(True)
+           self.ui.edtRaiseAmount.setVisible(True)
+           self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
+           self.ui.lblDollarValueToSell.setVisible(True)
+           self.ui.edtDollarValueToSell.setVisible(True)
+           self.ui.edtBuyWithAmount.setVisible(True)
+           self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+           self.ui.lblBuyWithAmount.setVisible(True)
+        elif dollar_share == "Buy in Shares":
+            self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+            self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+            self.ui.lblRaiseAmount.setVisible(True)
+            self.ui.edtRaiseAmount.setVisible(True)
+            self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
+            self.ui.lblDollarValueToSell.setVisible(True)
+            self.ui.edtDollarValueToSell.setVisible(True)
+            self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+            self.ui.lblBuyWithAmount.setVisible(True)
+    
+        return
+    
     def tblAsset_clicked(self):
         
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
@@ -578,7 +615,6 @@ class MainWindow(QMainWindow):
                 self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True)
                 self.ui.edtDollarValueToSell.setVisible(True)
-
                 self.ui.lblRaiseAmount.setText("Sell Selected Asset:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 
@@ -669,6 +705,9 @@ class MainWindow(QMainWindow):
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
                 self.ui.ledit_Iteration.setText("1")
+                self.ui.cmbDollarShare.setVisible(True)
+                self.ui.cmbDollarShare.setCurrentIndex(0)
+                self.ui.cmbDollarShare.setToolTip("Sell/buy shares in US Dollars or Shares")
                 self.setup_plot(self.ticker_lst)
                
             # self.ui.edtRaiseAmount.setVisible(False)
@@ -850,6 +889,10 @@ class MainWindow(QMainWindow):
             self.ui.edtBuyWithAmount.setVisible(True)
             self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
             self.ui.lblBuyWithAmount.setVisible(True)
+
+            self.ui.cmbDollarShare.setVisible(True)
+            self.ui.cmbDollarShare.setCurrentIndex(0)
+            self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
 
         else: #default
             self.ui.edtRaiseAmount.setVisible(False)
@@ -1289,11 +1332,11 @@ class MainWindow(QMainWindow):
         #item[6]= 1 year history
         
         stocks_to_buy = []
-        
+        BuyinShares = 0
         buy_list = []
         dollar_value_to_buy = float(dollar_value_to_sell)
         buying_with_amount = float(buying_with)
-
+        quantity_to_buy = 0.0
         stock_symbols = []
         money_left = buying_with_amount
         found = False
@@ -1302,29 +1345,43 @@ class MainWindow(QMainWindow):
         stocks_to_buy = raise_amount.split(',')
 
         
-        while not (money_left <= 0.0):
+        while not (money_left <= 0.0) and BuyinShares != 1:
             if self.command_thread.stop_event.is_set():
                 break
             for item in stocks_to_buy:
                 if money_left <= 0.0:
                     break    
                 last_price = r.get_quotes(item, "last_trade_price")[0]
-                quantity_to_buy = dollar_value_to_buy / float(last_price)     
-                frm_quantity_to_buy = "{0:.2f}".format(float(quantity_to_buy))
+                if (self.ui.cmbDollarShare.currentText() == "Buy in Shares"):
+                    quantity_to_buy = dollar_value_to_buy
+                    BuyinShares = 1
 
-                for i,value in enumerate(buy_list): #check if already in list and return index
-                    #if found in list add the quantity to buy
-                    if value[0] == item:
-                        exist_quantity = buy_list[i][1]
-                        buy_list[i][1] = exist_quantity + quantity_to_buy
-                        money_left -= quantity_to_buy*float(last_price)
-                        found = True
-                        break
-                                
-                if not found:
-                    itm = [item,quantity_to_buy,float(last_price)]
-                    buy_list.append(itm)
-                    money_left -= quantity_to_buy*float(last_price)   
+                    if not found:
+                       itm = [item,quantity_to_buy,float(last_price)]
+                       buy_list.append(itm)
+                       money_left -= quantity_to_buy*float(last_price) 
+                    
+                else:
+                    quantity_to_buy = dollar_value_to_buy / float(last_price)     
+                    BuyinShares = 0
+
+                    for i,value in enumerate(buy_list): #check if already in list and return index
+                        #if found in list add the quantity to buy
+                        if value[0] == item:
+                            exist_quantity = buy_list[i][1]
+                            buy_list[i][1] = exist_quantity + quantity_to_buy
+                            if BuyinShares:
+                                money_left -= float(last_price)
+                            else:
+                                money_left -= quantity_to_buy*float(last_price)
+
+                            found = True
+                            break
+                                    
+                    if not found:
+                        itm = [item,quantity_to_buy,float(last_price)]
+                        buy_list.append(itm)
+                        money_left -= quantity_to_buy*float(last_price)   
                 
             
             
