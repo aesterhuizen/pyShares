@@ -15,6 +15,7 @@ from matplotlib.figure import Figure
 matplotlib.use('QtAgg')
 
 import re
+from PyQt6.QtGui import QPalette
 
 
 from threading import Thread,Lock
@@ -279,7 +280,6 @@ class MainWindow(QMainWindow):
         
         #connect signal/slot for Execute button
         self.ui.btnExecute.clicked.connect(self.btnExecute_clicked)
-        self.ui.btnExecute.setEnabled(False)
         #connect GetAccount button
         self.ui.btnStoreAccounts.clicked.connect(self.StoreAccounts)
         #connect signal/slot for edtRaiseAmount
@@ -385,7 +385,7 @@ class MainWindow(QMainWindow):
         #update the list every 10 seconds
         
         time.sleep(10)
-        # if there is stocks in list update it every 10 seconds
+        # if there is stocks in list update it every 10 seconds if there is something to update
         if len(self.ticker_lst) != 0: 
             lst_assets = self.ticker_lst
         
@@ -429,6 +429,7 @@ class MainWindow(QMainWindow):
                             table_item.setText(lst_elements_to_update[row][col])
                         else:
                             table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
+                            
                         if lst_elements_to_update[row][2] > 0.0:
                             table_item.setForeground(QColor("green"))
                         elif lst_elements_to_update[row][2] < 0.0:
@@ -562,13 +563,11 @@ class MainWindow(QMainWindow):
         else: #user pressed cancel at cridential dialog
             return
 
-    def btnWithdraw_clicked(self):
-        bank_accounts = r.get_linked_bank_accounts()
-        ach_relationship = bank_accounts[self.ui.cmbAccount.currentText() - 1]['url']
-        withdrawl = r.withdrawl_funds_to_bank_account(ach_relationship, 1.0)
-        return
-    
+      
     def cmbDollarShare_clicked(self):
+        lstShares = []
+        priceTotal = 0.0
+
         dollar_share = self.ui.cmbDollarShare.currentText()
         if dollar_share == "Buy in USD":
            self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
@@ -581,6 +580,11 @@ class MainWindow(QMainWindow):
            self.ui.edtBuyWithAmount.setVisible(True)
            self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
            self.ui.lblBuyWithAmount.setVisible(True)
+
+           self.ui.edtBuyWithAmount.setEnabled(True)   
+           self.ui.edtBuyWithAmount.setText("")
+           self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.WindowText)
+
         elif dollar_share == "Buy in Shares":
             self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
             self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
@@ -589,9 +593,10 @@ class MainWindow(QMainWindow):
             self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.edtDollarValueToSell.setVisible(True)
-            self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+            self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
             self.ui.lblBuyWithAmount.setVisible(True)
-    
+
+           
         return
     
     def tblAsset_clicked(self):
@@ -624,11 +629,18 @@ class MainWindow(QMainWindow):
 
                 strjoinlst = ",".join(selected_tickers)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+                self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
-                self.ui.lblDollarValueToSell.setText("Dollar value to Buy:")
-                self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True)
+                self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
+                self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+                self.ui.lblBuyWithAmount.setVisible(True)
+
+                self.ui.cmbDollarShare.setVisible(True)
+                self.ui.cmbDollarShare.setCurrentIndex(0)
+                self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
                 
                 
                 self.ui.edtRaiseAmount.setText(strjoinlst)
@@ -705,9 +717,8 @@ class MainWindow(QMainWindow):
                 self.ui.lblBuyWithAmount.setVisible(False)
                 self.ui.edtBuyWithAmount.setVisible(False)
                 self.ui.ledit_Iteration.setText("1")
-                self.ui.cmbDollarShare.setVisible(True)
-                self.ui.cmbDollarShare.setCurrentIndex(0)
-                self.ui.cmbDollarShare.setToolTip("Sell/buy shares in US Dollars or Shares")
+                self.ui.cmbDollarShare.setVisible(False)
+               
                 self.setup_plot(self.ticker_lst)
                
             # self.ui.edtRaiseAmount.setVisible(False)
@@ -764,7 +775,7 @@ class MainWindow(QMainWindow):
         
 
     def ledit_Iteration_textChanged(self):
-        if re.match(r'^[1-9]+$',self.ui.ledit_Iteration.text()):
+        if re.match(r'^\d+$',self.ui.ledit_Iteration.text()):
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
@@ -776,10 +787,48 @@ class MainWindow(QMainWindow):
             self.ui.btnExecute.setEnabled(False)
 
     def edtDollarValueToSell_changed(self):
-        if re.match(r'^[1-9]+$',self.ui.edtDollarValueToSell.text()):
+
+        priceTotal = 0.0
+        dollar_share = self.ui.cmbDollarShare.currentText()
+
+        if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
             self.ui.btnExecute.setEnabled(True)
+           
+            if dollar_share == "Buy in USD":
+                self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+                self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+                self.ui.lblRaiseAmount.setVisible(True)
+                self.ui.edtRaiseAmount.setVisible(True)
+                self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
+                self.ui.lblDollarValueToSell.setVisible(True)
+                self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.edtBuyWithAmount.setVisible(True)
+                self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+                self.ui.lblBuyWithAmount.setVisible(True)
+            elif dollar_share == "Buy in Shares":
+              
+                #get comma separated stocks and get a total estimate it would cost to buy the shares
+                lstShares = self.ui.edtRaiseAmount.text().split(',')
+                for item in lstShares:
+                    if item.strip() == "":
+                        self.ui.btnExecute.setEnabled(False)
+                        break
+                    else:
+                        #get latest price of the stock
+                        last_price = r.get_quotes(item.strip(),"last_trade_price")[0]
+                        priceTotal += float(last_price) * float(self.ui.edtDollarValueToSell.text())
+
+                self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+                self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+                self.ui.edtBuyWithAmount.setEnabled(False)   
+                self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
         else:
-            self.ui.btnExecute.setEnabled(False)
+                self.ui.btnExecute.setEnabled(False)
+                if dollar_share == "Buy in Shares":
+                    self.ui.edtBuyWithAmount.setEnabled(False)   
+                    self.ui.edtBuyWithAmount.setText("")
+                    self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
+                
 
     def edtRaiseAmount_changed(self):
         
@@ -876,6 +925,7 @@ class MainWindow(QMainWindow):
 
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.lblDollarValueToSell.setVisible(True) 
+            
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
         elif perform_action == "buy":
                 
@@ -893,7 +943,21 @@ class MainWindow(QMainWindow):
             self.ui.cmbDollarShare.setVisible(True)
             self.ui.cmbDollarShare.setCurrentIndex(0)
             self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
-
+        elif perform_action == "buy_selected":
+            self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+            self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+            self.ui.lblRaiseAmount.setVisible(True)
+            self.ui.edtRaiseAmount.setVisible(True)
+            self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
+            self.ui.lblDollarValueToSell.setVisible(True)
+            self.ui.edtDollarValueToSell.setVisible(True)
+            self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+            self.ui.lblBuyWithAmount.setVisible(True)
+            self.ui.edtBuyWithAmount.setVisible(True)
+            self.ui.cmbDollarShare.setVisible(True)
+            self.ui.cmbDollarShare.setCurrentIndex(0)
+            self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
         else: #default
             self.ui.edtRaiseAmount.setVisible(False)
             self.ui.edtRaiseAmount.setText("")
@@ -903,6 +967,7 @@ class MainWindow(QMainWindow):
             self.ui.edtBuyWithAmount.setText("")
             self.ui.ledit_Iteration.setText("")
             self.ui.lblDollarValueToSell.setVisible(False)
+            self.ui.cmbDollarShare.setVisible(False)
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
             self.clear_selection_clicked()
             self.setup_plot(self.ticker_lst)
@@ -1349,9 +1414,12 @@ class MainWindow(QMainWindow):
             if self.command_thread.stop_event.is_set():
                 break
             for item in stocks_to_buy:
-                if money_left <= 0.0:
+                # if there is no money left then break and continue buying the stocks that are in the list
+                if money_left <= 0.0: 
                     break    
+                
                 last_price = r.get_quotes(item, "last_trade_price")[0]
+                #buy in shares
                 if (self.ui.cmbDollarShare.currentText() == "Buy in Shares"):
                     quantity_to_buy = dollar_value_to_buy
                     BuyinShares = 1
@@ -1360,8 +1428,10 @@ class MainWindow(QMainWindow):
                        itm = [item,quantity_to_buy,float(last_price)]
                        buy_list.append(itm)
                        money_left -= quantity_to_buy*float(last_price) 
-                    
-                else:
+
+
+                # Buy in dollars    
+                else: 
                     quantity_to_buy = dollar_value_to_buy / float(last_price)     
                     BuyinShares = 0
 
@@ -1398,12 +1468,12 @@ class MainWindow(QMainWindow):
             frm_quantity = "{0:.2f}".format(item[1])
             
             last_price = r.get_quotes(item, "last_trade_price")[0]
-            buy_price = float(last_price) + 0.02
+            buy_price = float(last_price) + 1.00
             frm_buy_price = "{0:.2f}".format(buy_price)
 
             if os.environ['debug'] == '0':
                 try:
-                    buy_info = r.order_buy_limit(symbol=item[0],quantity=frm_quantity,limitPrice=frm_buy_price,timeInForce='gfd',account_number=acc_num)
+                   buy_info = r.order_buy_limit(symbol=item[0],quantity=frm_quantity,limitPrice=frm_buy_price,timeInForce='gfd',account_number=acc_num)
                 except Exception as e:
                     self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                     return
@@ -1451,7 +1521,8 @@ class MainWindow(QMainWindow):
         
         dollar_value_to_buy = float(dollar_value_to_sell)
         stock_symbols = []
-        
+        tot = 0.0
+        gtotal = 0.0
         tgains_actual = 0.0
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         
@@ -1469,11 +1540,18 @@ class MainWindow(QMainWindow):
             
 
             stock_symbols = []
+           
+
             #sell stocks if quantity_to_sell > 0 
             for item in sorted_lst:
-                quantity_to_buy = dollar_value_to_buy / float(item[3])   
+                if (self.ui.cmbDollarShare.currentText() == "Buy in Shares"):
+                    quantity_to_buy = dollar_value_to_buy
+                else:
+                    quantity_to_buy = dollar_value_to_buy / float(item[3])     
+                
                 tot = quantity_to_buy*float(item[3])
                 frm_quantity = "{0:.2f}".format(float(quantity_to_buy))
+
                 if os.environ['debug'] == '0':
                     try:
                         buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.02,account_number=acc_num)
@@ -1485,8 +1563,8 @@ class MainWindow(QMainWindow):
                     
                 #Item 0 =  tickers     #Item 2 = stock_quantity_to_buy  #Item 3 = last price
                 stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
-                
-                lprize = float(item[3])+0.02
+                gtotal += tot 
+                lprize = float(item[3])+0.50
                 last_price = "{0:,.2f}".format(lprize)
                 frm_tot = "{0:,.2f}".format(tot)
                 self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_tot}")
@@ -1499,7 +1577,7 @@ class MainWindow(QMainWindow):
 
         file_buy_write.close()
         
-        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${dollar_value_to_buy * len(lst)}")
+        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${gtotal}")
         
 
         return
