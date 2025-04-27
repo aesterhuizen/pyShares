@@ -5,7 +5,7 @@ build/
 dist/
 __pycache__/
 *.pyc
-*.env
+!example.accInfo.env
 *.sqlite3
 *.csv
 env_path.txt

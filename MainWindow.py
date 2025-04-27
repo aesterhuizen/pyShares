@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.7"
+        self.ver_string = "v1.0.10"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -2012,7 +2012,8 @@ class MainWindow(QMainWindow):
                             
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            self.lstTerm_update_progress_fn(f"Error: Continueing...")
+                            continue
                     
                     
                
