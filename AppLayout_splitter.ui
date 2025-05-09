@@ -398,11 +398,8 @@
            <property name="selectionBehavior">
             <enum>QAbstractItemView::SelectRows</enum>
            </property>
-           <property name="showGrid">
-            <bool>false</bool>
-           </property>
            <property name="sortingEnabled">
-            <bool>true</bool>
+            <bool>false</bool>
            </property>
           </widget>
           <widget class="QListWidget" name="lstTerm">

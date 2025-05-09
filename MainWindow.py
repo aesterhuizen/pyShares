@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.10"
+        self.ver_string = "v1.0.11"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -379,6 +379,7 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
+        #item[10] = stock name
         lst_assets = []
         lst_elements_to_update = []
         get_selected_tickers = []
@@ -391,7 +392,7 @@ class MainWindow(QMainWindow):
         
          
                 #monitor the lstAsset selection
-            get_selected_tickers = self.get_tickers_from_selected_lstAssets()
+            #get_selected_tickers = self.get_tickers_from_selected_lstAssets()
         
         
             
@@ -404,40 +405,42 @@ class MainWindow(QMainWindow):
                 todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
                 quantity = item[4]
                 change = float(last_price) - float(prev_close)    
-                lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
+                lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return])
 
             #update table
             for row in range(len(lst_elements_to_update)):
-                for col in range(1,len(lst_elements_to_update[row])):
+                for col in range(0,len(lst_elements_to_update[row])):
                     table_item = QTableWidgetItem()
                         
                     if col == 2 and lst_elements_to_update[row][col] > 0.0:
                         # found change item add up/down arrow depending on the value
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                         table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                        table_item.setForeground(QColor("green"))
+                        
                     elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                         table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                        table_item.setForeground(QColor("red"))
+                        
                     elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                         table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
-                        table_item.setForeground(QColor("white"))
+                        
                     else:
                         if col == 0:
                             table_item.setText(lst_elements_to_update[row][col])
                         else:
                             table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
                             
-                        if lst_elements_to_update[row][2] > 0.0:
-                            table_item.setForeground(QColor("green"))
-                        elif lst_elements_to_update[row][2] < 0.0:
-                            table_item.setForeground(QColor("red"))
-            
+                        # if lst_elements_to_update[row][2] > 0.0:
+                        #     table_item.setForeground(QColor("green"))
+                            
+                        # elif lst_elements_to_update[row][2] < 0.0:
+                        #     table_item.setForeground(QColor("red"))
+                    
+                    table_item.setForeground(QColor("white"))
                     table_item.setBackground(QColor("black"))
                     table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                    table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                    table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
                     self.ui.tblAssets.setItem(row,col,table_item)
                 
 
@@ -600,14 +603,20 @@ class MainWindow(QMainWindow):
         return
     
     def tblAsset_clicked(self):
-        
+        stock_tickers = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
         selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
+        if len(selected_tickers) > 0:
+            for index, ticker in enumerate(selected_tickers):
+                match = re.search(r"\((\w+)\)", ticker)
+                stock_tickers.append(match.group(1))
+               
+
 
         if len(selected_tickers) > 0:
             if self.ui.cmbAction.currentText() == "stock_info":
-                self.plot.add_plot_to_figure(self.ticker_lst, selected_tickers,self.ui.cmbAction.currentText())
+                self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
                 self.plot.draw()
                
 
@@ -1081,6 +1090,7 @@ class MainWindow(QMainWindow):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
+        #item[10]=stock_name
         join_list = []
         lst_elements_to_update = []
         #set header
@@ -1091,7 +1101,7 @@ class MainWindow(QMainWindow):
         self.ui.tblAssets.setRowCount(len(curlist))
         
         
-        self.ui.tblAssets.setColumnWidth(0,65)
+        self.ui.tblAssets.setColumnWidth(0,300)
         self.ui.tblAssets.setColumnWidth(1,65)
         self.ui.tblAssets.setColumnWidth(2,75)
         self.ui.tblAssets.setColumnWidth(3,75)
@@ -1110,8 +1120,9 @@ class MainWindow(QMainWindow):
             total_return = (float(last_price) - float(item[7])) * float(item[4])
             todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
             quantity = item[4]
-            change = float(last_price) - float(prev_close)    
-            lst_elements_to_update.append([item[0],float(last_price),change,item[4],todays_return,total_return])
+            change = float(last_price) - float(prev_close)  
+              
+            lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return])
 
         #update table
         for row in range(len(lst_elements_to_update)):
@@ -1124,28 +1135,29 @@ class MainWindow(QMainWindow):
                     # found change item add up/down arrow depending on the value
                     table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                     table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                    table_item.setForeground(QColor("green"))
+                    #table_item.setForeground(QColor("green"))
                 elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                     table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                     table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                    table_item.setForeground(QColor("red"))
+                    #table_item.setForeground(QColor("red"))
                 elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                     table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
                     table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
-                    table_item.setForeground(QColor("grey"))
+                    #table_item.setForeground(QColor("grey"))
                 else:
                     if col == 0:
                         table_item.setText(lst_elements_to_update[row][col])
                     else:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
-                    if lst_elements_to_update[row][2] > 0.0: #change item[2]
-                        table_item.setForeground(QColor("green"))
-                    elif lst_elements_to_update[row][2] < 0.0:
-                        table_item.setForeground(QColor("red"))
+                    # if lst_elements_to_update[row][2] > 0.0: #change item[2]
+                    #     table_item.setForeground(QColor("green"))
+                    # elif lst_elements_to_update[row][2] < 0.0:
+                    #     table_item.setForeground(QColor("red"))
            
+                table_item.setForeground(QColor("white"))
                 table_item.setBackground(QColor("black"))
                 table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                table_item.setFont(QFont("Arial",10,QFont.Weight.Bold))
+                table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
                 self.ui.tblAssets.setItem(row,col,table_item)
             
                 
@@ -1157,9 +1169,15 @@ class MainWindow(QMainWindow):
         return
     
     def get_tickers_from_selected_lstAssets(self):
+        stock_tickers = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
         selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
+        if len(selected_tickers) > 0 :
+              for index, ticker in enumerate(selected_tickers):
+                match = re.search(r"\((\w+)\)", ticker)
+                stock_tickers.append(match.group(1))
+                return stock_tickers
         return selected_tickers
     
     def get_stocks_from_portfolio(self, acc_num):
@@ -1176,7 +1194,10 @@ class MainWindow(QMainWindow):
 
         # Get Ticker symbols
         tickers = [r.get_symbol_by_url(item["instrument"]) for item in positions]
-
+        #get stock names
+        stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
+        
+        
         lastPrice = r.get_quotes(tickers, "last_trade_price")
         
 
@@ -1214,8 +1235,8 @@ class MainWindow(QMainWindow):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change))
+        #item[10] = stock name
+        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change,stock_name))
         return tickersPerf
 
     def cal_today_total_gains(self, list_p):
