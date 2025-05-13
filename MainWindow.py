@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.11"
+        self.ver_string = "v1.0.12"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
         self.ui.vertical_splitter.setSizes([450, 50])
         #add combo box items to the action combobox
         self.ui.cmbAction.addItem("stock_info")
-        self.ui.cmbAction.addItem("sell")
+        self.ui.cmbAction.addItem("sell_selected")
         self.ui.cmbAction.addItem("sell_gains")
         self.ui.cmbAction.addItem("sell_todays_return")
         self.ui.cmbAction.addItem("sell_selected")
@@ -280,6 +280,8 @@ class MainWindow(QMainWindow):
         
         #connect signal/slot for Execute button
         self.ui.btnExecute.clicked.connect(self.btnExecute_clicked)
+        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
+        self.ui.btnExecute.setText("Execute ...")
         #connect GetAccount button
         self.ui.btnStoreAccounts.clicked.connect(self.StoreAccounts)
         #connect signal/slot for edtRaiseAmount
@@ -309,11 +311,89 @@ class MainWindow(QMainWindow):
 
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
+
+        #setup the status table widget
+        tbl_Index = QTableWidget()
+        tbl_Index.width = 540
+        tbl_Index.setObjectName("tbl_Index")
+        tbl_Index.setMaximumHeight(25)
+        tbl_Index.setMinimumWidth(540)
+       
+        tbl_Index.setRowCount(1)
+        tbl_Index.horizontalHeader().setVisible(False)
+        tbl_Index.verticalHeader().setVisible(False)
+        tbl_Index.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        tbl_Index.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        
+        lst_SPY = []
+        count = 0
+        SPY_value = r.get_quotes("IVV","last_trade_price")[0]
+        SPY_prev_close = r.get_quotes("IVV","previous_close")[0]
+        SPY_Gains = (float(SPY_value) - float(SPY_prev_close)) * 100 / float(SPY_prev_close)
+
+        QQQ_value = r.get_quotes("QQQ","last_trade_price")[0]
+        QQQ_prev_close = r.get_quotes("QQQ","previous_close")[0]
+        QQQ_Gains = (float(QQQ_value) - float(QQQ_prev_close)) * 100 / float(QQQ_prev_close)
+
+        Dow_value = r.get_quotes("DIA","last_trade_price")[0]
+        Dow_prev_close = r.get_quotes("DIA","previous_close")[0]
+        Dow_Gains = (float(Dow_value) - float(Dow_prev_close)) * 100 / float(Dow_prev_close)
+
+        lst_SPY.append(["QQQ", float(QQQ_value),float(QQQ_Gains)])
+        lst_SPY.append(["S&P", float(SPY_value),float(SPY_Gains)])
+        lst_SPY.append(["DOW", float(Dow_value),float(Dow_Gains)])
+
+
+        tbl_Index.setColumnCount(3*len(lst_SPY))
+        SPY_icon_up = QIcon(f"{self.icon_path}\\up.png")
+        SPY_icon_down = QIcon(f"{self.icon_path}\\down.png")
+        SPY_icon_equal = QIcon(f"{self.icon_path}\\equal.png")
+        
+        
+        for row in range(len(lst_SPY)):
+            for col in range(0,3):
+                table_item = QTableWidgetItem()
+                if col == 2 and lst_SPY[row][col] > 0.0:
+                    # found change item add up/down arrow depending on the value
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_up)
+                elif col == 2 and lst_SPY[row][col] < 0.0:
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_down)
+                elif col == 2 and lst_SPY[row][col] == 0.0:
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_equal)
+                else:
+                    if col == 0:
+                        table_item.setText(lst_SPY[row][col])
+                    else:
+                        table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+
+                
+                table_item.setFont(QFont("Arial",8))
+                table_item.setBackground(QColor("Black"))
+                table_item.setForeground(QColor("White"))
+                if row > 0:
+                    count += 1
+                    tbl_Index.setColumnWidth(2+count, 55)
+                    tbl_Index.setItem(0,2+count, table_item)
+                elif row == 0:
+                    tbl_Index.setItem(0,col, table_item)
+                    tbl_Index.setColumnWidth(col, 55)
+
+                    # else:
+               
+                    
+              
+        self.ui.statusBar.addWidget(tbl_Index,1)
+            
+       
+        
         #set ticker_lst = prev_lst
         self.prev_ticker_lst = self.ticker_lst
         
-        # result = {}
-        # result = r.helper.request_get("https://robinhood.com/lists/custom/a764433c-deb9-47af-a05c-35391b76fa60")
+      
         # #create an update worker thread to update the asset list every 10 seconds 
         self.update_thread = UpdateThread(self.updateLstAssets)
         self.update_thread.start()
@@ -360,6 +440,66 @@ class MainWindow(QMainWindow):
         lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
         lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
        
+        # #setup the status table widget
+        tbl_Index = self.ui.statusBar.findChild(QTableWidget, "tbl_Index")
+        
+        
+        lst_SPY = []
+        count = 0
+        SPY_value = r.get_quotes("IVV","last_trade_price")[0]
+        SPY_prev_close = r.get_quotes("IVV","previous_close")[0]
+        SPY_Gains = (float(SPY_value) - float(SPY_prev_close)) * 100 / float(SPY_prev_close)
+
+        QQQ_value = r.get_quotes("QQQ","last_trade_price")[0]
+        QQQ_prev_close = r.get_quotes("QQQ","previous_close")[0]
+        QQQ_Gains = (float(QQQ_value) - float(QQQ_prev_close)) * 100 / float(QQQ_prev_close)
+
+        Dow_value = r.get_quotes("DIA","last_trade_price")[0]
+        Dow_prev_close = r.get_quotes("DIA","previous_close")[0]
+        Dow_Gains = (float(Dow_value) - float(Dow_prev_close)) * 100 / float(Dow_prev_close)
+
+        lst_SPY.append(["QQQ", float(QQQ_value),float(QQQ_Gains)])
+        lst_SPY.append(["S&P", float(SPY_value),float(SPY_Gains)])
+        lst_SPY.append(["Dow", float(Dow_value),float(Dow_Gains)])
+
+
+        
+        SPY_icon_up = QIcon(f"{self.icon_path}\\up.png")
+        SPY_icon_down = QIcon(f"{self.icon_path}\\down.png")
+        SPY_icon_equal = QIcon(f"{self.icon_path}\\equal.png")
+        
+        
+        for row in range(len(lst_SPY)):
+            for col in range(0,3):
+                table_item = QTableWidgetItem()
+                if col == 2 and lst_SPY[row][col] > 0.0:
+                    # found change item add up/down arrow depending on the value
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_up)
+                elif col == 2 and lst_SPY[row][col] < 0.0:
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_down)
+                elif col == 2 and lst_SPY[row][col] == 0.0:
+                    table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                    table_item.setIcon(SPY_icon_equal)
+                else:
+                    if col == 0:
+                        table_item.setText(lst_SPY[row][col])
+                    else:
+                        table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+
+                
+                table_item.setFont(QFont("Arial",8))
+                table_item.setBackground(QColor("Black"))
+                table_item.setForeground(QColor("White"))
+                if row > 0:
+                    count += 1
+                    tbl_Index.setColumnWidth(2+count, 55)
+                    tbl_Index.setItem(0,2+count, table_item)
+                elif row == 0:
+                    tbl_Index.setItem(0,col, table_item)
+                    tbl_Index.setColumnWidth(col, 55)
+
 
         return
     
@@ -784,13 +924,13 @@ class MainWindow(QMainWindow):
         
 
     def ledit_Iteration_textChanged(self):
-        if re.match(r'^\d+$',self.ui.ledit_Iteration.text()):
+        if re.match(r'^\d+$',self.ui.ledit_Iteration.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
 
     def edtBuyWithAmount_changed(self):
-        if re.match(r'^[1-9]+$',self.ui.edtBuyWithAmount.text()):
+        if re.match(r'^[1-9]+$',self.ui.edtBuyWithAmount.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
@@ -800,7 +940,7 @@ class MainWindow(QMainWindow):
         priceTotal = 0.0
         dollar_share = self.ui.cmbDollarShare.currentText()
 
-        if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
+        if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
            
             if dollar_share == "Buy in USD":
@@ -841,10 +981,10 @@ class MainWindow(QMainWindow):
 
     def edtRaiseAmount_changed(self):
         
-        if re.match(r'^[A-Z,]+$',self.ui.edtRaiseAmount.text()) :
+        if re.match(r'^[A-Z,]+$',self.ui.edtRaiseAmount.text()) and self.ui.cmbAction.currentText() != "stock_info":
             return
 
-        if re.match(r'^[1-9]+$',self.ui.edtRaiseAmount.text()):
+        if re.match(r'^[1-9]+$',self.ui.edtRaiseAmount.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
         else:
             self.ui.btnExecute.setEnabled(False)
@@ -885,16 +1025,18 @@ class MainWindow(QMainWindow):
     def Cancel_operation(self):
         if self.command_thread.is_alive():
             self.command_thread.stop()
+
+        
+        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
+        self.ui.btnExecute.setText("Execute ...")
         self.ui.btnExecute.setEnabled(False)
         return
     
     def btnExecute_clicked(self):
-        if self.ui.btnExecute.text() == "Execute ...":
-            self.ui.btnExecute.setText("Cancel")
-            self.Execute_operation()
-        elif self.ui.btnExecute.text() == "Cancel":
-            self.ui.btnExecute.setText("Execute ...")
+        if self.ui.btnExecute.text() == "Cancel":
             self.Cancel_operation()
+        elif self.ui.btnExecute.text() == "Execute ...":    
+            self.Execute_operation()
             
     
 
@@ -1046,8 +1188,12 @@ class MainWindow(QMainWindow):
 
         confirm = QMessageBox.question(self,"Confirm",f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'?",QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if confirm == QMessageBox.StandardButton.Yes:
-
-         #call the method to execute
+            
+            #Change btnExecute to red cancel
+            self.ui.btnExecute.setText("Cancel")
+            self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")  # Change background to red
+           
+            #call the method to execute
             name_of_method = self.ui.cmbAction.currentText()
 
            
@@ -1065,8 +1211,16 @@ class MainWindow(QMainWindow):
             # start thread
             self.command_thread.start()
 
-            if self.ui.btnExecute.text() == "Cancel":
-                self.ui.btnExecute.setText("Execute ...")
+            # if self.ui.btnExecute.text() == "Execute":
+            #     self.ui.btnExecute.setText("Cancel Operation")
+                
+            # else:
+            #     self.ui.btnExecute.setText("Cancel")
+        else:
+            #user pressed no
+            self.ui.btnExecute.setText("Execute ...")
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                
             
         return 
             
@@ -1379,6 +1533,11 @@ class MainWindow(QMainWindow):
                     #---------------- market_price < price sold -------------------------------------------------
                     if market_price_of_stock < float(price_sold):
                         if (market_price_of_stock*per_quantity) <= total_gains:
+
+                            if self.command_thread.stop_event.is_set():
+                                print("stop event")
+                                self.lstTerm_update_progress_fn("Operation Cancelled!")
+                                break
                             if os.environ['debug'] == '0':
                                 try:
                                     buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
@@ -1433,6 +1592,8 @@ class MainWindow(QMainWindow):
         
         while not (money_left <= 0.0) and BuyinShares != 1:
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             for item in stocks_to_buy:
                 # if there is no money left then break and continue buying the stocks that are in the list
@@ -1482,6 +1643,8 @@ class MainWindow(QMainWindow):
         for item in buy_list:    
             time.sleep(5)
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             # Item[0] = stock_name
             # Item[1] = quantity to buy
@@ -1559,12 +1722,23 @@ class MainWindow(QMainWindow):
         for index in range(int(n)):
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
-
+            #if user click cancel then cancel operation
+            if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
+                break
+            
             stock_symbols = []
            
 
             #sell stocks if quantity_to_sell > 0 
             for item in sorted_lst:
+                   #if user click cancel then cancel operation
+                if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
+                    break
+
                 if (self.ui.cmbDollarShare.currentText() == "Buy in Shares"):
                     quantity_to_buy = dollar_value_to_buy
                 else:
@@ -1657,6 +1831,12 @@ class MainWindow(QMainWindow):
             frm_quantity = float(item[2])
             frm_quantity += 0.02
             str_quantity = str(frm_quantity)
+            #if user click cancel then cancel operation
+            if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
+                break
+
             if os.environ['debug'] == '0':
                 try:
                     buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=item[3]+0.2,account_number=acc_num)
@@ -1750,14 +1930,20 @@ class MainWindow(QMainWindow):
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
+            
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst:
+              
                 time.sleep(5)
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
                 
                 shares_to_sell = float(dollar_value_to_sell)/float(item[3])
@@ -1834,15 +2020,21 @@ class MainWindow(QMainWindow):
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             stock_symbols = []    
             self.lstTerm_update_progress_fn(f"Iteration: {index+1}")
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
                 frm_quantity = "{0:,.2f}".format(float(item[2]))
+              
                 
                 time.sleep(5)
+                    #if user click cancel then cancel operation
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                 if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
@@ -1926,16 +2118,24 @@ class MainWindow(QMainWindow):
         
         for index in range(int(n)):
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
+              #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             stock_symbols = []
 
             
                 #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
+              
                 time.sleep(5)
+                 #if user click cancel then cancel operation
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
+                
 
                 frm_quantity = "{0:,.2f}".format(float(item[2]))
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
@@ -1966,7 +2166,7 @@ class MainWindow(QMainWindow):
             
                   
         file_sell_write.close()
-        tgains_actual= "{0:,.2f}".format(tgains_actual*int(n))
+        tgains_actual= "{0:,.2f}".format(tgains_actual)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${tgains_actual}")
         
 
@@ -2007,7 +2207,10 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
+               #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
@@ -2015,8 +2218,12 @@ class MainWindow(QMainWindow):
             stock_symbols = []
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
+               
                 time.sleep(5)
+                  #if user click cancel then cancel operation
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
                 #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
@@ -2050,7 +2257,7 @@ class MainWindow(QMainWindow):
         
         stocks_format = ",".join(stock_symbols)
         file_sell_write.write(stocks_format)
-        fmt_tgains_actual = "{0:.2f}".format(tgains_actual*int(n))
+        fmt_tgains_actual = "{0:.2f}".format(tgains_actual)
         file_sell_write.close() 
            
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
@@ -2106,7 +2313,10 @@ class MainWindow(QMainWindow):
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")
         for index in range(int(n)):
+              #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
             
@@ -2114,9 +2324,14 @@ class MainWindow(QMainWindow):
             #sell stocks if quantity_to_sell > 0 
             for item in sorderd_lst: #
                 time.sleep(5)
+                    #if user click cancel then cancel operation
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
-                #cal how much to sell for today's gains
+               
+
+                              #cal how much to sell for today's gains
                 amount_to_sell = float(item[5]) / float(item[3])
                 frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
 
@@ -2153,7 +2368,7 @@ class MainWindow(QMainWindow):
         
         file_sell_write.close()
         stock_symbols = []   
-        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n)) 
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual) 
         
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
         
@@ -2188,7 +2403,10 @@ class MainWindow(QMainWindow):
         tgains_actual = 0.0
         self.lstTerm_update_progress_fn(f"Raise ${frmt_raise_amount} by selling ${frmt_dollar_value} dollars of each stock: Total gains = ${n_raise_amount}")
         while not (raised_amount >= n_raise_amount):
+               #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             for item in sorderd_lst:
                     #Item 0 =  tickers
@@ -2232,8 +2450,12 @@ class MainWindow(QMainWindow):
         
 
         for item in sell_list:    
+               #if user click cancel then cancel operation
+           
             time.sleep(5)
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             # Item[0] = stock_name
             # Item[1] = quantity to sell
@@ -2327,11 +2549,16 @@ class MainWindow(QMainWindow):
         
 
         while not (raised_amount >= n_raise_amount):
+              #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             #loop through the list of tickers and build a new list(sell_list) of quantities to sell
             for item in sorderd_lst:
                 if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
                 #Item[0] =  tickers
                 #Item[1] = Total_return
@@ -2370,8 +2597,12 @@ class MainWindow(QMainWindow):
         
 
         for item in sell_list:        
+           
             time.sleep(5)
+                #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
             # Item[0] = stock_name
             # Item[1] = quantity to sell
