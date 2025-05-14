@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.12"
+        self.ver_string = "v1.0.13"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -314,17 +314,17 @@ class MainWindow(QMainWindow):
 
         #setup the status table widget
         tbl_Index = QTableWidget()
-        tbl_Index.width = 540
+        tbl_Index.width = 495
         tbl_Index.setObjectName("tbl_Index")
         tbl_Index.setMaximumHeight(25)
-        tbl_Index.setMinimumWidth(540)
+        tbl_Index.setMinimumWidth(495)
        
         tbl_Index.setRowCount(1)
         tbl_Index.horizontalHeader().setVisible(False)
         tbl_Index.verticalHeader().setVisible(False)
         tbl_Index.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         tbl_Index.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
+        tbl_Index.setShowGrid(False)
         
         lst_SPY = []
         count = 0
@@ -341,8 +341,8 @@ class MainWindow(QMainWindow):
         Dow_Gains = (float(Dow_value) - float(Dow_prev_close)) * 100 / float(Dow_prev_close)
 
         lst_SPY.append(["QQQ", float(QQQ_value),float(QQQ_Gains)])
-        lst_SPY.append(["S&P", float(SPY_value),float(SPY_Gains)])
-        lst_SPY.append(["DOW", float(Dow_value),float(Dow_Gains)])
+        lst_SPY.append(["S&P", float(SPY_value)*10,float(SPY_Gains)])
+        lst_SPY.append(["DOW", float(Dow_value)*100,float(Dow_Gains)])
 
 
         tbl_Index.setColumnCount(3*len(lst_SPY))
@@ -368,7 +368,7 @@ class MainWindow(QMainWindow):
                     if col == 0:
                         table_item.setText(lst_SPY[row][col])
                     else:
-                        table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                        table_item.setText("{0:,.2f}".format(lst_SPY[row][col]))
 
                 
                 table_item.setFont(QFont("Arial",8))
@@ -459,8 +459,8 @@ class MainWindow(QMainWindow):
         Dow_Gains = (float(Dow_value) - float(Dow_prev_close)) * 100 / float(Dow_prev_close)
 
         lst_SPY.append(["QQQ", float(QQQ_value),float(QQQ_Gains)])
-        lst_SPY.append(["S&P", float(SPY_value),float(SPY_Gains)])
-        lst_SPY.append(["Dow", float(Dow_value),float(Dow_Gains)])
+        lst_SPY.append(["S&P", float(SPY_value)*10,float(SPY_Gains)])
+        lst_SPY.append(["Dow", float(Dow_value)*100,float(Dow_Gains)])
 
 
         
@@ -470,7 +470,7 @@ class MainWindow(QMainWindow):
         
         
         for row in range(len(lst_SPY)):
-            for col in range(0,3):
+            for col in range(1,4):
                 table_item = QTableWidgetItem()
                 if col == 2 and lst_SPY[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
@@ -486,7 +486,7 @@ class MainWindow(QMainWindow):
                     if col == 0:
                         table_item.setText(lst_SPY[row][col])
                     else:
-                        table_item.setText("{0:.2f}".format(lst_SPY[row][col]))
+                        table_item.setText("{0:,.2f}".format(lst_SPY[row][col]))
 
                 
                 table_item.setFont(QFont("Arial",8))
@@ -549,7 +549,7 @@ class MainWindow(QMainWindow):
 
             #update table
             for row in range(len(lst_elements_to_update)):
-                for col in range(0,len(lst_elements_to_update[row])):
+                for col in range(len(lst_elements_to_update[row])):
                     table_item = QTableWidgetItem()
                         
                     if col == 2 and lst_elements_to_update[row][col] > 0.0:
@@ -569,14 +569,9 @@ class MainWindow(QMainWindow):
                         if col == 0:
                             table_item.setText(lst_elements_to_update[row][col])
                         else:
-                            table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
+                            table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
                             
-                        # if lst_elements_to_update[row][2] > 0.0:
-                        #     table_item.setForeground(QColor("green"))
-                            
-                        # elif lst_elements_to_update[row][2] < 0.0:
-                        #     table_item.setForeground(QColor("red"))
-                    
+                    #set the table item properties   
                     table_item.setForeground(QColor("white"))
                     table_item.setBackground(QColor("black"))
                     table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -1246,6 +1241,7 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
         #item[10]=stock_name
         join_list = []
+       
         lst_elements_to_update = []
         #set header
         
@@ -1302,12 +1298,9 @@ class MainWindow(QMainWindow):
                     if col == 0:
                         table_item.setText(lst_elements_to_update[row][col])
                     else:
-                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))   
-                    # if lst_elements_to_update[row][2] > 0.0: #change item[2]
-                    #     table_item.setForeground(QColor("green"))
-                    # elif lst_elements_to_update[row][2] < 0.0:
-                    #     table_item.setForeground(QColor("red"))
-           
+                        table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
+                  
+                #set table properties
                 table_item.setForeground(QColor("white"))
                 table_item.setBackground(QColor("black"))
                 table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -1391,7 +1384,9 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
         #item[10] = stock name
         tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change,stock_name))
-        return tickersPerf
+        sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+        return sorted_list
 
     def cal_today_total_gains(self, list_p):
         
