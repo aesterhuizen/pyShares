@@ -294,6 +294,24 @@ class MainWindow(QMainWindow):
         #connect the Asset table box
         self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         #setup status bar
+        self.setupStatusbar()
+            
+       
+        
+        #set ticker_lst = prev_lst
+        self.prev_ticker_lst = self.ticker_lst
+        
+      
+        # #create an update worker thread to update the asset list every 10 seconds 
+        self.update_thread = UpdateThread(self.updateLstAssets)
+        self.update_thread.start()
+  
+        # show the Mainwindow
+        self.show()
+            
+    
+    def setupStatusbar(self):
+
         lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
         lblStatusBar.setMinimumWidth(50)
         lblStatusBar.setObjectName("lblStatusBar")
@@ -311,8 +329,7 @@ class MainWindow(QMainWindow):
 
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
-
-        #setup the status table widget
+    
         tbl_Index = QTableWidget()
         tbl_Index.width = 495
         tbl_Index.setObjectName("tbl_Index")
@@ -382,27 +399,11 @@ class MainWindow(QMainWindow):
                     tbl_Index.setItem(0,col, table_item)
                     tbl_Index.setColumnWidth(col, 55)
 
-                    # else:
-               
-                    
-              
+             
         self.ui.statusBar.addWidget(tbl_Index,1)
-            
-       
-        
-        #set ticker_lst = prev_lst
-        self.prev_ticker_lst = self.ticker_lst
-        
-      
-        # #create an update worker thread to update the asset list every 10 seconds 
-        self.update_thread = UpdateThread(self.updateLstAssets)
-        self.update_thread.start()
-  
-        # show the Mainwindow
-        self.show()
-            
+        return
     
-          
+        
     def closeEvent(self, event):
         # Perform any cleanup or save operations here
         try:
@@ -470,7 +471,7 @@ class MainWindow(QMainWindow):
         
         
         for row in range(len(lst_SPY)):
-            for col in range(1,4):
+            for col in range(0,3):
                 table_item = QTableWidgetItem()
                 if col == 2 and lst_SPY[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
