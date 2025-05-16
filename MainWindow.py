@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.13"
+        self.ver_string = "v1.0.14"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -318,13 +318,13 @@ class MainWindow(QMainWindow):
         self.ui.statusBar.addWidget(lblStatusBar,1)
 
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
-        lblStatusBar_pctT = QLabel(f"Total Gains: ${frm_TotalGains}")
+        lblStatusBar_pctT = QLabel(f"Total Return: ${frm_TotalGains}")
         lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
         lblStatusBar_pctT.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
 
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
-        lblStatusBar_pctToday = QLabel(f"Todays Gains: ${frm_TodayGains}")
+        lblStatusBar_pctToday = QLabel(f"Todays Return: ${frm_TodayGains}")
         lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
 
         lblStatusBar_pctToday.setMinimumWidth(150)
@@ -388,9 +388,9 @@ class MainWindow(QMainWindow):
                         table_item.setText("{0:,.2f}".format(lst_SPY[row][col]))
 
                 
-                table_item.setFont(QFont("Arial",8))
-                table_item.setBackground(QColor("Black"))
-                table_item.setForeground(QColor("White"))
+                table_item.setFont(QFont("Arial",8,QFont.Weight.Bold))
+                table_item.setBackground(QColor("White"))
+                table_item.setForeground(QColor("Black"))
                 if row > 0:
                     count += 1
                     tbl_Index.setColumnWidth(2+count, 55)
@@ -490,9 +490,9 @@ class MainWindow(QMainWindow):
                         table_item.setText("{0:,.2f}".format(lst_SPY[row][col]))
 
                 
-                table_item.setFont(QFont("Arial",8))
-                table_item.setBackground(QColor("Black"))
-                table_item.setForeground(QColor("White"))
+                table_item.setFont(QFont("Arial",8,QFont.Weight.Bold))
+                table_item.setBackground(QColor("White"))
+                table_item.setForeground(QColor("Black"))
                 if row > 0:
                     count += 1
                     tbl_Index.setColumnWidth(2+count, 55)
@@ -741,8 +741,9 @@ class MainWindow(QMainWindow):
     def tblAsset_clicked(self):
         stock_tickers = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        
         selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
+       
+
         if len(selected_tickers) > 0:
             for index, ticker in enumerate(selected_tickers):
                 match = re.search(r"\((\w+)\)", ticker)
@@ -760,7 +761,7 @@ class MainWindow(QMainWindow):
             #check to see if the action is sell selected
             elif self.ui.cmbAction.currentText() == "sell_selected":
             
-                strjoinlst = ",".join(selected_tickers)
+                strjoinlst = ",".join(stock_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True)
@@ -772,7 +773,7 @@ class MainWindow(QMainWindow):
 
             elif self.ui.cmbAction.currentText() == "buy_selected" :
 
-                strjoinlst = ",".join(selected_tickers)
+                strjoinlst = ",".join(stock_tickers)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
                 self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -791,7 +792,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 
             elif self.ui.cmbAction.currentText() == "buy_selected_with_x":
-                strjoinlst = ",".join(selected_tickers)
+                strjoinlst = ",".join(stock_tickers)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setText("Buy Dollar value of each Stock(s):")
@@ -819,11 +820,9 @@ class MainWindow(QMainWindow):
                     self.ui.btnExecute.setEnabled(True)
 
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                strjoinlst = ",".join(selected_tickers)
+                strjoinlst = ",".join(stock_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
-                self.ui.lblDollarValueToSell.setVisible(True)
-                self.ui.edtRaiseAmount.setVisible(True)
-                self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.edtRaiseAmount.setVisible(True)               
                 self.ui.lblRaiseAmount.setText("Sell Assets Except:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 self.ui.edtBuyWithAmount.setText("")
@@ -831,11 +830,9 @@ class MainWindow(QMainWindow):
                
                     
             elif self.ui.cmbAction.currentText() == "sell_gains_except_x":
-                strjoinlst = ",".join(selected_tickers)
+                strjoinlst = ",".join(stock_tickers)
                 self.ui.lblRaiseAmount.setVisible(True)
-                self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True)
-                self.ui.edtDollarValueToSell.setVisible(True)
                 self.ui.lblRaiseAmount.setText("Sell Assets Except:")
                 self.ui.edtRaiseAmount.setText(strjoinlst)
              
@@ -886,6 +883,8 @@ class MainWindow(QMainWindow):
 
     def clear_selection_clicked(self):
         self.ui.tblAssets.clearSelection()
+        self.ui.edtRaiseAmount.setText("")
+        self.ui.edtDollarValueToSell.setText("")
         self.setup_plot(self.ticker_lst)
        
 
@@ -1174,11 +1173,11 @@ class MainWindow(QMainWindow):
         num_iter,lst = self.check_and_read_conditions_met()
         if int(num_iter) == False and len(lst) == 0:
             return
-        #all the conditions are met
-        elif num_iter >= '1' and (len(lst) > 0 or lst[0] == 'dont care'):
-            if lst[0] != 'dont care':
-                # get the text of the selected items
-                lst = self.get_tickers_from_selected_lstAssets()
+        # #all the conditions are met
+        # elif num_iter >= '1' and (len(lst) > 0 or lst[0] == 'dont care'):
+        #     if lst[0] != 'dont care':
+        #         # get the text of the selected items
+        #         lst = self.get_tickers_from_selected_lstAssets()
             
       
 
@@ -1453,7 +1452,7 @@ class MainWindow(QMainWindow):
                 if msg == QMessageBox.StandardButton.Ok:
                     return False,lst
             else:
-                lst = self.ui.tblAssets.selectedItems()
+                lst = self.ui.edtRaiseAmount.text().split(",")
                 check_two = True
         else:
             lst = ['dont care']
@@ -2102,12 +2101,12 @@ class MainWindow(QMainWindow):
                 tot_tgains += item[5]
 
         
-        n_lst = self.get_tickers_from_selected_lstAssets()
+       
         fmt_tot_gains = "{0:,.2f}".format(tot_gains*int(n)) 
           
             
         if os.environ['debug'] == '0':
-            self.lstTerm_update_progress_fn(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {n_lst}")
+            self.lstTerm_update_progress_fn(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {lst}")
         
         file_path = os.path.join(self.data_path,"stocks_sell.csv")
         file_sell_write = open(file_path,"w")  
