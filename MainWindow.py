@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.16"
+        self.ver_string = "v1.0.17"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -880,7 +880,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 
 
-            elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z" or self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
+            elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
 
                 self.ui.lblDollarValueToSell.setText("Dollar value to Sell of each Stock(s):")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -889,8 +889,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtDollarValueToSell.setVisible(True)
                 self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
                 self.ui.edtRaiseAmount.setText("")
-                if self.ui.ledit_Iteration.text() != "":
-                    self.ui.btnExecute.setEnabled(True)
+              
 
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
                 strjoinlst = ",".join(stock_tickers)
@@ -900,7 +899,23 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 self.ui.edtBuyWithAmount.setText("")
                 self.ui.edtBuyWithAmount.setVisible(False)
-               
+            
+            elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
+                strjoinlst = ",".join(stock_tickers)
+                self.ui.lblRaiseAmount.setText("Sell Asset Except:")
+                self.ui.lblRaiseAmount.setVisible(True)
+                self.ui.lblDollarValueToSell.setText("Sell Dollar value of each Stock(s):")
+                self.ui.lblDollarValueToSell.setVisible(True)
+                self.ui.edtRaiseAmount.setVisible(True)
+                self.ui.edtDollarValueToSell.setVisible(True)
+                self.ui.lblBuyWithAmount.setText("Raise Amount (USD):")
+                self.ui.lblBuyWithAmount.setVisible(True)
+                self.ui.edtBuyWithAmount.setVisible(True)
+
+                
+                self.ui.edtRaiseAmount.setText(strjoinlst)
+                
+
                     
             elif self.ui.cmbAction.currentText() == "sell_gains_except_x":
                 strjoinlst = ",".join(stock_tickers)
@@ -936,18 +951,10 @@ class MainWindow(QMainWindow):
                
                 self.setup_plot(self.ticker_lst)
                
-            # self.ui.edtRaiseAmount.setVisible(False)
-            # self.ui.edtRaiseAmount.setText("")
-            # self.ui.lblRaiseAmount.setVisible(False)
-            # self.ui.edtDollarValueToSell.setVisible(False)
-            # self.ui.edtDollarValueToSell.setText("")
-            # self.ui.edtBuyWithAmount.setText("")
-            # 
-            # self.ui.lblDollarValueToSell.setVisible(False)
-            # self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-            # self.clear_selection_clicked()
-            # self.setup_plot(self.ticker_lst)
-
+        
+        #check to see if the iteration text is not empty and enable the execute button
+        if self.ui.ledit_Iteration.text() != "":
+            self.ui.btnExecute.setEnabled(True)
         return
 
                 
@@ -1130,7 +1137,7 @@ class MainWindow(QMainWindow):
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.edtRaiseAmount.setText("")
-        elif perform_action == "raise_x_sell_y_dollars" or perform_action == "raise_x_sell_y_dollars_except_z":
+        elif perform_action == "raise_x_sell_y_dollars":
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
@@ -1139,7 +1146,18 @@ class MainWindow(QMainWindow):
             self.ui.edtDollarValueToSell.setVisible(True)
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-            
+        elif perform_action == "raise_x_sell_y_dollars_except_z":
+            self.ui.lblRaiseAmount.setText("Sell Asset Except:")
+            self.ui.lblRaiseAmount.setToolTip("Sell Except (,) Comma separated list of tickers")
+            self.ui.lblRaiseAmount.setVisible(True)
+            self.ui.edtRaiseAmount.setVisible(True)
+            self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Sell:")
+            self.ui.lblDollarValueToSell.setVisible(True)
+            self.ui.edtDollarValueToSell.setVisible(True)
+            self.ui.edtBuyWithAmount.setVisible(True)
+            self.ui.lblBuyWithAmount.setText("Raise Amount (USD):")
+            self.ui.lblBuyWithAmount.setVisible(True)
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
         elif perform_action == "buy_lower_with_gains":
             #FIX ME
             self.ui.edtRaiseAmount.setVisible(True)
@@ -1409,10 +1427,10 @@ class MainWindow(QMainWindow):
         
         selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
         if len(selected_tickers) > 0 :
-              for index, ticker in enumerate(selected_tickers):
+            for index, ticker in enumerate(selected_tickers):
                 match = re.search(r"\((\w+)\)", ticker)
                 stock_tickers.append(match.group(1))
-                return stock_tickers
+            return stock_tickers
         return selected_tickers
     
     def get_stocks_from_portfolio(self, acc_num):
@@ -2623,10 +2641,10 @@ class MainWindow(QMainWindow):
 
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0
-        n_raise_amount = float(raise_amount)
+        n_raise_amount = float(buying_with)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
         frmt_dollar_value = "{0:,.2f}".format(float(dollar_value_to_sell))
-        frmt_raise_amount = "{0:,.2f}".format(float(raised_amount))
+        frmt_raise_amount = "{0:,.2f}".format(float(buying_with))
 
         index = 0
         tgains_actual = 0.0
