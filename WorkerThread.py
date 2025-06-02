@@ -1,6 +1,8 @@
 import sys, traceback
 from threading import Thread,Event
 
+#A thread that Updates/Monitors the status of a command
+# This is a simple thread that can be used to run a function in the background
 class UpdateThread(Thread):
     def __init__(self,fn, *args, **kwargs):
         super().__init__()
@@ -28,6 +30,9 @@ class UpdateThread(Thread):
       
     def stop(self):
         self.stop_event.set()
+
+
+#A Thread that is used to run a command in the background
 
 class CommandThread(Thread):
     def __init__(self,fn, *args, **kwargs):
