@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.17"
+        self.ver_string = "v1.0.18"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -81,7 +81,6 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("sell_todays_return")
         self.ui.cmbAction.addItem("sell_gains_except_x")
         self.ui.cmbAction.addItem("sell_todays_return_except_x")
-        self.ui.cmbAction.addItem("buy")
         self.ui.cmbAction.addItem("buy_selected")
         self.ui.cmbAction.addItem("buy_selected_with_x")
         self.ui.cmbAction.addItem("buy_lower_with_gains")
@@ -446,10 +445,12 @@ class MainWindow(QMainWindow):
         #setup the sector buttons
         lst_sectors = ["Consumer Discretionary",
                         "Cryptocurrency",
+                        "Cybersecurity",
                         "Consumer Staples",
                         "Discount Retailers",
                         "Energy",
                         "Financials",
+                        "Industrials",
                         "Health Care",
                         "Defence",
                         "Data Centers",
@@ -604,7 +605,8 @@ class MainWindow(QMainWindow):
             self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
             if len(self.ticker_lst) != len(self.prev_ticker_lst):
                 self.ui.tblAssets.clear()
-                self.ui.tblAssets.resizeColumnsToContents() 
+                self.ui.tblAssets.setColumnCount(6)
+                self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
                 self.ui.tblAssets.setRowCount(len(self.ticker_lst))
                 self.prev_ticker_lst = self.ticker_lst
             lst_assets = self.ticker_lst
@@ -790,12 +792,12 @@ class MainWindow(QMainWindow):
            self.ui.lblDollarValueToSell.setVisible(True)
            self.ui.edtDollarValueToSell.setVisible(True)
            self.ui.edtBuyWithAmount.setVisible(True)
-           self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+           self.ui.lblBuyWithAmount.setText("Amount (est.)(USD):")
            self.ui.lblBuyWithAmount.setVisible(True)
-
-           self.ui.edtBuyWithAmount.setEnabled(True)   
+           self.ui.edtBuyWithAmount.setEnabled(False)
+              
            self.ui.edtBuyWithAmount.setText("")
-           self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.WindowText)
+           self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
 
         elif dollar_share == "Buy in Shares":
             self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
@@ -805,7 +807,8 @@ class MainWindow(QMainWindow):
             self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.edtDollarValueToSell.setVisible(True)
-            self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+            self.ui.edtBuyWithAmount.setEnabled(False)
+            self.ui.lblBuyWithAmount.setText("Amount (est.)(USD):")
             self.ui.lblBuyWithAmount.setVisible(True)
 
            
@@ -1015,25 +1018,31 @@ class MainWindow(QMainWindow):
     def edtDollarValueToSell_changed(self):
 
         priceTotal = 0.0
+        Total_quantity = 0.0
         dollar_share = self.ui.cmbDollarShare.currentText()
         
         if self.ui.cmbDollarShare.isVisible() == True:
 
-            if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()) and self.ui.cmbAction.currentText() != "stock_info":
+            if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
                 self.ui.btnExecute.setEnabled(True)
             
                 if dollar_share == "Buy in USD":
-                    self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
-                    self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
-                    self.ui.lblRaiseAmount.setVisible(True)
-                    self.ui.edtRaiseAmount.setVisible(True)
-                    self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
-                    self.ui.lblDollarValueToSell.setVisible(True)
-                    self.ui.edtDollarValueToSell.setVisible(True)
-                    self.ui.edtBuyWithAmount.setVisible(True)
-                    self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
-                    self.ui.lblBuyWithAmount.setVisible(True)
-                elif dollar_share == "Buy in Shares":
+                     #get comma separated stocks and get a total estimate it would cost to buy the shares
+                    lstShares = self.ui.edtRaiseAmount.text().split(',')
+                    for item in lstShares:
+                        if item.strip() == "":
+                            self.ui.btnExecute.setEnabled(False)
+                            break
+                        else:
+                            #get latest price of the stock
+                            last_price = r.get_quotes(item.strip(),"last_trade_price")[0]
+                            Total_quantity += float(self.ui.edtDollarValueToSell.text()) / float(last_price)
+                            priceTotal += float(last_price) * Total_quantity
+                    
+                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+                    self.ui.edtBuyWithAmount.setEnabled(False)   
+                    self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
+                if dollar_share == "Buy in Shares":
                 
                     #get comma separated stocks and get a total estimate it would cost to buy the shares
                     lstShares = self.ui.edtRaiseAmount.text().split(',')
@@ -1046,7 +1055,7 @@ class MainWindow(QMainWindow):
                             last_price = r.get_quotes(item.strip(),"last_trade_price")[0]
                             priceTotal += float(last_price) * float(self.ui.edtDollarValueToSell.text())
 
-                    self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+                    
                     self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
                     self.ui.edtBuyWithAmount.setEnabled(False)   
                     self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
@@ -1179,8 +1188,23 @@ class MainWindow(QMainWindow):
             self.ui.lblDollarValueToSell.setVisible(True) 
             
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-        elif perform_action == "buy":
+        # elif perform_action == "buy":
                 
+        #     self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
+        #     self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
+        #     self.ui.lblRaiseAmount.setVisible(True)
+        #     self.ui.edtRaiseAmount.setVisible(True)
+        #     self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
+        #     self.ui.lblDollarValueToSell.setVisible(True)
+        #     self.ui.edtDollarValueToSell.setVisible(True)
+        #     self.ui.edtBuyWithAmount.setVisible(True)
+        #     self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
+        #     self.ui.lblBuyWithAmount.setVisible(True)
+
+        #     self.ui.cmbDollarShare.setVisible(True)
+        #     self.ui.cmbDollarShare.setCurrentIndex(0)
+        #     self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
+        elif perform_action == "buy_selected":
             self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
             self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
             self.ui.lblRaiseAmount.setVisible(True)
@@ -1188,24 +1212,10 @@ class MainWindow(QMainWindow):
             self.ui.lblDollarValueToSell.setText("Dollar value of Stock to Buy:")
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.edtDollarValueToSell.setVisible(True)
-            self.ui.edtBuyWithAmount.setVisible(True)
-            self.ui.lblBuyWithAmount.setText("Buy with Amount (USD):")
-            self.ui.lblBuyWithAmount.setVisible(True)
-
-            self.ui.cmbDollarShare.setVisible(True)
-            self.ui.cmbDollarShare.setCurrentIndex(0)
-            self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
-        elif perform_action == "buy_selected":
-            self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
-            self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
-            self.ui.lblRaiseAmount.setVisible(True)
-            self.ui.edtRaiseAmount.setVisible(True)
-            self.ui.lblDollarValueToSell.setText("Amount of Shares to Buy:")
-            self.ui.lblDollarValueToSell.setVisible(True)
-            self.ui.edtDollarValueToSell.setVisible(True)
-            self.ui.lblBuyWithAmount.setText("Buy with Amount (est.)(USD):")
+            self.ui.lblBuyWithAmount.setText("Amount (est.)(USD):")
             self.ui.lblBuyWithAmount.setVisible(True)
             self.ui.edtBuyWithAmount.setVisible(True)
+            self.ui.edtBuyWithAmount.setEnabled(False)
             self.ui.cmbDollarShare.setVisible(True)
             self.ui.cmbDollarShare.setCurrentIndex(0)
             self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
@@ -1301,7 +1311,7 @@ class MainWindow(QMainWindow):
             
             fn = getattr(self, name_of_method)
             
-        
+
         
 
             raise_amount = self.ui.edtRaiseAmount.text()
@@ -1441,8 +1451,7 @@ class MainWindow(QMainWindow):
         positions = r.get_open_stock_positions(acc_num)
         if len(positions) == 0:
             raise Exception("No stocks in account")
-        else:
-            self.ui.lstTerm.clear()
+        
             
 
         # Get Ticker symbols
@@ -1576,13 +1585,14 @@ class MainWindow(QMainWindow):
             return False,lst
 
 #----------------------------------------------------------------------------------------------------------------------------------
-# buy_lower_with_gains FIX ME
+# buy_lower_with_gains SOMETHING WRONG COMMENTED CODE CAUSE PROGRAM NOT TO RUN "FIX ME"
 # # -------------------------------------------------------------------------------------------------------------------------------------   
-    def buy_lower_with_gains(self,n,acc_num,lst,raise_amount,dollar_value_to_sell):
+    def buy_lower_with_gains(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount):
         total_gains = 0.0
         money_spent = 0.0
         spent = 0.0
         stock_symbols = []
+        stocks = []
         #1 - open last stock_sell_gains.csv file
         #2 - iterate thru stocks and buy all stocks with current price < sold price with 50% gains from that stock.
         #3 - 
@@ -1593,75 +1603,70 @@ class MainWindow(QMainWindow):
             #Item 3 = last price
             #item[4]= your quantities
                 #item[5]=today's return
-
-        file_sell_agains_exists = os.path.exists("stocks_sell.csv")
+        file_path = os.path.join(self.data_path, "stocks_sell.csv")
+        file_sell_agains_exists = os.path.exists(file_path)
         if file_sell_agains_exists:
-            read_file = open("stocks_sell.csv","r")
-            
+            read_file = open(file_path,"r")
+            #read the file and get the total gains
             for line in read_file:
                 stocks = line.split(',')
                 
-                #calc total gains from previous sale
-                for i in stocks:
-                    total = i.split(":")
-                    #FIX ME contains = inPortfolio(total[0],tickersPerf)
-                # if contains:
-                    #    total_gains += float(total[1]) * float(total[2] )
+            #calc total gains from previous sale
+            for stock in stocks:
+                stock_name,quantity,price_sold = stock.split(":")
+                tot_gains = float(quantity) * float(price_sold)
+                total_gains += tot_gains
+            #self.lstTerm_update_progress_fn(f"you have ${"{0:.2f}".format(total_gains)} to spend to buy shares lower than what you sold it with half of the gains.")
 
-                print(f"you have ${total_gains} to spend to buy shares")
+        # for index in range(int(n)):
+        #     for stock in stocks:
+        #         stock_name,quantity,price_sold = stock.split(":")
+        #         #--------see if stock is in current portfolio
+        #         # contains = inPortfolio(stock_name,tickersPerf)
+        #         # if not contains :
+        #         #     next
+
+        #         #50% of gains = gains*.5
+        #         hlf_gain= float(quantity)*float(price_sold)*0.5
+                
+        #         stock_market_prices = r.stocks.get_latest_price(stock_name)
+        #         market_price_of_stock = float(stock_market_prices[0])
+
+        #         buy_price = float("{0:.2f}".format(market_price_of_stock+0.3))
                 
 
-                for stock in stocks:
-                    stock_name,quantity,price_sold, = stock.split(":")
-                    #--------see if stock is in current portfolio
-                    #FIX ME contains = inPortfolio(stock_name,tickersPerf)
-                    # if not contains :
-                    #     next
 
-                    #50% of gains = gains*.5
-                    hlf_gain= float(quantity)*float(price_sold)*0.5
+        #         #calc what quantity of the stock can be bought with the hlfgain
+        #         per_quantity = hlf_gain / buy_price
+        #         frm_per_quantity = float("{0:.2f}".format(per_quantity) )
 
-                    stock_market_prices = r.stocks.get_latest_price(stock_name)
-                    market_price_of_stock = float(stock_market_prices[0])
+        #         #---------------- market_price < price sold -------------------------------------------------
+        #         if market_price_of_stock < float(price_sold):
+        #             if (market_price_of_stock*per_quantity) <= total_gains:
 
-                    buy_price = float("{0:,.2f}".format(market_price_of_stock))
+        #                 if self.command_thread.stop_event.is_set():
+        #                     print("stop event")
+        #                     self.lstTerm_update_progress_fn("Operation Cancelled!")
+        #                     break
+        #                 if os.environ['debug'] == '0':
+        #                     try:
+        #                         buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
+        #                     except Exception as e:
+        #                         self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+        #                         continue  
+        #                 time.sleep(5)
+        #                 #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+        #                 stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{buy_price}")
+        #                 self.lstTerm_update_progress_fn(f"{frm_per_quantity} shares of {stock_name} bought at {buy_price}" )
+        #                 spent += frm_per_quantity*buy_price
 
+        # file_buy_write = open(os.path.join(self.data_path, "stocks_buy.csv"),"w")
+        # stocks_format = ",".join(stock_symbols)
+        # file_buy_write.write(stocks_format)
+        # file_buy_write.close()
 
-
-                    #calc what quantity of the stock can be bought with the hlfgain
-                    per_quantity = hlf_gain / buy_price
-                    frm_per_quantity = float("{0:,.2f}".format(per_quantity) )
-
-                    #---------------- market_price < price sold -------------------------------------------------
-                    if market_price_of_stock < float(price_sold):
-                        if (market_price_of_stock*per_quantity) <= total_gains:
-
-                            if self.command_thread.stop_event.is_set():
-                                print("stop event")
-                                self.lstTerm_update_progress_fn("Operation Cancelled!")
-                                break
-                            if os.environ['debug'] == '0':
-                                try:
-                                    buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
-                                except Exception as e:
-                                    self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                                    return  
-                            time.sleep(5)
-                            #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                            stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{buy_price}")
-                            print(f"{frm_per_quantity} shares of {stock_name} bought at {buy_price}" )
-                            spent -= frm_per_quantity*buy_price
-
-                            #buying_power = calc_buying_power()
-                            
-            
-            file_buy_write = open("stocks_buy.csv","w")
-            stocks_format = ",".join(stock_symbols)
-            file_buy_write.write(stocks_format)
-            file_buy_write.close()
-            money_spent = total_gains-spent
-            print(f"You spent ${money_spent}!")
-            stock_symbols = []
+        # self.lstTerm_update_progress_fn(f"You spent ${"{0:.2f}".format(spent)} of ${"{0:,.2f}".format(total_gains)} on buying shares lower than what you sold.")
+        # stock_symbols = []
         
         return
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -2147,7 +2152,7 @@ class MainWindow(QMainWindow):
                                 self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            continue
                     
                     
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -2640,7 +2645,7 @@ class MainWindow(QMainWindow):
                 tgains += item[5]
 
         accu_quantity_to_buy = 0.0
-        raised_amount = 0.0
+        raised_amount = 0.0 # amount you have raised so far       
         n_raise_amount = float(buying_with)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
         frmt_dollar_value = "{0:,.2f}".format(float(dollar_value_to_sell))
@@ -2926,14 +2931,16 @@ class TableToolTip(QWidget):
         lst_ConsumerStaples = ["PEP","KO","CLX","UL","KVUE"]
         lst_DiscRetailers = ["DG","DLTR","COST","WMT","TGT"]
         lst_Energy = ["XOM","CVX","COP","OXY","VLO"]
-        lst_Financials = ["MS","JPM","BAC","WFC","C"]
+        lst_Financials = ["GS","MS","JPM","BAC","WFC","C"]
+        lst_Industrials = ["GEV","XPO","HON","CAT","DE","CNH"]
+        lst_Cybersecurity = ["CRWD","PANW","ZS","OKTA","S","CHKP"]
         lst_HealthCare = ["JNJ","PFE","MRK","UNH","ABBV"]
-        lst_Defense = ["LMT","NOC","RTX","GD","BA","LHX"]
-        lst_DataCenter = ["NVDA","CSCO","ORCL","MSFT","CRWV"]
-        lst_Materials = ["FCX","NEM","NUE","LIN","APD"]
+        lst_Defense = ["LMT","NOC","RTX","LHX","GD","BA","HII"]
+        lst_DataCenter = ["SMCI","DELL","INTC","PLTR","VRT","CRDO","CLS","DLR","NVDA","MSFT","ORCL","MSFT","CRWV","LUMN"]
+        lst_Materials = ["FCX","NEM","NUE","X","CLF","AA","LIN","APD"]
         lst_RealEstate = ["AMT","PLD","PSA","DLR","O"]
-        lst_Technology = ["MSFT","META","AAPL","GOOGL","AMZN","NVDA"]
-        lst_Utilities = ["GEV","CEG","DUK","AEP","SO","EXC"]
+        lst_Technology = ["MSFT","META","AAPL","GOOGL","AMZN","NVDA","AVGO","CRM","ADBE","INTC","CSCO","ORCL","IBM"]
+        lst_Utilities = ["GEV","CEG","DUK","AEP","SO","EXC","AES","NRG"]
 
        
         
@@ -2942,6 +2949,8 @@ class TableToolTip(QWidget):
                 self.createTable(lst_ConsumerDiscretionary)
             case "Cryptocurrency":
                 self.createTable(lst_crypto)
+            case "Cybersecurity":
+                self.createTable(lst_Cybersecurity)
             case "Consumer Staples":
                 self.createTable(lst_ConsumerStaples)
             case "Discount Retailers": 
@@ -2950,6 +2959,8 @@ class TableToolTip(QWidget):
                 self.createTable(lst_Energy)
             case "Financials": 
                 self.createTable(lst_Financials)
+            case "Industrials":
+                self.createTable(lst_Industrials)
             case "Health Care": 
                 self.createTable(lst_HealthCare)
             case "Defence": 
@@ -2984,7 +2995,7 @@ class TableToolTip(QWidget):
                     #get the previous close
                     prev_close = r.get_quotes(f'{item}',"previous_close")[0]
                     #calculate the gains
-                    Gains = (float(val) - float(prev_close)) 
+                    Gains = float(val) - float(prev_close) 
 
                     #add the stock to the list
                     
