@@ -444,7 +444,9 @@ class MainWindow(QMainWindow):
     def setupSectorButtons(self): 
         #setup the sector buttons
         lst_sectors = ["Consumer Discretionary",
-                        "Cryptocurrency",
+                       "Homebuilders",
+                       "Home Improvement",
+                       "Cryptocurrency",
                         "Cybersecurity",
                         "Consumer Staples",
                         "Discount Retailers",
@@ -2928,6 +2930,8 @@ class TableToolTip(QWidget):
         count = 0
         lst_ConsumerDiscretionary = ["AMZN","TSLA","URBN","RL","GAP","DIS"]
         lst_crypto = ["IBIT","ETHA"]
+        lst_Homebuilders = ["DHI","LEN","PHM","NVR","TOL"]
+        lst_HomeImprovement = ["LOW","HD","W","SHW","WHR","FND"]
         lst_ConsumerStaples = ["PEP","KO","CLX","UL","KVUE"]
         lst_DiscRetailers = ["DG","DLTR","COST","WMT","TGT"]
         lst_Energy = ["XOM","CVX","COP","OXY","VLO"]
@@ -2947,6 +2951,10 @@ class TableToolTip(QWidget):
         match obj.objectName():
             case "Consumer Discretionary": 
                 self.createTable(lst_ConsumerDiscretionary)
+            case "Homebuilders": 
+                self.createTable(lst_Homebuilders)
+            case "Home Improvement": 
+                self.createTable(lst_HomeImprovement)
             case "Cryptocurrency":
                 self.createTable(lst_crypto)
             case "Cybersecurity":
@@ -2995,11 +3003,14 @@ class TableToolTip(QWidget):
                     #get the previous close
                     prev_close = r.get_quotes(f'{item}',"previous_close")[0]
                     #calculate the gains
-                    Gains = float(val) - float(prev_close) 
-
-                    #add the stock to the list
+                    if val is not None and prev_close is not None:
+                        Gains = float(val) - float(prev_close) 
+                        lst_vals.append([f'{stock_name} ({item})', float(val),float(Gains)])
+                    else:
+                        lst_vals.append([f'{stock_name} ({item})', 0.0,0.0])
+                        #add the stock to the list
                     
-                    lst_vals.append([f'{stock_name} ({item})', float(val),float(Gains)])
+                    
         for row in range(len(lst_vals)):
             for col in range(0,3):
                 table_item = QTableWidgetItem()
