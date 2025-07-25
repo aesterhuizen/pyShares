@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.19"
+        self.ver_string = "v1.0.20"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -812,6 +812,7 @@ class MainWindow(QMainWindow):
        
 
         if len(selected_tickers) > 0:
+            #get stock tickers from selected items
             for index, ticker in enumerate(selected_tickers):
                 match = re.search(r"\((\w+)\)", ticker)
                 stock_tickers.append(match.group(1))
@@ -833,10 +834,13 @@ class MainWindow(QMainWindow):
                 self.ui.edtRaiseAmount.setText(strjoinlst)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
                 self.ui.btnExecute.setEnabled(True)  # Disable the button initially
+            
             elif self.ui.cmbAction.currentText() == "buy_selected_with_x":
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
-                
+                if self.ui.edtDollarValueToSell.text() != "" and re.match(r'^[0-9]+(\.[0-9]{1,2})?$',self.ui.edtDollarValueToSell.text()):
+                    self.recalculate_estimated_amount()
+         
 
             elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
 
@@ -890,7 +894,52 @@ class MainWindow(QMainWindow):
 
                 
         
+    def recalculate_estimated_amount(self):
+        priceTotal = 0.0
+        Total_quantity = 0.0
+        dollar_share = self.ui.cmbDollarShare.currentText()
         
+        if self.ui.cmbDollarShare.isVisible() == True:
+
+            if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
+                self.ui.btnExecute.setEnabled(True)
+                lstShares = self.ui.edtRaiseAmount.text().split(',')
+                ticker_copy_include_list = self.find_and_remove(self.ticker_lst,lstShares,1)
+
+                if dollar_share == "Buy in USD":
+                     #get comma separated stocks and get a total estimate it would cost to buy the shares
+                   
+                    for item in ticker_copy_include_list:
+                            #get latest price of the stock
+                            est_price = item[3]
+                            Total_quantity += float(self.ui.edtDollarValueToSell.text()) / float(est_price)
+                            priceTotal += float(self.ui.edtDollarValueToSell.text())
+                    
+                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+                    self.ui.btnExecute.setEnabled(True)
+                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                
+                elif dollar_share == "Buy in Shares":
+                
+                    #get comma separated stocks and get a total estimate it would cost to buy the shares
+                   
+                    for item in ticker_copy_include_list:
+                            #get est latest price from new ticker_copy_include_list
+                            est_price = item[3]
+                            priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
+
+                    
+                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+                    self.ui.btnExecute.setEnabled(True)
+                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+            else:
+                    self.ui.btnExecute.setEnabled(False)
+                    if dollar_share == "Buy in Shares":
+                        self.ui.edtBuyWithAmount.setEnabled(False)   
+                        self.ui.edtBuyWithAmount.setText("")
+                        self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
+
+        return
 
     def clear_selection_clicked(self):
         self.ui.tblAssets.clearSelection()
@@ -982,51 +1031,8 @@ class MainWindow(QMainWindow):
 
     def edtDollarValueToSell_changed(self):
 
-        priceTotal = 0.0
-        Total_quantity = 0.0
-        dollar_share = self.ui.cmbDollarShare.currentText()
-        
-        if self.ui.cmbDollarShare.isVisible() == True:
-
-            if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
-                self.ui.btnExecute.setEnabled(True)
-                lstShares = self.ui.edtRaiseAmount.text().split(',')
-                ticker_copy_include_list = self.find_and_remove(self.ticker_lst,lstShares,1)
-
-                if dollar_share == "Buy in USD":
-                     #get comma separated stocks and get a total estimate it would cost to buy the shares
-                   
-                    for item in ticker_copy_include_list:
-                            #get latest price of the stock
-                            est_price = item[3]
-                            Total_quantity += float(self.ui.edtDollarValueToSell.text()) / float(est_price)
-                            priceTotal += float(self.ui.edtDollarValueToSell.text())
-                    
-                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
-                    self.ui.btnExecute.setEnabled(True)
-                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-                
-                elif dollar_share == "Buy in Shares":
-                
-                    #get comma separated stocks and get a total estimate it would cost to buy the shares
-                   
-                    for item in ticker_copy_include_list:
-                            #get est latest price from new ticker_copy_include_list
-                            est_price = item[3]
-                            priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
-
-                    
-                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
-                    self.ui.btnExecute.setEnabled(True)
-                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-            else:
-                    self.ui.btnExecute.setEnabled(False)
-                    if dollar_share == "Buy in Shares":
-                        self.ui.edtBuyWithAmount.setEnabled(False)   
-                        self.ui.edtBuyWithAmount.setText("")
-                        self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
-       
-        return
+       self.recalculate_estimated_amount()
+       return
                 
 
     def edtRaiseAmount_changed(self):
@@ -1611,6 +1617,16 @@ class MainWindow(QMainWindow):
         else:
             return False,lst
 
+#---------------------------------------------------------------------------------------------------------------------------------------------------    
+# print the terminal lstTerm to a file in the data directory
+    def print_terminal_to_file(self):
+        file_path = os.path.join(self.data_path, "terminal_output.txt")
+        with open(file_path, "w") as f:
+            for i in range(self.ui.lstTerm.count()):
+                item = self.ui.lstTerm.item(i)
+                f.write(f"{item.text()}\n")
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------------------------------------------------
 # buy_lower_with_gains SOMETHING WRONG COMMENTED CODE CAUSE PROGRAM NOT TO RUN "FIX ME"
 # # -------------------------------------------------------------------------------------------------------------------------------------   
@@ -2041,13 +2057,13 @@ class MainWindow(QMainWindow):
                         continue
             time.sleep(5)
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
-            stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],str_quantity) ) 
+            stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],item[2]) ) 
             
             lprize = float(item[2])+0.1
             last_price = "{0:,.2f}".format(lprize)
             gtotal += item[1]*lprize
-            frm_gtotal = "{0:,.2f}".format(item[1]*lprize)
-            self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_gtotal}")
+            frm_total = "{0:,.2f}".format(item[1]*lprize)
+            self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_total}")
 
 
 
@@ -2060,8 +2076,8 @@ class MainWindow(QMainWindow):
         file_buy_write.write(stocks_format)
         file_buy_write.close()
         stock_symbols = []
-
-        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${frm_gtotal}")
+        fmt_gtotal = "{0:,.2f}".format(gtotal)
+        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_gtotal}")
 
         return
  
@@ -2174,7 +2190,7 @@ class MainWindow(QMainWindow):
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         file_sell_write.close()
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-      
+        self.print_terminal_to_file()
         
         return
 #----------------------------------------------------------------------------------------------------------------------
@@ -2259,7 +2275,7 @@ class MainWindow(QMainWindow):
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual)
         file_sell_write.close()
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
+        self.print_terminal_to_file()
         
         return
                 
@@ -2362,7 +2378,7 @@ class MainWindow(QMainWindow):
         file_sell_write.close()
         tgains_actual= "{0:,.2f}".format(tgains_actual)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${tgains_actual}")
-        
+        self.print_terminal_to_file()
 
         return
     
@@ -2455,7 +2471,7 @@ class MainWindow(QMainWindow):
         file_sell_write.close() 
            
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
+        self.print_terminal_to_file()
 
         return
     
@@ -2565,8 +2581,7 @@ class MainWindow(QMainWindow):
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual) 
         
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
-        
+        self.print_terminal_to_file()        
 
         return
                 
@@ -2688,7 +2703,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []   
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
+        self.print_terminal_to_file()
     
         return
 #---------------------------------------------------------------------------------------------------------------------------
@@ -2836,7 +2851,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []  
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-        
+        self.print_terminal_to_file()
 
         return
     # end of class MainWIndow
