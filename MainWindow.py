@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import sys,traceback # type: ignore
 import time
@@ -40,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.20"
+        self.ver_string = "v1.0.21"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -497,8 +498,9 @@ class MainWindow(QMainWindow):
 
 
     def lstTerm_update_progress_fn(self, n):
-        self.ui.lstTerm.addItem(n)
-        
+        t_now = datetime.now()
+        frm_date = t_now.strftime("%Y-%m-%d %H:%M:%S")
+        self.ui.lstTerm.addItem(frm_date + " - " + n)
 
     def updateStatusBar(self,temp_lst):
        
@@ -1621,7 +1623,9 @@ class MainWindow(QMainWindow):
 # print the terminal lstTerm to a file in the data directory
     def print_terminal_to_file(self):
         file_path = os.path.join(self.data_path, "terminal_output.txt")
-        with open(file_path, "w") as f:
+       
+
+        with open(file_path, "a") as f:
             for i in range(self.ui.lstTerm.count()):
                 item = self.ui.lstTerm.item(i)
                 f.write(f"{item.text()}\n")
@@ -2078,7 +2082,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
         fmt_gtotal = "{0:,.2f}".format(gtotal)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_gtotal}")
-
+        self.print_terminal_to_file()
         return
  
 #----------------------------------------------------------------------------------------------------------------------------------
