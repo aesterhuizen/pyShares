@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.22"
+        self.ver_string = "v1.0.23"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -60,6 +60,9 @@ class MainWindow(QMainWindow):
         self.account_info = ''
         #main list of tickers and performance metrics
         self.ticker_lst = []
+        self.fundamentals = []
+        self.dict_sectors = {}
+        self.portfolio  = []
         self.prev_ticker_lst = []
         self.lstupdated_tblAssets = []
         
@@ -316,8 +319,12 @@ class MainWindow(QMainWindow):
         self.monitor_thread.start()
         # show the Mainwindow
         self.show()
-            
-    
+
+    def get_symbol_in_sectors(self, name):
+        # Get the list of stocks in sector
+        lst_stocks_in_sector = self.dict_sectors[name]
+        return lst_stocks_in_sector
+
     def monitor_command_thread(self):
         #check to see if the command thread is running
         while True:
@@ -451,31 +458,27 @@ class MainWindow(QMainWindow):
           
     def setupSectorButtons(self): 
         #setup the sector buttons
-        lst_sectors = ["Consumer Discretionary",
-                       "Homebuilders",
-                       "Home Improvement",
-                       "Cryptocurrency",
-                        "Cybersecurity",
-                        "Consumer Staples",
-                        "Discount Retailers",
-                        "Energy",
-                        "Financials",
-                        "Industrials",
-                        "Health Care",
-                        "Defence",
-                        "Data Centers",
-                        "Materials",
-                        "Real Estate",
-                        "Big Tech",
-                        "Utilities",
-        ]
+
+        portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
         
-          
-        for item in lst_sectors:
-            button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), item, self)
-            button.setObjectName(item)
+        #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
+        for item in self.fundamentals:
+            sector = item['sector']
+            symbol = item['symbol']
+            pct_portfolio = (float(self.portfolio[symbol]['equity']) / portfolio_tvalue * 100) if portfolio_tvalue > 0 else 0
+            if sector not in self.dict_sectors:
+                self.dict_sectors[sector] = [f'{symbol}:{pct_portfolio}']
+            else:
+                self.dict_sectors[sector].append(f'{symbol}:{pct_portfolio}')
+
+            
+            
+        for i, sector in enumerate(self.dict_sectors):
+            button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), sector, self)
+            button.setObjectName(sector)
             button.installEventFilter(self) #listen to mouse movement events for the buttons
             self.ui.statusBar.addWidget(button, 1)
+        return
 
     def closeEvent(self, event):
         # Perform any cleanup or save operations here
@@ -827,24 +830,15 @@ class MainWindow(QMainWindow):
             if self.ui.cmbAction.currentText() == "stock_info":
                 self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
                 self.plot.draw()
-                
-               
 
-                
-            #check to see if the action is sell selected
             elif self.ui.cmbAction.currentText() == "sell_selected":
             
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
-                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
-                self.ui.btnExecute.setEnabled(True)  # Disable the button initially
-            
+                
             elif self.ui.cmbAction.currentText() == "buy_selected_with_x":
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
-                if self.ui.edtDollarValueToSell.text() != "" and re.match(r'^[0-9]+(\.[0-9]{1,2})?$',self.ui.edtDollarValueToSell.text()):
-                    self.recalculate_estimated_amount()
-         
 
             elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars":
 
@@ -860,17 +854,14 @@ class MainWindow(QMainWindow):
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
-                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
-                self.ui.btnExecute.setEnabled(True)  # Disable the button initially
-            
+                
             elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
             elif self.ui.cmbAction.currentText() == "sell_gains_except_x":
                 strjoinlst = ",".join(stock_tickers)
                 self.ui.edtRaiseAmount.setText(strjoinlst)
-                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
-                self.ui.btnExecute.setEnabled(True)  # Disable the button initially
+                
              
             else:
                 self.ui.lblRaiseAmount.setVisible(False)
@@ -904,68 +895,61 @@ class MainWindow(QMainWindow):
         dollar_share = self.ui.cmbDollarShare.currentText()
         self.new_lstShares = []
 
-        if self.ui.cmbDollarShare.isVisible() == True:
+       
 
-            if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
-                self.ui.btnExecute.setEnabled(True)
-                lstShares = self.ui.edtRaiseAmount.text().split(',')
-                ticker_copy_include_list = self.find_and_remove(self.ticker_lst,lstShares,1)
-                if ticker_copy_include_list is None or len(ticker_copy_include_list) == 0:
-                    last_price = r.get_quotes(lstShares, "last_trade_price")
-                    for index, item in enumerate(lstShares):
-                        est_price = last_price[index]
-                        if dollar_share == "Buy in USD":
-                            Total_quantity = float(self.ui.edtDollarValueToSell.text()) / float(est_price)
-                            frm_total_quantity = "{0:.2f}".format(Total_quantity)
-                            priceTotal += float(est_price) * Total_quantity
-                            #Item 0 =  tickers
-                            #Item 2 = stock_quantity_to_sell/buy
-                            #Item 3 = last price
-                            self.new_lstShares.append((item, frm_total_quantity, est_price))
-                        elif dollar_share == "Buy in Shares":
-                            priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
-                            frmPriceTotal = "{0:.2f}".format(priceTotal)
-                            self.new_lstShares.append((item, float(self.ui.edtDollarValueToSell.text()), est_price))
+        if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
+            self.ui.btnExecute.setEnabled(True)
+            lstShares = self.ui.edtRaiseAmount.text().split(',')
+            ticker_copy_include_list = self.find_and_remove(self.ticker_lst,lstShares,1)
+            if ticker_copy_include_list is None or len(ticker_copy_include_list) == 0:
+                last_price = r.get_quotes(lstShares, "last_trade_price")
+                for index, item in enumerate(lstShares):
+                    est_price = last_price[index]
+                    if dollar_share == "Buy in USD":
+                        Total_quantity = float(self.ui.edtDollarValueToSell.text()) / float(est_price)
+                        frm_total_quantity = "{0:.2f}".format(Total_quantity)
+                        priceTotal += float(est_price) * Total_quantity
+                        #Item 0 =  tickers
+                        #Item 2 = stock_quantity_to_sell/buy
+                        #Item 3 = last price
+                        self.new_lstShares.append((item, frm_total_quantity, est_price))
+                    elif dollar_share == "Buy in Shares":
+                        priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
+                        frmPriceTotal = "{0:.2f}".format(priceTotal)
+                        self.new_lstShares.append((item, float(self.ui.edtDollarValueToSell.text()), est_price))
 
-                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
-                    self.ui.btnExecute.setEnabled(True)
-                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-                    #create new list to hold the stocks and quantities to buy
-                    
-                    return
+                self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+                
+                #create new list to hold the stocks and quantities to buy
+                
+                return
 
-                if dollar_share == "Buy in USD":
-                    #get comma separated stocks and get a total estimate it would cost to buy the shares
+            if dollar_share == "Buy in USD":
+                #get comma separated stocks and get a total estimate it would cost to buy the shares
+            
+                for item in ticker_copy_include_list:
+                        #get latest price of the stock
+                        est_price = item[3]
+                        Total_quantity = float(self.ui.edtDollarValueToSell.text()) / float(est_price)
+                        priceTotal += float(est_price) * Total_quantity
                 
-                    for item in ticker_copy_include_list:
-                            #get latest price of the stock
-                            est_price = item[3]
-                            Total_quantity += float(self.ui.edtDollarValueToSell.text()) / float(est_price)
-                            priceTotal += float(est_price) * Total_quantity
-                    
-                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
-                    self.ui.btnExecute.setEnabled(True)
-                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-                
-                elif dollar_share == "Buy in Shares":
-                
-                    #get comma separated stocks and get a total estimate it would cost to buy the shares
-                
-                    for item in ticker_copy_include_list:
-                            #get est latest price from new ticker_copy_include_list
-                            est_price = item[3]
-                            priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
+                self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+               
+            
+            elif dollar_share == "Buy in Shares":
+            
+                #get comma separated stocks and get a total estimate it would cost to buy the shares
+            
+                for item in ticker_copy_include_list:
+                        #get est latest price from new ticker_copy_include_list
+                        est_price = item[3]
+                        priceTotal += float(est_price) * float(self.ui.edtDollarValueToSell.text())
 
-                    
-                    self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
-                    self.ui.btnExecute.setEnabled(True)
-                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-            else:
-                    self.ui.btnExecute.setEnabled(False)
-                    if dollar_share == "Buy in Shares":
-                        self.ui.edtBuyWithAmount.setEnabled(False)   
-                        self.ui.edtBuyWithAmount.setText("")
-                        self.ui.edtBuyWithAmount.setForegroundRole(QPalette.ColorRole.Shadow)
+                
+                self.ui.edtBuyWithAmount.setText(f"{priceTotal:.2f}")
+               
+           
+            
 
         return
 
@@ -1038,7 +1022,8 @@ class MainWindow(QMainWindow):
 
     def edtBuyWith_changed(self):
         #if the edtBuyWith textbox is empty and the raise amount and dollar value to sell textboxes are not empty then enable the execute button
-        if self.ui.edtBuyWith.text() == "" and self.ui.edtRaiseAmount.text() != "" and re.match(r'^[1-9]+$',self.ui.edtDollarValueToSell.text()):
+        if self.ui.edtBuyWith.text() == "" and self.ui.edtRaiseAmount.text() != "" and re.match(r'^[0-9]+$',self.ui.edtDollarValueToSell.text()) and \
+            self.ui.edtDollarValueToSell.text() != "":
             self.ui.btnExecute.setEnabled(True)
             self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")  # Change background to green
 
@@ -1047,20 +1032,84 @@ class MainWindow(QMainWindow):
             self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
         
             
-
+     #  if perform_action == "stock_info":
+        
+        # elif perform_action == "sell_selected":
+            
+        # elif perform_action == "sell_gains_except_x":
+        # elif perform_action == "sell_todays_return":
+        
+        # elif perform_action == "raise_x_sell_y_dollars":
+        # elif perform_action == "raise_x_sell_y_dollars_except_z":
+        # elif perform_action == "buy_lower_with_gains":
+        # elif perform_action == "buy_x_with_y_amount":
+      
+        # elif perform_action == "buy_selected_with_x":
+        #   
+        # else: #default
         
         return
 
     def edtBuyWithAmount_changed(self):
         if re.match(r'^[1-9]+$',self.ui.edtBuyWithAmount.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
         else:
             self.ui.btnExecute.setEnabled(False)
+            self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
 
+        #  if perform_action == "stock_info":
+        
+        # elif perform_action == "sell_selected":
+            
+        # elif perform_action == "sell_gains_except_x":
+        # elif perform_action == "sell_todays_return":
+        
+        # elif perform_action == "raise_x_sell_y_dollars":
+        # elif perform_action == "raise_x_sell_y_dollars_except_z":
+        # elif perform_action == "buy_lower_with_gains":
+        # elif perform_action == "buy_x_with_y_amount":
+      
+        # elif perform_action == "buy_selected_with_x":
+        #   
+        # else: #default
+        #   
     def edtDollarValueToSell_changed(self):
+     
+        if self.ui.cmbAction.currentText() == "buy_selected_with_x":
+            if self.ui.edtDollarValueToSell.text() != "0" and re.match(r'^[0-9]+$',self.ui.edtDollarValueToSell.text()) and self.ui.edtRaiseAmount.text() != "":
+                self.recalculate_estimated_amount()
+                self.ui.btnExecute.setEnabled(True)
+                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+            else:
+                self.ui.btnExecute.setEnabled(False)
+                self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
+                
+        elif self.ui.cmbAction.currentText() == "sell_selected":
+            if self.ui.edtDollarValueToSell.text() != "0" and re.match(r'^[0-9]+$',self.ui.edtDollarValueToSell.text()) and self.ui.edtRaiseAmount.text() != "":
+                self.ui.btnExecute.setEnabled(True)
+                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
 
-       self.recalculate_estimated_amount()
-       return
+            else:
+                self.ui.btnExecute.setEnabled(False)
+                self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
+
+        #  if perform_action == "stock_info":
+        
+        # elif perform_action == "sell_selected":
+            
+        # elif perform_action == "sell_gains_except_x":
+        # elif perform_action == "sell_todays_return":
+        
+        # elif perform_action == "raise_x_sell_y_dollars":
+        # elif perform_action == "raise_x_sell_y_dollars_except_z":
+        # elif perform_action == "buy_lower_with_gains":
+        # elif perform_action == "buy_x_with_y_amount":
+      
+        # elif perform_action == "buy_selected_with_x":
+        #   
+        # else: #default
+        return
                 
 
     def edtRaiseAmount_changed(self):
@@ -1070,9 +1119,25 @@ class MainWindow(QMainWindow):
 
         if re.match(r'^[1-9]+$',self.ui.edtRaiseAmount.text()) and self.ui.cmbAction.currentText() != "stock_info":
             self.ui.btnExecute.setEnabled(True)
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green
         else:
             self.ui.btnExecute.setEnabled(False)
+            self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")  # Change background to grey
+        #  if perform_action == "stock_info":
         
+        # elif perform_action == "sell_selected":
+
+        # elif perform_action == "sell_gains_except_x":
+        # elif perform_action == "sell_todays_return":
+        
+        # elif perform_action == "raise_x_sell_y_dollars":
+        # elif perform_action == "raise_x_sell_y_dollars_except_z":
+        # elif perform_action == "buy_lower_with_gains":
+        # elif perform_action == "buy_x_with_y_amount":
+      
+        # elif perform_action == "buy_selected_with_x":
+        #   
+        # else: #default
 
     def setup_plot(self,tickersPerf = []):
         action_selection = self.ui.cmbAction.currentText()
@@ -1163,6 +1228,7 @@ class MainWindow(QMainWindow):
             self.ui.lblRaiseAmount.setToolTip("Sell (,) Comma separated list of tickers")
             self.ui.lblRaiseAmount.setVisible(True)
             self.ui.edtRaiseAmount.setVisible(True)
+            self.ui.edtRaiseAmount.setReadOnly(True)
             self.ui.lblDollarValueToSell.setText("Dollar value to Sell of each Stock(s):")
             self.ui.lblDollarValueToSell.setVisible(True)
             self.ui.edtDollarValueToSell.setVisible(True)
@@ -1173,7 +1239,8 @@ class MainWindow(QMainWindow):
             
         elif perform_action == "sell_gains_except_x":
             self.ui.lblRaiseAmount.setVisible(True)
-            self.ui.edtRaiseAmount.setVisible(True)               
+            self.ui.edtRaiseAmount.setVisible(True) 
+            self.ui.edtRaiseAmount.setReadOnly(True)              
             self.ui.lblRaiseAmount.setText("Sell Assets Except:")
             self.ui.edtRaiseAmount.setText("")
             self.ui.edtBuyWithAmount.setText("")
@@ -1514,9 +1581,16 @@ class MainWindow(QMainWindow):
             raise Exception("No stocks in account")
         
             
-
+      
+       
         # Get Ticker symbols
         tickers = [r.get_symbol_by_url(item["instrument"]) for item in positions]
+
+        #get percent of portfolio
+        self.portfolio = r.account.build_holdings(acc_num)
+        #get fundamentals
+        self.fundamentals = r.get_fundamentals(tickers)
+
         #get stock names
         stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
         
@@ -1560,7 +1634,7 @@ class MainWindow(QMainWindow):
         #item[8]=%change in price
         #item[9]=change in price since previous close
         #item[10] = stock name
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change,stock_name))
+        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change,stock_name,))
         sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
 
         return sorted_list
@@ -2062,7 +2136,7 @@ class MainWindow(QMainWindow):
                                     break
                                             
                             if not found:
-                                itm = [item[0],float(strquantity_to_buy),item[3]]
+                                itm = [item[0],float(strquantity_to_buy),float(item[3])]
                                 buy_list.append(itm)
                 
                 
@@ -2097,9 +2171,9 @@ class MainWindow(QMainWindow):
             #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],item[2]) ) 
             
-            lprize = float(item[2])+0.1
+            lprize = item[2]+0.1
             last_price = "{0:,.2f}".format(lprize)
-            total = float(item[1])*lprize
+            total = item[1]*lprize
             gtotal += total
             frm_total = "{0:,.2f}".format(total)
             self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_total}")
@@ -3026,14 +3100,15 @@ class MpfCanvas(FigureCanvasQTAgg):
             ax.tick_params(axis='x', rotation=55)
             return
 class TableToolTip(QWidget):
-    def __init__(self, obj ,parent=None):
+    def __init__(self, obj ,parent=MainWindow):
         super().__init__(parent, Qt.WindowType.ToolTip)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.obj = obj
         layout = QVBoxLayout(self)
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
+        self.sectorlabel_pct = QLabel()
+        self.table.setColumnCount(4)
         
         self.table.setObjectName("SectorTable")
         self.table.horizontalHeader().setVisible(False)
@@ -3063,94 +3138,50 @@ class TableToolTip(QWidget):
         self.icon_down = QIcon(f"{icon_path}\\down.png")
         self.icon_equal = QIcon(f"{icon_path}\\equal.png")
 
-       
-        lst_vals = []
-        count = 0
-        lst_ConsumerDiscretionary = ["AMZN","TSLA","URBN","RL","GAP","DIS"]
-        lst_crypto = ["IBIT","ETHA"]
-        lst_Homebuilders = ["DHI","LEN","PHM","NVR","TOL"]
-        lst_HomeImprovement = ["LOW","HD","W","SHW","WHR","FND"]
-        lst_ConsumerStaples = ["PEP","KO","CLX","UL","KVUE"]
-        lst_DiscRetailers = ["DG","DLTR","COST","WMT","TGT"]
-        lst_Energy = ["XOM","CVX","COP","OXY","VLO"]
-        lst_Financials = ["GS","MS","JPM","BAC","WFC","C"]
-        lst_Industrials = ["GEV","XPO","HON","CAT","DE","CNH"]
-        lst_Cybersecurity = ["CRWD","PANW","ZS","OKTA","S","CHKP"]
-        lst_HealthCare = ["JNJ","PFE","MRK","UNH","ABBV"]
-        lst_Defense = ["LMT","NOC","RTX","LHX","GD","BA","HII"]
-        lst_DataCenter = ["SMCI","DELL","INTC","PLTR","VRT","CRDO","CLS","DLR","NVDA","MSFT","ORCL","MSFT","CRWV","LUMN"]
-        lst_Materials = ["FCX","NEM","NUE","X","CLF","AA","LIN","APD"]
-        lst_RealEstate = ["AMT","PLD","PSA","DLR","O"]
-        lst_Technology = ["MSFT","META","AAPL","GOOGL","AMZN","NVDA","AVGO","CRM","ADBE","INTC","CSCO","ORCL","IBM"]
-        lst_Utilities = ["GEV","CEG","DUK","AEP","SO","EXC","AES","NRG"]
+        
+        #load sector data
+        lst_stocks_in_sector = self.parent().get_symbol_in_sectors(obj.objectName())
 
-       
-        
-        match obj.objectName():
-            case "Consumer Discretionary": 
-                self.createTable(lst_ConsumerDiscretionary)
-            case "Homebuilders": 
-                self.createTable(lst_Homebuilders)
-            case "Home Improvement": 
-                self.createTable(lst_HomeImprovement)
-            case "Cryptocurrency":
-                self.createTable(lst_crypto)
-            case "Cybersecurity":
-                self.createTable(lst_Cybersecurity)
-            case "Consumer Staples":
-                self.createTable(lst_ConsumerStaples)
-            case "Discount Retailers": 
-                self.createTable(lst_DiscRetailers)
-            case "Energy": 
-                self.createTable(lst_Energy)
-            case "Financials": 
-                self.createTable(lst_Financials)
-            case "Industrials":
-                self.createTable(lst_Industrials)
-            case "Health Care": 
-                self.createTable(lst_HealthCare)
-            case "Defence": 
-                self.createTable(lst_Defense)
-            case "Data Centers":
-                self.createTable(lst_DataCenter)
-            case "Materials": 
-                self.createTable(lst_Materials)
-            case "Real Estate": 
-                self.createTable(lst_RealEstate)
-            case "Big Tech":
-                self.createTable(lst_Technology)
-            case "Utilities": 
-                self.createTable(lst_Utilities)
+        self.createTable(lst_stocks_in_sector)
 
-        
-        
+        layout.addWidget(self.sectorlabel_pct)
         layout.addWidget(self.table)
         self.setLayout(layout)
         self.adjustSize()
 
     def createTable(self,lst_stocks):
         
+        tot_pct = 0.0
+        
         self.table.setRowCount(len(lst_stocks))
         self.table.setMaximumHeight(len(lst_stocks)*30)
         lst_vals = []
+        
+        #calc total percent of portfolio
+        
+           
+
         for item in lst_stocks:
+                    pct = item.split(":")[1]
+                    tot_pct += float(pct)
+                    
                     #get the stock name
-                    stock_name = r.get_name_by_symbol(item)
+                    stock_name = r.get_name_by_symbol(item.split(":")[0])
                     #get the last price
-                    val = r.get_quotes(f'{item}',"last_trade_price")[0]
+                    val = r.get_quotes(f'{item.split(":")[0]}',"last_trade_price")[0]
                     #get the previous close
-                    prev_close = r.get_quotes(f'{item}',"previous_close")[0]
+                    prev_close = r.get_quotes(f'{item.split(":")[0]}',"previous_close")[0]
                     #calculate the gains
                     if val is not None and prev_close is not None:
                         Gains = float(val) - float(prev_close) 
-                        lst_vals.append([f'{stock_name} ({item})', float(val),float(Gains)])
+                        lst_vals.append([f'{stock_name} ({item.split(":")[0]})', float(val),float(Gains), float(item.split(":")[1])])
                     else:
-                        lst_vals.append([f'{stock_name} ({item})', 0.0,0.0])
+                        lst_vals.append([f'{stock_name} ({item.split(":")[0]})', 0.0,0.0, 0.0])
                         #add the stock to the list
                     
                     
         for row in range(len(lst_vals)):
-            for col in range(0,3):
+            for col in range(0,4):
                 table_item = QTableWidgetItem()
                 if col == 2 and lst_vals[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
@@ -3166,15 +3197,19 @@ class TableToolTip(QWidget):
                     if col == 0:
                        
                         table_item.setText(lst_vals[row][col])
+                    elif col == 3:
+                        table_item.setText(f'{lst_vals[row][col]:.2f}%')
                     else:
                         table_item.setText("{0:,.2f}".format(lst_vals[row][col]))
-                       
+
 
                 table_item.setFont(QFont("Arial",8,QFont.Weight.Bold))
                 table_item.setBackground(QColor("White"))
                 table_item.setForeground(QColor("Black"))
                 self.table.setItem(row, col,table_item)
 
+        #set label percent
+        self.sectorlabel_pct.setText(f'{tot_pct:.2f}% of Portfolio')
         self.table.resizeColumnsToContents()
         self.table.width = self.table.horizontalHeader().length()
         self.table.setMinimumWidth(self.table.width + 20)
