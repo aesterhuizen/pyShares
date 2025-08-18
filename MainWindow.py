@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.23"
+        self.ver_string = "v1.0.24"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -62,7 +62,8 @@ class MainWindow(QMainWindow):
         self.ticker_lst = []
         self.fundamentals = []
         self.dict_sectors = {}
-        self.portfolio  = []
+        self.portfolio  = {}
+        self.portfolio_tvalue = 0.0
         self.prev_ticker_lst = []
         self.lstupdated_tblAssets = []
         
@@ -87,7 +88,6 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("sell_todays_return")
         self.ui.cmbAction.addItem("sell_gains_except_x")
         self.ui.cmbAction.addItem("sell_todays_return_except_x")
-      #  self.ui.cmbAction.addItem("buy_selected")
         self.ui.cmbAction.addItem("buy_selected_with_x")
         self.ui.cmbAction.addItem("buy_lower_with_gains")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars")
@@ -290,6 +290,8 @@ class MainWindow(QMainWindow):
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")  # Change background to grey             
         self.ui.btnExecute.setEnabled(False)  # Disable the button initially
         self.ui.btnExecute.setText("Execute ...")
+      
+
         #connect GetAccount button
         self.ui.btnStoreAccounts.clicked.connect(self.StoreAccounts)
         #connect signal/slot for edtRaiseAmount
@@ -303,9 +305,9 @@ class MainWindow(QMainWindow):
         self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         #setup status bar
         self.setupStatusbar()
-            
-       
+
         
+
         #set ticker_lst = prev_lst
         self.prev_ticker_lst = self.ticker_lst
         
@@ -319,6 +321,28 @@ class MainWindow(QMainWindow):
         self.monitor_thread.start()
         # show the Mainwindow
         self.show()
+    
+
+    def get_symbols_in_5pct_sector(self):
+        # Get the list of stocks in the 5% sector
+        newlst = self.reduce_position_to_5pct_of_portfolio(self.portfolio)
+        return newlst
+
+    def reduce_position_to_5pct_of_portfolio(self, dict_stocks):
+        # Reduce the position of each stock to 5% of the portfolio
+        lst_stockReduce = []
+        pct_5 = self.portfolio_tvalue * 0.05
+        for key,value in dict_stocks.items():
+            if float(value['equity']) > pct_5:
+                reduce_by = pct_5 - float(value['equity'])
+                frm_reduce_by = "{0:-.2f}".format(reduce_by)
+                lst_stockReduce.append(f'{key}:{frm_reduce_by}')
+            elif float(value['equity']) < pct_5:
+                increase_by = pct_5 - float(value['equity'])
+                frm_increase_by = "{0:+.2f}".format(increase_by)
+                lst_stockReduce.append(f'{key}:{frm_increase_by}')
+
+        return lst_stockReduce
 
     def get_symbol_in_sectors(self, name):
         # Get the list of stocks in sector
@@ -370,7 +394,12 @@ class MainWindow(QMainWindow):
 
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
-    
+
+        button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), "5% Reduce", self)
+        button.setObjectName("btn_5pct")
+        button.installEventFilter(self) #listen to mouse movement events for the buttons
+        self.ui.statusBar.addWidget(button, 1)
+            
         tbl_Index = QTableWidget()
        
         tbl_Index.setObjectName("tbl_Index")
@@ -457,15 +486,15 @@ class MainWindow(QMainWindow):
     
           
     def setupSectorButtons(self): 
-        #setup the sector buttons
 
-        portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
+      
+        #setup the sector buttons
         
         #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
         for item in self.fundamentals:
             sector = item['sector']
             symbol = item['symbol']
-            pct_portfolio = (float(self.portfolio[symbol]['equity']) / portfolio_tvalue * 100) if portfolio_tvalue > 0 else 0
+            pct_portfolio = (float(self.portfolio[symbol]['equity']) / self.portfolio_tvalue * 100) if self.portfolio_tvalue > 0 else 0
             if sector not in self.dict_sectors:
                 self.dict_sectors[sector] = [f'{symbol}:{pct_portfolio}']
             else:
@@ -485,13 +514,13 @@ class MainWindow(QMainWindow):
         try:
             if self.monitor_thread is not None:
                 self.monitor_thread.stop()
-                self.monitor_thread.join(timeout=2)
+                self.monitor_thread.join(timeout=4)
             if self.update_thread is not None:
                 self.update_thread.stop()
-                self.update_thread.join(timeout=2)
+                self.update_thread.join(timeout=4)
             if self.command_thread is not None:
                 self.command_thread.stop()
-                self.command_thread.join(timeout=2)
+                self.command_thread.join(timeout=4)
            
         except Exception as e:
             print(e)
@@ -604,6 +633,7 @@ class MainWindow(QMainWindow):
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
         #item[10] = stock name
+        #item[11] = % of portfolio
         lst_assets = []
         lst_elements_to_update = []
         get_selected_tickers = []
@@ -619,8 +649,9 @@ class MainWindow(QMainWindow):
             self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
             if len(self.ticker_lst) != len(self.prev_ticker_lst): 
                 self.ui.tblAssets.clear()
-                self.ui.tblAssets.setColumnCount(6)
-                self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
+                self.ui.tblAssets.setColumnCount(7)
+                self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"
+                                                             ,"% of Portfolio"])
                 self.ui.tblAssets.setRowCount(len(self.ticker_lst))
                 self.prev_ticker_lst = self.ticker_lst
             
@@ -636,7 +667,7 @@ class MainWindow(QMainWindow):
                 todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
                 quantity = item[4]
                 change = float(last_price) - float(prev_close)    
-                lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return])
+                lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,item[11]])
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -659,6 +690,8 @@ class MainWindow(QMainWindow):
                     else:
                         if col == 0:
                             table_item.setText(lst_elements_to_update[row][col])
+                        elif col == 6: #percentage column
+                            table_item.setText("{0:.2f}%".format(lst_elements_to_update[row][col]))
                         else:
                             table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
                             
@@ -1272,6 +1305,7 @@ class MainWindow(QMainWindow):
             self.ui.edtBuyWith.setText("")
             self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
             self.ui.btnExecute.setEnabled(True)  # Disable the button initially
+                  
         elif perform_action == "raise_x_sell_y_dollars":
             self.ui.edtRaiseAmount.setVisible(True)
             self.ui.lblRaiseAmount.setVisible(True)
@@ -1484,6 +1518,8 @@ class MainWindow(QMainWindow):
         #item[8]=%change in price
         #item[9]=change in price since previous close
         #item[10]=stock_name
+        #item[11]=% of portfolio
+
         join_list = []
        
         lst_elements_to_update = []
@@ -1491,7 +1527,7 @@ class MainWindow(QMainWindow):
         
         
         
-        self.ui.tblAssets.setColumnCount(6)
+        self.ui.tblAssets.setColumnCount(7)
         self.ui.tblAssets.setRowCount(len(curlist))
         
         
@@ -1502,9 +1538,9 @@ class MainWindow(QMainWindow):
         # self.ui.tblAssets.setColumnWidth(4,85)
         # self.ui.tblAssets.setColumnWidth(5,85)
         
-        
-        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"])
-       
+
+        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","% of Portfolio"])
+
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
         
@@ -1516,7 +1552,7 @@ class MainWindow(QMainWindow):
             quantity = item[4]
             change = float(last_price) - float(prev_close)  
               
-            lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return])
+            lst_elements_to_update.append([f"{item[10]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return, item[11]])
 
         #update table
         for row in range(len(lst_elements_to_update)):
@@ -1541,6 +1577,8 @@ class MainWindow(QMainWindow):
                 else:
                     if col == 0:
                         table_item.setText(lst_elements_to_update[row][col])
+                    elif col == 6: #percentage column
+                        table_item.setText("{0:.2f}%".format(lst_elements_to_update[row][col]))
                     else:
                         table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
                   
@@ -1574,8 +1612,7 @@ class MainWindow(QMainWindow):
     def get_stocks_from_portfolio(self, acc_num):
 
 
-       
-
+        lst_pct_of_portfolio = []
         positions = r.get_open_stock_positions(acc_num)
         if len(positions) == 0:
             raise Exception("No stocks in account")
@@ -1588,6 +1625,9 @@ class MainWindow(QMainWindow):
 
         #get percent of portfolio
         self.portfolio = r.account.build_holdings(acc_num)
+        self.portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
+
+
         #get fundamentals
         self.fundamentals = r.get_fundamentals(tickers)
 
@@ -1604,8 +1644,9 @@ class MainWindow(QMainWindow):
             stock_name.pop()
             positions.pop()
 
-
-
+        #calculate % of each stock in your portfolio
+        lst_pct_of_portfolio = [(float(self.portfolio[item]["equity"]) / self.portfolio_tvalue * 100) for item in self.portfolio]
+        
         pct_change = [(float(lastPrice[i]) - float(previous_close[i]))/float(previous_close[i])*100  for i in range(len(tickers))]
         change = [float(lastPrice[i]) - float(previous_close[i]) for i in range(len(tickers))]
         # Get your quantities
@@ -1634,7 +1675,9 @@ class MainWindow(QMainWindow):
         #item[8]=%change in price
         #item[9]=change in price since previous close
         #item[10] = stock name
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,history_week,avg_buy_price,pct_change,change,stock_name,))
+        #item[11] = % of portfolio
+        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,
+                               history_week,avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio))
         sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
 
         return sorted_list
@@ -2306,6 +2349,8 @@ class MainWindow(QMainWindow):
         self.print_terminal_to_file()
         
         return
+    
+
 #----------------------------------------------------------------------------------------------------------------------
 #  sell_gains
 # -------------------------------------------------------------------------------------------------------------------------      
@@ -2697,7 +2742,13 @@ class MainWindow(QMainWindow):
         self.print_terminal_to_file()        
 
         return
-                
+#---------------------------------------------------------------------------------------------------------------------------
+#  sell_to_5_percent
+# --------------------------------------------------------------------------------------------------------------------------                
+
+    def sell_to_5_percent(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+        
+        self.reduce_position_to_5pct_of_portfolio()
 #---------------------------------------------------------------------------------------------------------------------------
 # raise x (dollars) by selling y dollars of each stock
 #---------------------------------------------------------------------------------------------------------------------------------
@@ -3140,9 +3191,12 @@ class TableToolTip(QWidget):
 
         
         #load sector data
-        lst_stocks_in_sector = self.parent().get_symbol_in_sectors(obj.objectName())
-
-        self.createTable(lst_stocks_in_sector)
+        if obj.objectName() == "btn_5pct":
+            lst_stocks_in_sector = self.parent().get_symbols_in_5pct_sector()
+            self.createTable_reduce(lst_stocks_in_sector)
+        else:
+            lst_stocks_in_sector = self.parent().get_symbol_in_sectors(obj.objectName())
+            self.createTable(lst_stocks_in_sector)
 
         layout.addWidget(self.sectorlabel_pct)
         layout.addWidget(self.table)
@@ -3154,7 +3208,7 @@ class TableToolTip(QWidget):
         tot_pct = 0.0
         
         self.table.setRowCount(len(lst_stocks))
-        self.table.setMaximumHeight(len(lst_stocks)*30)
+        
         lst_vals = []
         
         #calc total percent of portfolio
@@ -3162,22 +3216,21 @@ class TableToolTip(QWidget):
            
 
         for item in lst_stocks:
-                    pct = item.split(":")[1]
-                    tot_pct += float(pct)
-                    
-                    #get the stock name
-                    stock_name = r.get_name_by_symbol(item.split(":")[0])
-                    #get the last price
-                    val = r.get_quotes(f'{item.split(":")[0]}',"last_trade_price")[0]
-                    #get the previous close
-                    prev_close = r.get_quotes(f'{item.split(":")[0]}',"previous_close")[0]
-                    #calculate the gains
-                    if val is not None and prev_close is not None:
-                        Gains = float(val) - float(prev_close) 
-                        lst_vals.append([f'{stock_name} ({item.split(":")[0]})', float(val),float(Gains), float(item.split(":")[1])])
-                    else:
-                        lst_vals.append([f'{stock_name} ({item.split(":")[0]})', 0.0,0.0, 0.0])
-                        #add the stock to the list
+                pct = item.split(":")[1]
+                tot_pct += float(pct)
+                #get the stock name
+                stock_name = r.get_name_by_symbol(item.split(":")[0])
+                #get the last price
+                val = r.get_quotes(f'{item.split(":")[0]}',"last_trade_price")[0]
+                #get the previous close
+                prev_close = r.get_quotes(f'{item.split(":")[0]}',"previous_close")[0]
+                #calculate the gains
+                if val is not None and prev_close is not None:
+                    Gains = float(val) - float(prev_close) 
+                    lst_vals.append([f'{stock_name} ({item.split(":")[0]})', float(val),float(Gains), float(item.split(":")[1])])
+                else:
+                    lst_vals.append([f'{stock_name} ({item.split(":")[0]})', 0.0,0.0, 0.0])
+                    #add the stock to the list
                     
                     
         for row in range(len(lst_vals)):
@@ -3209,11 +3262,66 @@ class TableToolTip(QWidget):
                 self.table.setItem(row, col,table_item)
 
         #set label percent
+
         self.sectorlabel_pct.setText(f'{tot_pct:.2f}% of Portfolio')
         self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
         self.table.width = self.table.horizontalHeader().length()
-        self.table.setMinimumWidth(self.table.width + 20)
+        self.table.height = self.table.verticalHeader().length()
+        self.table.setMinimumHeight(self.table.height)
+        self.table.setMaximumHeight(self.table.height)
+        self.table.setMinimumWidth(self.table.width)
        
         return
+    
+    def createTable_reduce(self,lst_stocks):
+        tot_pct = 0.0
+        
+        self.table.setRowCount(len(lst_stocks))
+        
+        lst_vals = []
+        
+        #calc total percent of portfolio
+        
+           
+
+        for item in lst_stocks:
+            #get the stock name
+            stock_name = r.get_name_by_symbol(item.split(":")[0])
+            lst_vals.append([f'{stock_name} ({item.split(":")[0]})', float(item.split(":")[1])])
+                    
+                    
+                    
+                    
+        for row in range(len(lst_vals)):
+            for col in range(0,2):
+                table_item = QTableWidgetItem()
+
+                if col == 1 and lst_vals[row][col] > 0.0:
+                    table_item.setText("{0:+.2f}".format(lst_vals[row][col]))
+                    table_item.setIcon(self.icon_up)
+                elif col ==1 and lst_vals[row][col] < 0.0:
+                    table_item.setText("{0:-.2f}".format(lst_vals[row][col]))
+                    table_item.setIcon(self.icon_down)
+                else:
+                    table_item.setText(lst_vals[row][col])
+
+
+                table_item.setFont(QFont("Arial",8,QFont.Weight.Bold))
+                table_item.setBackground(QColor("White"))
+                table_item.setForeground(QColor("Black"))
+                self.table.setItem(row, col,table_item)
+
+        
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.width = self.table.horizontalHeader().length()
+        self.table.height = self.table.verticalHeader().length()
+        self.table.setMinimumHeight(self.table.height)
+        self.table.setMaximumHeight(self.table.height)
+        self.table.setMinimumWidth(self.table.width)
+       
+        return
+
 
                 
