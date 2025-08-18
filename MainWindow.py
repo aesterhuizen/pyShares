@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.24"
+        self.ver_string = "v1.0.25"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -483,11 +483,19 @@ class MainWindow(QMainWindow):
         
 
         return
-    
-          
-    def setupSectorButtons(self): 
 
-      
+    # def updateSectorButtons(self):
+
+    #     self.get_symbol_in_sectors()
+    #     # Update the sector buttons based on the current portfolio
+    #     for sector, symbols in self.dict_sectors.items():
+    #         button = self.ui.statusBar.findChild(QPushButton, sector)
+    #         if button:
+    #             pct_total = sum(float(s.split(':')[1]) for s in symbols)
+    #             button.setText(f"{sector} ({pct_total:.1f}%)")
+
+    def setupSectorButtons(self):
+
         #setup the sector buttons
         
         #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
@@ -550,7 +558,8 @@ class MainWindow(QMainWindow):
         lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
         lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
        
-        # #setup the status table widget
+        
+        #setup the status table widget
         tbl_Index = self.ui.statusBar.findChild(QTableWidget, "tbl_Index")
        
         
@@ -613,6 +622,8 @@ class MainWindow(QMainWindow):
         tbl_Index.resizeColumnsToContents()
         tbl_Index.width = tbl_Index.horizontalHeader().length()
         tbl_Index.setMinimumWidth(tbl_Index.width+ 20)
+
+        self.updateSectorButtons()
 
         return
     
@@ -848,14 +859,15 @@ class MainWindow(QMainWindow):
     def tblAsset_clicked(self):
         stock_tickers = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
+        selected_tickers = [sel_items[i:i+7][0] for i in range(0,len(sel_items),7)]
        
 
         if len(selected_tickers) > 0:
             #get stock tickers from selected items
             for index, ticker in enumerate(selected_tickers):
                 match = re.search(r"\((\w+)\)", ticker)
-                stock_tickers.append(match.group(1))
+                if match:
+                    stock_tickers.append(match.group(1))
                
 
 
@@ -1420,6 +1432,7 @@ class MainWindow(QMainWindow):
                 #get tickers in portfolio
                 try:
                     self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
+                    
                     tickersPerf = self.ticker_lst
                     self.print_cur_protfolio(tickersPerf)
                     self.setup_plot(tickersPerf)
