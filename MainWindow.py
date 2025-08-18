@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.25"
+        self.ver_string = "v1.0.26"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         self.dict_sectors = {}
         self.portfolio  = {}
         self.portfolio_tvalue = 0.0
-        self.prev_ticker_lst = []
+        
         self.lstupdated_tblAssets = []
         
         #new lst of shares to buy
@@ -300,19 +300,13 @@ class MainWindow(QMainWindow):
         self.ui.edtDollarValueToSell.textChanged.connect(self.edtDollarValueToSell_changed)
         self.ui.edtBuyWithAmount.textChanged.connect(self.edtBuyWithAmount_changed)   
         #connect clear selection button
-        self.ui.btnClearSelec.clicked.connect(self.clear_selection_clicked)  
+        self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
         self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         #setup status bar
         self.setupStatusbar()
 
-        
-
-        #set ticker_lst = prev_lst
-        self.prev_ticker_lst = self.ticker_lst
-        
-      
-        #create an update worker thread to update the asset list every 10 seconds 
+        #create an update worker thread to update the asset list every 10 seconds
         self.update_thread = UpdateThread(self.updateLstAssets)
         self.update_thread.start()
   
@@ -344,7 +338,7 @@ class MainWindow(QMainWindow):
 
         return lst_stockReduce
 
-    def get_symbol_in_sectors(self, name):
+    def get_symbols_in_sectors(self, name):
         # Get the list of stocks in sector
         lst_stocks_in_sector = self.dict_sectors[name]
         return lst_stocks_in_sector
@@ -357,6 +351,7 @@ class MainWindow(QMainWindow):
                 if self.command_thread.is_alive() == False:
                     self.ui.btnExecute.setText("Execute ...")
                     self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+        
 
     def eventFilter(self, obj, event):
         if event.type() == event.Type.Enter:
@@ -376,6 +371,12 @@ class MainWindow(QMainWindow):
         self.tooltip.show()
 
     def setupStatusbar(self):
+
+        #remove all statusbar childern
+        
+        for child in self.ui.statusBar.children():
+            if not isinstance(child, QVBoxLayout):
+                self.ui.statusBar.removeWidget(child)
 
         lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
         lblStatusBar.setMinimumWidth(100)
@@ -484,20 +485,11 @@ class MainWindow(QMainWindow):
 
         return
 
-    # def updateSectorButtons(self):
-
-    #     self.get_symbol_in_sectors()
-    #     # Update the sector buttons based on the current portfolio
-    #     for sector, symbols in self.dict_sectors.items():
-    #         button = self.ui.statusBar.findChild(QPushButton, sector)
-    #         if button:
-    #             pct_total = sum(float(s.split(':')[1]) for s in symbols)
-    #             button.setText(f"{sector} ({pct_total:.1f}%)")
-
+                    
     def setupSectorButtons(self):
+        if len(self.dict_sectors) != 0:
+            self.dict_sectors = {}
 
-        #setup the sector buttons
-        
         #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
         for item in self.fundamentals:
             sector = item['sector']
@@ -508,13 +500,28 @@ class MainWindow(QMainWindow):
             else:
                 self.dict_sectors[sector].append(f'{symbol}:{pct_portfolio}')
 
+       #remove all sector button if it exist
+        remove_buttons = [child for child in self.ui.statusBar.children() if isinstance(child, QPushButton) and child.objectName() != "btn_5pct"]
+
+
+        for button in remove_buttons:
+            self.ui.statusBar.removeWidget(button)
             
-            
-        for i, sector in enumerate(self.dict_sectors):
+
+        for sector in self.dict_sectors.keys():
             button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), sector, self)
             button.setObjectName(sector)
             button.installEventFilter(self) #listen to mouse movement events for the buttons
             self.ui.statusBar.addWidget(button, 1)
+            
+            
+
+            
+               
+                
+                    
+                        
+
         return
 
     def closeEvent(self, event):
@@ -544,7 +551,7 @@ class MainWindow(QMainWindow):
         frm_date = t_now.strftime("%Y-%m-%d %H:%M:%S")
         self.ui.lstTerm.addItem(frm_date + " - " + n)
 
-    def updateStatusBar(self,temp_lst):
+    def i76updateStatusBar(self,temp_lst):
        
         self.totalGains,self.todayGains = self.cal_today_total_gains(temp_lst)
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
@@ -557,7 +564,7 @@ class MainWindow(QMainWindow):
         lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
         lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
         lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
-       
+        
         
         #setup the status table widget
         tbl_Index = self.ui.statusBar.findChild(QTableWidget, "tbl_Index")
@@ -623,7 +630,7 @@ class MainWindow(QMainWindow):
         tbl_Index.width = tbl_Index.horizontalHeader().length()
         tbl_Index.setMinimumWidth(tbl_Index.width+ 20)
 
-        self.updateSectorButtons()
+        
 
         return
     
@@ -658,13 +665,7 @@ class MainWindow(QMainWindow):
             # update the table if there is a change in the number of stocks
 
             self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
-            if len(self.ticker_lst) != len(self.prev_ticker_lst): 
-                self.ui.tblAssets.clear()
-                self.ui.tblAssets.setColumnCount(7)
-                self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return"
-                                                             ,"% of Portfolio"])
-                self.ui.tblAssets.setRowCount(len(self.ticker_lst))
-                self.prev_ticker_lst = self.ticker_lst
+          
             
             lst_assets = self.ticker_lst
         
@@ -721,7 +722,7 @@ class MainWindow(QMainWindow):
             
             self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
             self.plot.draw()
-            self.updateStatusBar(self.ticker_lst)
+            # self.updateStatusBar(self.ticker_lst)
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
@@ -813,6 +814,9 @@ class MainWindow(QMainWindow):
                             return
                         
                     self.print_cur_protfolio(self.ticker_lst)
+                    if self.ui.lstTerm.count() > 0:
+                        self.ui.lstTerm.clear()
+
                     #get total gains for the day
                     self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
                     #setup plot widget
@@ -998,10 +1002,12 @@ class MainWindow(QMainWindow):
 
         return
 
-    def clear_selection_clicked(self):
+    def clear_all_clicked(self):
         self.ui.tblAssets.clearSelection()
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
+        self.ui.edtBuyWithAmount.setText("")
+        self.ui.lstTerm.clear()
         self.setup_plot(self.ticker_lst)
        
 
@@ -1404,7 +1410,7 @@ class MainWindow(QMainWindow):
             self.ui.edtBuyWith.setText("")
             self.ui.cmbDollarShare.setVisible(False)
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-            self.clear_selection_clicked()
+            self.ui.btnClearAll.clicked()
             self.setup_plot(self.ticker_lst)
             
 
@@ -1422,7 +1428,7 @@ class MainWindow(QMainWindow):
         if self.current_account_num != self.ui.cmbAccount.currentText().split(' ')[0]:
             wait_cursor = QCursor()
             wait_cursor.setShape(wait_cursor.shape().WaitCursor)
-
+           
             QApplication.setOverrideCursor(wait_cursor)
             try:
                 self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
@@ -1431,19 +1437,23 @@ class MainWindow(QMainWindow):
                     self.ui.tblAssets.clear()
                 #get tickers in portfolio
                 try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
                     
+                    self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
+                    self.print_cur_protfolio(self.ticker_lst)
+                    self.setupStatusbar()
                     tickersPerf = self.ticker_lst
-                    self.print_cur_protfolio(tickersPerf)
+                    
+                    if self.ui.lstTerm.count() > 0:
+                        self.ui.lstTerm.clear()
+
                     self.setup_plot(tickersPerf)
-                    self.updateStatusBar(tickersPerf)
+                   # self.updateStatusBar(tickersPerf)
                 except Exception as e:
                     if e.args[0] == "No stocks in account":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        self.ticker_lst = []
                         self.print_cur_protfolio(self.ticker_lst)
                         self.setup_plot(self.ticker_lst)
-                        self.updateStatusBar(self.ticker_lst)
+                        #self.updateStatusBar(self.ticker_lst)
                     
                     
                
@@ -1612,20 +1622,26 @@ class MainWindow(QMainWindow):
     
     def get_tickers_from_selected_lstAssets(self):
         stock_tickers = []
+        
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
         
         selected_tickers = [sel_items[i:i+6][0] for i in range(0,len(sel_items),6)]
         if len(selected_tickers) > 0 :
             for index, ticker in enumerate(selected_tickers):
                 match = re.search(r"\((\w+)\)", ticker)
-                stock_tickers.append(match.group(1))
+                if match:
+                    stock_tickers.append(match.group(1))
             return stock_tickers
         return selected_tickers
     
+    
+
+    
+    
+       
+
     def get_stocks_from_portfolio(self, acc_num):
-
-
-        lst_pct_of_portfolio = []
+        
         positions = r.get_open_stock_positions(acc_num)
         if len(positions) == 0:
             raise Exception("No stocks in account")
@@ -1635,9 +1651,27 @@ class MainWindow(QMainWindow):
        
         # Get Ticker symbols
         tickers = [r.get_symbol_by_url(item["instrument"]) for item in positions]
+        lastPrice = r.get_quotes(tickers, "last_trade_price")
+        previous_close = r.get_quotes(tickers, "previous_close") 
 
-        #get percent of portfolio
-        self.portfolio = r.account.build_holdings(acc_num)
+         # Get your average buy price
+        avg_buy_price = [float(item["average_buy_price"]) for item in positions]
+
+        #build dictionary for holdings
+        holdings = {}
+        for i, sym in enumerate(tickers):
+            qty = float(positions[i]["quantity"])
+            equity = float(lastPrice[i]) * qty
+            holdings[sym] = {
+                "price": float(lastPrice[i]),
+                "quantity": qty,
+                "equity": equity,
+                "average_buy_price": float(avg_buy_price[i]),
+                "percentage": 0.0,  # filled after total equity known
+                "prev_close": float(previous_close[i]),
+            }
+
+        self.portfolio = holdings
         self.portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
 
 
@@ -1648,10 +1682,10 @@ class MainWindow(QMainWindow):
         stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
         
         
-        lastPrice = r.get_quotes(tickers, "last_trade_price")
+        
         
 
-        previous_close = r.get_quotes(tickers, "previous_close") 
+        
         if len(tickers) != len (previous_close):
             tickers.pop()
             stock_name.pop()
@@ -1664,8 +1698,7 @@ class MainWindow(QMainWindow):
         change = [float(lastPrice[i]) - float(previous_close[i]) for i in range(len(tickers))]
         # Get your quantities
         quantities = [float(item["quantity"]) for item in positions]
-        # Get your average buy price
-        avg_buy_price = [float(item["average_buy_price"]) for item in positions]
+       
         
         # Calculate total returns
         total_return = [(float(lastPrice[i]) - avg_buy_price[i])*quantities[i] for i in range(len(tickers))]
@@ -3208,7 +3241,7 @@ class TableToolTip(QWidget):
             lst_stocks_in_sector = self.parent().get_symbols_in_5pct_sector()
             self.createTable_reduce(lst_stocks_in_sector)
         else:
-            lst_stocks_in_sector = self.parent().get_symbol_in_sectors(obj.objectName())
+            lst_stocks_in_sector = self.parent().get_symbols_in_sectors(obj.objectName())
             self.createTable(lst_stocks_in_sector)
 
         layout.addWidget(self.sectorlabel_pct)
