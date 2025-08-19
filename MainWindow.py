@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.26"
+        self.ver_string = "v1.0.27"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -1440,6 +1440,7 @@ class MainWindow(QMainWindow):
                     
                     self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
                     self.print_cur_protfolio(self.ticker_lst)
+                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
                     self.setupStatusbar()
                     tickersPerf = self.ticker_lst
                     
