@@ -2,14 +2,14 @@ from datetime import datetime
 import os
 import sys,traceback # type: ignore
 import time
-from unittest import case
 import pyotp
 import robin_stocks.robinhood as r
 
-import numpy as np 
+
 import matplotlib
 import pandas as pd
 import mplfinance as mpf
+
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -25,7 +25,7 @@ from dotenv import load_dotenv, set_key
 from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
-from PyQt6.QtCore import QSize,Qt,QPoint
+from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
 from layout import Ui_MainWindow
 
@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.28"
+        self.ver_string = "v1.0.29"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         self.totalGains = 0.0
         self.todayGains = 0.0
 
-        # self.stock_quantity_to_sell = 0
+        
         self.current_account_num = ""
         self.account_info = ''
         #main list of tickers and performance metrics
@@ -67,7 +67,11 @@ class MainWindow(QMainWindow):
         self.portfolio_tvalue = 0.0
         
         self.lstupdated_tblAssets = []
-        
+
+        #variable allocations to hold the lists stocks in the selected sectors
+        self.alloc_from = []
+        self.alloc_to = []
+
         #new lst of shares to buy
         self.new_lstShares = []
 
@@ -75,6 +79,13 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()       
         self.tooltip = None
         
+        # sequence runner
+        self.op_queue = []
+        self._seq_num_iter = 1
+        self.seq_timer = QTimer(self)
+        self.seq_timer.setInterval(200)
+        self.seq_timer.timeout.connect(self._check_and_run_next)
+
         self.ui.setupUi(self)
         self.plot = MpfCanvas(self, width=12, height=12)
         self.ui.grdGraph.addWidget(self.plot)
@@ -91,12 +102,14 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("sell_todays_return_except_x")
         self.ui.cmbAction.addItem("buy_selected_with_x")
         self.ui.cmbAction.addItem("buy_lower_with_gains")
+        self.ui.cmbAction.addItem("allocate_reallocate_to_sectors")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
         
         #add combo box items to Dollar Share selector
         self.ui.cmbDollarShare.addItem("Buy in USD")
         self.ui.cmbDollarShare.addItem("Buy in Shares")
+        
         self.ui.cmbDollarShare.setVisible(False)
 
         # set the meta data textboxes and labels to invisible
@@ -109,7 +122,13 @@ class MainWindow(QMainWindow):
         self.ui.lblbuyWith.setVisible(False)
         self.ui.edtBuyWith.setVisible(False)
         
+        # #show the stack Page default to index 1
+        if self.ui.stackPage.count() > 0:
+            self.ui.stackPage.setCurrentIndex(1)
+            self.ui.stackPage.setVisible(True)
+
       
+
         #load credentials file
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         #bundle, the PyInstaller bootloader
@@ -304,6 +323,8 @@ class MainWindow(QMainWindow):
         self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
         self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
+        #setup allocation page connections
+        self.ui.edtAllocAmount.textChanged.connect(self.edtAllocAmount_changed)
         #setup status bar
         self.setupStatusbar()
 
@@ -318,7 +339,21 @@ class MainWindow(QMainWindow):
         self.show()
     
 
-    def get_symbols_in_5pct_sector(self):
+    def get_To_From_sectors(self) -> tuple[list[str], list[str]]:
+        # Get the selected sector
+        sectorFrom = self.ui.cmbFromSector.currentText()
+        # Get the symbols in the selected sector
+        symbolsFromSector = self.get_symbols_in_sector(sectorFrom)
+
+        # Get the selected sector
+        sectorTo = self.ui.cmbToSector.currentText()
+        # Get the symbols in the selected sector
+        symbolsToSector = self.get_symbols_in_sector(sectorTo)
+
+        return symbolsFromSector, symbolsToSector
+
+    
+    def get_symbols_in_5pct_sector(self) -> list[str]:
         # Get the list of stocks in the 5% sector
         newlst = self.reduce_position_to_5pct_of_portfolio(self.portfolio)
         return newlst
@@ -339,7 +374,7 @@ class MainWindow(QMainWindow):
 
         return lst_stockReduce
 
-    def get_symbols_in_sectors(self, name):
+    def get_symbols_in_sector(self, name):
         # Get the list of stocks in sector
         lst_stocks_in_sector = self.dict_sectors[name]
         return lst_stocks_in_sector
@@ -517,7 +552,13 @@ class MainWindow(QMainWindow):
             button.setObjectName(sector)
             button.installEventFilter(self) #listen to mouse movement events for the buttons
             self.ui.statusBar.addWidget(button, 1)
-            
+        
+          #load sectors into comboSectors in stackpage
+        self.ui.cmbFromSector.clear()
+        self.ui.cmbToSector.clear()
+        for sector in self.dict_sectors.keys():
+            self.ui.cmbFromSector.addItem(sector)
+            self.ui.cmbToSector.addItem(sector)
             
 
             
@@ -864,7 +905,19 @@ class MainWindow(QMainWindow):
 
            
         return
-    
+    def edtAllocAmount_changed(self):
+        dollar_value = self.ui.edtAllocAmount.text()
+        if dollar_value != "" and re.match(r'^[0-9]+(\.[0-9]{1,2})?$', dollar_value):
+            #calculate what percent of your portfolio is the dollar_value
+            if self.portfolio_tvalue > 0:
+                percent = (float(dollar_value) / self.portfolio_tvalue) * 100
+                self.ui.edt_pct_of_portfolio.setText(f"{percent:.2f}%")
+            self.ui.btnExecute.setEnabled(True)
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+        else:
+            self.ui.btnExecute.setEnabled(False)
+            self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
+
     def tblAsset_clicked(self):
         stock_tickers = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
@@ -1244,11 +1297,12 @@ class MainWindow(QMainWindow):
    
               
     def Cancel_operation(self):
-        if self.command_thread.is_alive():
+        # Clear any pending sequence on Cancel
+        if self.command_thread and self.command_thread.is_alive():
             self.command_thread.stop()
-
-        
-        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
+        self.op_queue.clear()
+        self.seq_timer.stop()
+        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
         self.ui.btnExecute.setText("Execute ...")
         self.ui.btnExecute.setEnabled(False)
         return
@@ -1257,9 +1311,55 @@ class MainWindow(QMainWindow):
         if self.ui.btnExecute.text() == "Cancel":
             self.Cancel_operation()
         elif self.ui.btnExecute.text() == "Execute ...":    
-            self.Execute_operation()
-            
-    
+
+            num_iter,lst = self.check_and_read_conditions_met()
+
+            if lst == ['err']:
+                return
+
+            match self.ui.cmbAction.currentText():
+                case "sell_selected":
+                    self.Execute_operation("sell_selected",num_iter,lst)
+                     #check is all required values are entered
+
+                case "sell_gains":
+                    self.Execute_operation("sell_gains",num_iter,lst)
+
+                case "sell_todays_return":
+                    self.Execute_operation("sell_todays_return",num_iter,lst)
+
+                case "sell_gains_except_x":
+                    self.Execute_operation("sell_gains_except_x",num_iter,lst)
+
+                case "sell_todays_return_except_x":
+                    self.Execute_operation("sell_todays_return_except_x",num_iter,lst)
+
+                case "buy_selected_with_x":
+                    self.Execute_operation("buy_selected_with_x",num_iter,lst)
+
+                case "buy_lower_with_gains":
+                    self.Execute_operation("buy_lower_with_gains",num_iter,lst)
+
+                case "allocate_reallocate_to_sectors":
+                    symbols_from = [item.split(":")[0] for item in self.alloc_from]
+                    symbols_to = [item.split(":")[0] for item in self.alloc_to]
+                    self.lstTerm_update_progress_fn(f"Allocating/Reallocating to sectors - From: {symbols_from} To: {symbols_to}")
+                    self.Execute_operation("raise_x_sell_y_dollars",num_iter,symbols_from)
+
+                     # Queue the second op to run after the first finishes (no extra confirm)
+                    self.op_queue = [("buy_selected_with_x", symbols_to)]
+                    self._seq_num_iter = num_iter
+                    self.seq_timer.start()                  
+                    
+
+                case "raise_x_sell_y_dollars":
+                    self.Execute_operation("raise_x_sell_y_dollars",num_iter,lst)
+
+                case "raise_x_sell_y_dollars_except_z":
+                    self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,lst)
+
+                case _:
+                    self.Execute_operation(None) #default
 
     def cmbAction_clicked(self):
         #Item[0] =  tickers
@@ -1284,6 +1384,7 @@ class MainWindow(QMainWindow):
                 
         match perform_action:
             case "stock_info":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.edtRaiseAmount.setVisible(False)
                 self.ui.lblRaiseAmount.setVisible(False)
                 self.ui.edtDollarValueToSell.setVisible(False)
@@ -1297,6 +1398,7 @@ class MainWindow(QMainWindow):
                 self.clear_all_clicked()
                 self.setup_plot(self.ticker_lst)  
             case "sell_selected":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblRaiseAmount.setText("Sell Selected Asset:")
                 self.ui.lblRaiseAmount.setToolTip("Sell (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -1313,6 +1415,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtBuyWith.setText("")   
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)             
             case "sell_gains":
+                self.ui.stackPage.setCurrentIndex(1)
                 total_return,_ = self.cal_today_total_gains(self.ticker_lst)
 
                 self.ui.edtBuyWithAmount.setText(f"${total_return:,.2f}")          
@@ -1327,6 +1430,7 @@ class MainWindow(QMainWindow):
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
                 self.ui.btnExecute.setEnabled(True)  # enable the button initially
             case "sell_todays_return":
+                self.ui.stackPage.setCurrentIndex(1)
                 _,todays_stockReturn = self.cal_today_total_gains(self.ticker_lst)
 
                 self.ui.edtBuyWithAmount.setText(f"${todays_stockReturn:,.2f}")
@@ -1342,6 +1446,7 @@ class MainWindow(QMainWindow):
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
                 self.ui.btnExecute.setEnabled(True)  # Disable the button initially
             case "sell_gains_except_x":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True) 
                 self.ui.edtRaiseAmount.setReadOnly(True)              
@@ -1356,6 +1461,7 @@ class MainWindow(QMainWindow):
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
                 self.ui.btnExecute.setEnabled(True)  # Disable the button initially
             case "sell_todays_return_except_x":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.edtRaiseAmount.setVisible(True) 
                 self.ui.edtRaiseAmount.setReadOnly(True)              
@@ -1369,6 +1475,7 @@ class MainWindow(QMainWindow):
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
             case "buy_selected_with_x":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
                 self.ui.lblRaiseAmount.setToolTip("Buy (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -1401,7 +1508,10 @@ class MainWindow(QMainWindow):
             #     self.ui.edtBuyWith.setVisible(False)
             #     self.ui.edtBuyWith.setText("")
             #     self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+            case "allocate_reallocate_to_sectors":
+                self.ui.stackPage.setCurrentIndex(0)
             case "raise_x_sell_y_dollars":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblDollarValueToSell.setText("Dollar value to Sell of each Stock(s):")
                 self.ui.lblRaiseAmount.setVisible(True)
                 self.ui.lblDollarValueToSell.setVisible(True)
@@ -1410,6 +1520,7 @@ class MainWindow(QMainWindow):
                 self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
                 self.ui.edtRaiseAmount.setText("")
             case "raise_x_sell_y_dollars_except_x":
+                self.ui.stackPage.setCurrentIndex(0)
                 self.ui.lblRaiseAmount.setText("Sell Asset Except:")
                 self.ui.lblRaiseAmount.setToolTip("Sell Except (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -1472,58 +1583,73 @@ class MainWindow(QMainWindow):
                 QApplication.restoreOverrideCursor()
         
     
-        
-    
-       
-    def Execute_operation(self):
+    #Add the sequence helpers 
+    def _check_and_run_next(self):
+        if (self.command_thread is None) or (not self.command_thread.is_alive()):
+            if self.op_queue:
+                self._run_next_op()
+            else:
+                self.seq_timer.stop()
 
-        lst = []
-        num_iter = ''
-        #check is all required values are entered
-        num_iter,lst = self.check_and_read_conditions_met()
-        # if int(num_iter) == False and len(lst) == 0:
-        #     return
-        # #all the conditions are met
-        # elif num_iter >= '1' and (len(lst) > 0 or lst[0] == 'dont care'):
-        #     if lst[0] != 'dont care':
-        #         # get the text of the selected items
-        #         lst = self.get_tickers_from_selected_lstAssets()
-            
-      
-
+    def _run_next_op(self):
+        if not self.op_queue:
+            self.seq_timer.stop()
+            self.ui.btnExecute.setText("Execute ...")
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+            return
+        method, lst = self.op_queue.pop(0)
+        # Start next without confirmation
+        self.Execute_operation(method, self._seq_num_iter, lst, ask_confirm=False)
        
-        confirm = QMessageBox.question(self,"Confirm",f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'?",QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if confirm == QMessageBox.StandardButton.Yes:    
-        #Change btnExecute to red cancel
-            self.ui.btnExecute.setText("Cancel")
-            self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")  # Change background to red
+    def Execute_operation(self,method_name = None,num_iter = 1,lst=None, ask_confirm=True):
+
+        if lst is None:
+            lst = []
+
+        if ask_confirm:
+            confirm = QMessageBox.question(
+                self, "Confirm",
+                f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                self.ui.btnExecute.setText("Execute ...")
+                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                return
+
+        self.ui.btnExecute.setText("Cancel")
+        self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
             
-            #call the method to execute
+
+        #call the method to execute
+        if method_name is None:
             name_of_method = self.ui.cmbAction.currentText()
+        else:
+            name_of_method = method_name
 
-            
-            
-            fn = getattr(self, name_of_method)
-            
-            #clear the terminal window if there are any previous entries
-            self.ui.lstTerm.clear()
-        
-
+        fn = getattr(self, name_of_method)
+    
+        #clear the terminal window if there are any previous entries
+        self.ui.lstTerm.clear()
+    
+        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
+            raise_amount = self.ui.edtAllocAmount.text()
+            dollar_value_to_sell = 100.0
+            buying_with_amount = self.ui.edtAllocAmount.text()
+        else:
             raise_amount = self.ui.edtRaiseAmount.text()
             dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
             buying_with_amount = self.ui.edtBuyWith.text()
-
-            self.command_thread = CommandThread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount) # Any other args, kwargs are passed to the run function
         
 
-            # start thread
-            self.command_thread.start()
+        self.command_thread = CommandThread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount) # Any other args, kwargs are passed to the run function
+    
+
+        # start thread
+        self.command_thread.start()
 
           
-        else:
-            #user pressed no
-            self.ui.btnExecute.setText("Execute ...")
-            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+      
                 
             
         return 
@@ -1787,6 +1913,7 @@ class MainWindow(QMainWindow):
             self.ui.cmbAction.currentText() == "sell_todays_return_except_x" or \
             self.ui.cmbAction.currentText() == "sell_gains_x_except_z" or \
             self.ui.cmbAction.currentText() == "buy_selected_with_x":
+            
 
 
             
@@ -1799,11 +1926,25 @@ class MainWindow(QMainWindow):
             else:
                 lst = self.ui.edtRaiseAmount.text().split(",")
                 check_two = True
+        elif self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
+            self.alloc_from,self.alloc_to = self.get_To_From_sectors()
+            if len(self.alloc_from) == 0 or len(self.alloc_to) == 0:
+                msg = QMessageBox.warning(self,"Selection","There are no stocks in the selected sector.",QMessageBox.StandardButton.Ok)
+                if msg == QMessageBox.StandardButton.Ok:
+                    lst = ['err']
+                    return False,lst
+            elif self.ui.cmbFromSector.currentText() == self.ui.cmbToSector.currentText():
+                msg = QMessageBox.warning(self,"Selection","To and From sectors are the same!.",QMessageBox.StandardButton.Ok)
+                if msg == QMessageBox.StandardButton.Ok:
+                    lst = ['err']   
+                    return False,lst
+            else:
+                check_two = True
         else:
             lst = ['dont care']
             check_two = True
-            
-                
+       
+
 
                 
             
@@ -1913,222 +2054,6 @@ class MainWindow(QMainWindow):
         # stock_symbols = []
         
         return
-#----------------------------------------------------------------------------------------------------------------------------------
-# buy_selected
-# # -------------------------------------------------------------------------------------------------------------------------------------   
-    # def buy(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
-        
-               
-    #     #Item[0] =  tickers
-    #     #Item[1] = Total_return
-    #     #Item[2] = stock_quantity_to_sell/buy
-    #     #Item[3] = last price
-    #     #item[4]= your quantities
-    #     #item[5]=today's return
-    #     #item[6]= 1 year history
-        
-    #     stocks_to_buy = []
-    #     BuyinShares = 0
-    #     buy_list = []
-    #     dollar_value_to_buy = float(dollar_value_to_sell)
-    #     buying_with_amount = float(buying_with)
-    #     quantity_to_buy = 0.0
-    #     stock_symbols = []
-    #     money_left = buying_with_amount
-    #     found = False
-    #     tgains_actual = 0.0
-    #     #tickersPerf = self.get_stocks_from_portfolio(acc_num)
-    #     stocks_to_buy = raise_amount.split(',')
-
-        
-    #     while not (money_left <= 0.0) and BuyinShares != 1:
-    #         if self.command_thread.stop_event.is_set():
-    #             print("stop event")
-    #             self.lstTerm_update_progress_fn("Operation Cancelled!")
-    #             break
-    #         for item in stocks_to_buy:
-    #             # if there is no money left then break and continue buying the stocks that are in the list
-    #             if money_left <= 0.0: 
-    #                 break    
-                
-    #             last_price = r.get_quotes(item, "last_trade_price")[0]
-    #             #buy in shares
-    #             if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
-    #                 quantity_to_buy = dollar_value_to_buy
-    #                 BuyinShares = 1
-
-    #                 if not found:
-    #                    itm = [item,quantity_to_buy,float(last_price)]
-    #                    buy_list.append(itm)
-    #                    money_left -= quantity_to_buy*float(last_price) 
-
-
-    #             # Buy in dollars    
-    #             elif self.ui.cmbDollarShare.currentText() == "Buy in Dollars":
-    #                 quantity_to_buy = dollar_value_to_buy / float(last_price)     
-    #                 BuyinShares = 0
-
-    #                 for i,value in enumerate(buy_list): #check if already in list and return index
-    #                     #if found in list add the quantity to buy
-    #                     if value[0] == item:
-    #                         exist_quantity = buy_list[i][1]
-    #                         buy_list[i][1] = exist_quantity + quantity_to_buy
-    #                         if BuyinShares:
-    #                             money_left -= float(last_price)
-    #                         else:
-    #                             money_left -= quantity_to_buy*float(last_price)
-
-    #                         found = True
-    #                         break
-                                    
-    #                     if not found:
-    #                         itm = [item,quantity_to_buy,float(last_price)]
-    #                         buy_list.append(itm)
-    #                         money_left -= quantity_to_buy*float(last_price)   
-                
-            
-            
-            
-        
-
-    #     for item in buy_list:    
-    #         time.sleep(5)
-    #         if self.command_thread.stop_event.is_set():
-    #             print("stop event")
-    #             self.lstTerm_update_progress_fn("Operation Cancelled!")
-    #             break
-    #         # Item[0] = stock_name
-    #         # Item[1] = quantity to buy
-    #         # Item[2] = last price        
-    #         frm_quantity = "{0:.2f}".format(item[1])
-            
-    #         last_price = r.get_quotes(item, "last_trade_price")[0]
-    #         buy_price = float(last_price) + 1.00
-    #         frm_buy_price = "{0:.2f}".format(buy_price)
-
-    #         if os.environ['debug'] == '0':
-    #             try:
-    #                buy_info = r.order_buy_limit(symbol=item[0],quantity=frm_quantity,limitPrice=frm_buy_price,timeInForce='gfd',account_number=acc_num)
-    #             except Exception as e:
-    #                 self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-    #                 return
-            
-            
-    #         #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
-    #         stock_symbols.append("{0}:{1}:{2}".format(item[0],frm_quantity,item[2]) ) 
-    #         tot = float(item[1])*float(item[2])
-    #         tgains_actual += float(tot)
-
-    #         last_price = "{0:,.2f}".format(float(item[2]))
-    #         frm_tot = "{0:,.2f}".format(tot)
-    #         self.lstTerm_update_progress_fn(f"{frm_quantity} shares of {item[0]} bought at market price ${last_price} - Total: ${frm_tot}")
-           
-                    
-            
-    
-    #     file_path = os.path.join(self.data_path,"stocks_buy.csv")
-    #     file_buy_write = open(file_path,"w")
-    #     stocks_format = ",".join(stock_symbols)
-    #     file_buy_write.write(stocks_format)
-    #     file_buy_write.close()
-    #     stock_symbols = []   
-    #     fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
-    #     self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
-    #     #update ticker list for updated portfolio
-    #     self.ticker_lst = self.get_stocks_from_portfolio(acc_num)
-    
-    #     return
-#----------------------------------------------------------------------------------------------------------------------------------
-# buy_selected (merged buy_selected function and buy_selected_with_x) v1.19
-# # -------------------------------------------------------------------------------------------------------------------------------------   
-    # def buy_selected(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
-        
-               
-    #     #Item[0] =  tickers
-    #     #Item[1] = Total_return
-    #     #Item[2] = stock_quantity_to_sell/buy
-    #     #Item[3] = last price
-    #     #item[4]= your quantities
-    #     #item[5]=today's return
-    #     #item[6]= 1 year history
-        
-    #     stocks_to_buy = []
-        
-    #     dollar_value_to_buy = float(dollar_value_to_sell)
-    #     stock_symbols = []
-    #     tot = 0.0
-    #     gtotal = 0.0
-    #     tgains_actual = 0.0
-    #     tickersPerf = self.get_stocks_from_portfolio(acc_num)
-        
-        
-    #     n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
-    #     sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
-    #     if os.environ['debug'] == '0':
-    #         self.lstTerm_update_progress_fn(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}") 
-    #     else:
-    #         print(f"Buy Selected: Total = ${dollar_value_to_buy * len(lst)}")
-
-    #     file_buy_write = open("stocks_buy.csv","w")
-    #     for index in range(int(n)):
-    #         self.lstTerm_update_progress_fn(f"Iteration{index+1}")
-            
-    #         #if user click cancel then cancel operation
-    #         if self.command_thread.stop_event.is_set():
-    #             print("stop event")
-    #             self.lstTerm_update_progress_fn("Operation Cancelled!")
-    #             break
-            
-    #         stock_symbols = []
-           
-
-    #         #sell stocks if quantity_to_sell > 0 
-    #         for item in sorted_lst:
-    #                #if user click cancel then cancel operation
-    #             if self.command_thread.stop_event.is_set():
-    #                 print("stop event")
-    #                 self.lstTerm_update_progress_fn("Operation Cancelled!")
-    #                 break
-
-    #             if (self.ui.cmbDollarShare.currentText() == "Buy in Shares"):
-    #                 quantity_to_buy = dollar_value_to_buy
-                    
-    #             elif (self.ui.cmbDollarShare.currentText() == "Buy in Dollars"):
-    #                 quantity_to_buy = dollar_value_to_buy / float(item[3])     
-                
-    #             tot = quantity_to_buy*float(item[3])
-    #             frm_quantity = "{0:.2f}".format(float(quantity_to_buy))
-
-    #             if os.environ['debug'] == '0':
-    #                 try:
-    #                     buy_info = r.order(symbol=item[0],quantity=frm_quantity,side='buy',timeInForce='gfd',limitPrice=float(item[3])+0.50,account_number=acc_num)
-    #                 except Exception as e:
-    #                     self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-    #                     continue
-    #             time.sleep(5)
-
-                    
-    #             #Item 0 =  tickers     #Item 2 = stock_quantity_to_buy  #Item 3 = last price
-    #             stock_symbols.append(f"{item[0]}:{frm_quantity}:{item[3]}")
-    #             gtotal += tot 
-    #             lprize = float(item[3])+0.50
-    #             last_price = "{0:,.2f}".format(lprize)
-    #             frm_tot = "{0:,.2f}".format(tot)
-    #             self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_tot}")
-              
-        
-    #     stocks_format = ",".join(stock_symbols)
-    #     file_buy_write.write(stocks_format)
-            
-            
-
-    #     file_buy_write.close()
-        
-    #     self.lstTerm_update_progress_fn(f"Operation Done! - Total=${gtotal}")
-        
-
-    #     return
-
 #------------------------------------------------------------------------------------------------------------
 # buy_selected_with_x
 # "Buy {dollar_value_to_buy} dollars of each stock in your portfolio until you cannot buy anymore with x ${with_buying_power}
@@ -2151,12 +2076,12 @@ class MainWindow(QMainWindow):
         #format list to buy, get stocks from portfolio and remove stocks not in the list and sort the list
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
-        
+        sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         if n_tickersPerf is None or len(n_tickersPerf) == 0:
             self.lstTerm_update_progress_fn(f"Buy new list of stocks:")
             buy_list = self.new_lstShares
         else:
-            sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
+            
             if buying_power != 0.0: # user entered a buying power amount
 
                 while not (buying_power <= 0):
@@ -2166,7 +2091,7 @@ class MainWindow(QMainWindow):
                             break
                     
 
-                        for item in n_tickersPerf:
+                        for item in sorted_lst:
                                 #Item 0 =  tickers
                                 #Item 1 = Total_return
                                 #Item 2 = stock_quantity_to_sell/buy
@@ -2202,8 +2127,8 @@ class MainWindow(QMainWindow):
 
 
             elif buying_power == 0.0: # user did not enter any buying power so just buy x dollars of each stock in the list
-                
-                    for item in n_tickersPerf:
+
+                    for item in sorted_lst:
                                 #Item 0 =  tickers
                                 #Item 1 = Total_return
                                 #Item 2 = stock_quantity_to_sell/buy
@@ -2243,7 +2168,7 @@ class MainWindow(QMainWindow):
         for item in buy_list:    
 
              # Item[0] = stock_name
-            # Item[1] = quantity to buy
+            # Item[1] = quantity to buy (shares)
             # Item[2] = last price
             frm_quantity = float(item[1])
 
@@ -2263,18 +2188,16 @@ class MainWindow(QMainWindow):
                         self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                         continue
             time.sleep(5)
-            #stock_order = r.get_stock_order_info(orderID=buy_info['id'])
+            
             stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],item[2]) ) 
             
-            lprize = item[2]+0.1
+            lprize = float(item[2])+0.1
             last_price = "{0:,.2f}".format(lprize)
             total = item[1]*lprize
             gtotal += total
             frm_total = "{0:,.2f}".format(total)
-            if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
-                self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_total}")
-            elif self.ui.cmbDollarShare.currentText() == "Buy in USD":
-                self.lstTerm_update_progress_fn(f"{dollar_value_to_buy:,.2f} USD of {item[0]} shares bought at market price - ${last_price} - Total: {strquantity_to_buy} shares")
+            self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_total}")
+            
 
 
 
@@ -2292,11 +2215,7 @@ class MainWindow(QMainWindow):
         self.print_terminal_to_file()
         return
  
-#----------------------------------------------------------------------------------------------------------------------------------
-# buy_x_with_y_amount_except_z
-# # -------------------------------------------------------------------------------------------------------------------------------------   
-    def buy_x_with_y_amount_except_z(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):    
-        print("buy_x_with_y_amount_except_z")
+       
 
 #----------------------------------------------------------------------------------------------------------------------------------
 # get stock information (plotting historicals etc...)
@@ -2719,7 +2638,7 @@ class MainWindow(QMainWindow):
             #exclude the tickets in excludeList
         
             
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
           
        
         tot_gains,tgains = self.cal_today_total_gains(n_tickersPerf)
@@ -2816,7 +2735,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
 
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-               
+        n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)               
        
         
         
@@ -2838,7 +2757,7 @@ class MainWindow(QMainWindow):
                 print("stop event")
                 self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
-            for item in tickersPerf:
+            for item in n_tickersPerf:
                     #Item 0 =  tickers
                 #Item 1 = Total_return
                 #Item 2 = stock_quantity_to_sell/buy
@@ -2927,7 +2846,21 @@ class MainWindow(QMainWindow):
         self.print_terminal_to_file()
     
         return
+    
+#----------------------------------------------------------------------------------------------------------------------------------------------------
+#  "allocate_reallocate_to_sectors" function that allocate an amount from one sector to another
 #---------------------------------------------------------------------------------------------------------------------------
+    def allocate_reallocate_to_sectors(self, sectorFrom, sectorTo, amount):
+        symbolsFromSector, symbolsToSector = self.get_To_From_sectors()
+        # Calculate the total value of stocks in the source sector
+        total_value_from = sum([float(stock[1]) * float(stock[3]) for stock in symbolsFromSector])
+        # Calculate the total value of stocks in the target sector
+        total_value_to = sum([float(stock[1]) * float(stock[3]) for stock in symbolsToSector])
+        # Calculate the proportion of the amount to allocate to each stock in the target sector
+  
+    
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------
 # raise x (dollars) by selling y dollars of each stock except [exclude list]
 #---------------------------------------------------------------------------------------------------------------------------------
     def raise_x_sell_y_dollars_except_z(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
@@ -3252,7 +3185,7 @@ class TableToolTip(QWidget):
             lst_stocks_in_sector = self.parent().get_symbols_in_5pct_sector()
             self.createTable_reduce(lst_stocks_in_sector)
         else:
-            lst_stocks_in_sector = self.parent().get_symbols_in_sectors(obj.objectName())
+            lst_stocks_in_sector = self.parent().get_symbols_in_sector(obj.objectName())
             self.createTable(lst_stocks_in_sector)
 
         layout.addWidget(self.sectorlabel_pct)
