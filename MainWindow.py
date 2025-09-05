@@ -1519,8 +1519,8 @@ class MainWindow(QMainWindow):
                 self.ui.edtDollarValueToSell.setVisible(True)
                 self.ui.lblRaiseAmount.setText("Raise Amount (USD):")
                 self.ui.edtRaiseAmount.setText("")
-            case "raise_x_sell_y_dollars_except_x":
-                self.ui.stackPage.setCurrentIndex(0)
+            case "raise_x_sell_y_dollars_except_z":
+                self.ui.stackPage.setCurrentIndex(1)
                 self.ui.lblRaiseAmount.setText("Sell Asset Except:")
                 self.ui.lblRaiseAmount.setToolTip("Sell Except (,) Comma separated list of tickers")
                 self.ui.lblRaiseAmount.setVisible(True)
@@ -1636,6 +1636,10 @@ class MainWindow(QMainWindow):
             raise_amount = self.ui.edtAllocAmount.text()
             dollar_value_to_sell = 100.0
             buying_with_amount = self.ui.edtAllocAmount.text()
+        elif self.ui.cmbAction.currentText() == self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
+            raise_amount = self.ui.edtBuyWithAmount.text()
+            dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
+            buying_with_amount = ''
         else:
             raise_amount = self.ui.edtRaiseAmount.text()
             dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
@@ -2735,7 +2739,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
 
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)               
+       
        
         
         
@@ -2757,7 +2761,7 @@ class MainWindow(QMainWindow):
                 print("stop event")
                 self.lstTerm_update_progress_fn("Operation Cancelled!")
                 break
-            for item in n_tickersPerf:
+            for item in tickersPerf:
                     #Item 0 =  tickers
                 #Item 1 = Total_return
                 #Item 2 = stock_quantity_to_sell/buy
@@ -2891,7 +2895,7 @@ class MainWindow(QMainWindow):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-        n_lst = self.get_tickers_from_selected_lstAssets()
+       
 
         for item in n_tickersPerf:
             if item[1] >= 0.0:    
@@ -2901,14 +2905,14 @@ class MainWindow(QMainWindow):
 
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0 # amount you have raised so far       
-        n_raise_amount = float(buying_with)
+        n_raise_amount = float(raise_amount)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
         frmt_dollar_value = "{0:,.2f}".format(float(dollar_value_to_sell))
-        frmt_raise_amount = "{0:,.2f}".format(float(buying_with))
+        frmt_raise_amount = "{0:,.2f}".format(float(raise_amount))
 
         index = 0
         tgains_actual = 0.0
-        self.lstTerm_update_progress_fn(f"Raise {frmt_raise_amount} by selling ${frmt_dollar_value} of each stock exclude = {n_lst}: Total gains = ${tot_gains * int(n)} ")
+        self.lstTerm_update_progress_fn(f"Raise {frmt_raise_amount} by selling ${frmt_dollar_value} of each stock exclude = {lst}: Total gains = ${tot_gains * int(n)} ")
         
 
         while not (raised_amount >= n_raise_amount):
