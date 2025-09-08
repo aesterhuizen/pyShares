@@ -1609,7 +1609,7 @@ class MainWindow(QMainWindow):
         if ask_confirm:
             confirm = QMessageBox.question(
                 self, "Confirm",
-                f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'?",
+                f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n list: {lst}'?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if confirm != QMessageBox.StandardButton.Yes:
