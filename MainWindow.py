@@ -68,10 +68,11 @@ class MainWindow(QMainWindow):
         
         self.lstupdated_tblAssets = []
 
-        #variable allocations to hold the lists stocks in the selected sectors
+        #variable allocations to hold the lists stocks in the selected sectors with percentagesof poerfoli
         self.alloc_from = []
         self.alloc_to = []
-
+        self.symbols_from = []
+        self.symbols_to = []
         #new lst of shares to buy
         self.new_lstShares = []
 
@@ -1395,13 +1396,13 @@ class MainWindow(QMainWindow):
                     self.Execute_operation("buy_lower_with_gains",num_iter,lst)
 
                 case "allocate_reallocate_to_sectors":
-                    symbols_from = [item.split(":")[0] for item in self.alloc_from]
-                    symbols_to = [item.split(":")[0] for item in self.alloc_to]
-                    
-                    self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,symbols_from)
+                    self.symbols_from = [item.split(":")[0] for item in self.alloc_from]
+                    self.symbols_to = [item.split(":")[0] for item in self.alloc_to]
+
+                    self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,self.symbols_from)
 
                     # Queue the second op to run after the first finishes (no extra confirm)
-                    self.op_queue = [("buy_selected_with_x", symbols_to)]
+                    self.op_queue = [("buy_selected_with_x", self.symbols_to)]
                     self._seq_num_iter = num_iter
                     self.seq_timer.start()             
                     
@@ -1647,12 +1648,13 @@ class MainWindow(QMainWindow):
         sell_list = []
         preview_sell_list = "No Preview Available"
         msg = ""
+        raise_amount = 0.0
+        dollar_value_to_sell = 0.0
+        buying_with_amount = ""
         
-      
-
         if lst is None:
             lst = ["Don't Care"]
-
+        
         if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
             raise_amount = self.ui.edtAllocAmount.text()
             dollar_value_to_sell = 100.0
@@ -1670,59 +1672,77 @@ class MainWindow(QMainWindow):
                 dollar_value_to_sell = "Not Used"
             buying_with_amount = self.ui.edtBuyWith.text()
 
-        match method_name:
-            case "sell_selected":
-                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                        f"Except: {lst}\n" \
-                        f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                        f"\nPreview:\n{preview_sell_list}"
-            case "sell_gains_except_x":
-                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                        f"Except: {lst}\n" \
-                        f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                        f"\nPreview:\n{preview_sell_list}"
-                
-            case "sell_todays_return_except_x":
-                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                        f"Except: {lst}\n" \
-                        f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                        f"\nPreview:\n{preview_sell_list}"
-            case "buy_selected_with_x":
-                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                        f"Except: {lst}\n" \
-                        f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                        f"\nPreview:\n{preview_sell_list}"
-            case "buy_lower_with_gains":
-                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                        f"Except: {lst}\n" \
-                        f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                        f"\nPreview:\n{preview_sell_list}"
-            case "raise_x_sell_y_dollars_except_z":
-                #preview function
-                sell_list,raised_amount = self.raise_x_sell_y_dollars_except_z_prev(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
-                if sell_list: 
-                    format_sell_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list if float(item[1]) != 0.0]
-                    preview_sell_list = "\n".join(format_sell_list)
-                    if float(raised_amount) < float(raise_amount):
-                         msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                                f"Except: {lst}\n" \
-                                f"Sell Amount: Can only raise ${raised_amount:.2f} when selling ${dollar_value_to_sell} of each share, reduce share count to raise more\n" \
-                                f"\nPreview:\n{preview_sell_list}"
-                    else:
-                        msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
-                                f"Except: {lst}\n" \
-                                f"Sell Amount: {raise_amount}\n" \
-                                f"\nPreview:\n{preview_sell_list}"
-                
-            case "allocate_reallocate_to_sectors":
-            
-        
-                pass
-            case _: #default
-                pass
-            
-     
         if ask_confirm:
+            match method_name:
+                case "sell_selected":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"\nPreview:\n{preview_sell_list}"
+                case "sell_gains_except_x":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"\nPreview:\n{preview_sell_list}"
+                    
+                case "sell_todays_return_except_x":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"\nPreview:\n{preview_sell_list}"
+                case "buy_selected_with_x":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"\nPreview:\n{preview_sell_list}"
+                case "buy_lower_with_gains":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"\nPreview:\n{preview_sell_list}"
+                case "allocate_reallocate_to_sectors":
+                    pass
+                case "raise_x_sell_y_dollars_except_z":
+                    # use allocate message
+                    if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors": 
+                        sell_list,raised_amount = self.raise_x_sell_y_dollars_except_z_prev(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
+                        buy_list,raised_amount = self.buy_selected_with_x_prev(num_iter,self.current_account_num,self.symbols_to,raise_amount,dollar_value_to_sell,buying_with_amount)
+                        if sell_list: 
+                            format_sell_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list if float(item[1]) != 0.0]
+                            format_buy_list = [f"{item[0]}: buy {item[1]} shares" for item in buy_list]
+                            preview_sell_list = "\n".join(format_sell_list)
+                            preview_buy_list = "\n".join(format_buy_list)
+                        if float(raised_amount) < float(raise_amount):
+                            msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                                    f"Except: {lst}\n" \
+                                    f"Allocate Amount: Can only allocate ${raised_amount:.2f} when selling ${dollar_value_to_sell} of each share, reduce share count to raise more\n" \
+                                    f"\nPreview:\n" \
+                                    f"{preview_sell_list}\n{preview_buy_list}"
+                        else:
+                            msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                                f"Allocate from Sector '{self.ui.cmbFromSector.currentText()}' - {self.symbols_from} to Sector '{self.ui.cmbToSector.currentText()}' - {self.symbols_to}\n" \
+                                f"Allocate Amount: {raise_amount}\n" \
+                                f"\nPreview:\n" \
+                                f"{preview_sell_list}\n\n{preview_buy_list}"
+                    else:
+                        #preview function
+                        sell_list,raised_amount = self.raise_x_sell_y_dollars_except_z_prev(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
+                        if sell_list: 
+                            format_sell_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list if float(item[1]) != 0.0]
+                            preview_sell_list = "\n".join(format_sell_list)
+                            if float(raised_amount) < float(raise_amount):
+                                msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                                        f"Except: {lst}\n" \
+                                        f"Sell Amount: Can only raise ${raised_amount:.2f} when selling ${dollar_value_to_sell} of each share, reduce share count to raise more\n" \
+                                        f"\nPreview:\n{preview_sell_list}"
+                            else:
+                                msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}\n" \
+                                        f"Except: {lst}\n" \
+                                        f"Sell Amount: {raise_amount}\n" \
+                                        f"\nPreview:\n{preview_sell_list}"
+                    
+                case _: #default
+                    pass
             confirm = QMessageBox.question(self, "Confirm",msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )                                             
@@ -1733,9 +1753,12 @@ class MainWindow(QMainWindow):
 
         self.ui.btnExecute.setText("Cancel")
         self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
-        self.ui.lstTerm.clear()
+        
         if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
             self.ui.lstTerm.addItem(f"Allocating/Reallocating sectors From: {self.ui.cmbFromSector.currentText()} To: {self.ui.cmbToSector.currentText()} Amount: ${self.ui.edtAllocAmount.text()}")
+        else:
+            self.ui.lstTerm.clear()
+
         #call the method to execute
         if method_name is None:
             name_of_method = self.ui.cmbAction.currentText()
@@ -2047,7 +2070,7 @@ class MainWindow(QMainWindow):
                 else:
                     f.write(f"{item.text()}\n")
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------
+
 #----------------------------------------------------------------------------------------------------------------------------------
 # buy_lower_with_gains SOMETHING WRONG COMMENTED CODE CAUSE PROGRAM NOT TO RUN "FIX ME"
 # # -------------------------------------------------------------------------------------------------------------------------------------   
@@ -2127,15 +2150,92 @@ class MainWindow(QMainWindow):
                         self.lstTerm_update_progress_fn(f"{frm_per_quantity} shares of {stock_name} bought at {buy_price}" )
                         spent += frm_per_quantity*buy_price
 
-        file_buy_write = open(os.path.join(self.data_path, "stocks_buy.csv" + method_name),"w")
-        stocks_format = ",".join(stock_symbols)
-        file_buy_write.write(stocks_format)
+        file_buy_write = open(os.path.join(self.data_path, "stocks_buy_" + method_name + ".csv"),"w")
+        stocks_format = "\n".join(stock_symbols)
+        file_buy_write.write(f"{stocks_format}")
         file_buy_write.close()
 
         self.lstTerm_update_progress_fn(f"You spent ${spent:.2f} of ${total_gains:.2f} on buying shares lower than what you sold.")
         
         
         return
+    
+#------------------------------------------------------------------------------------------------------------
+# buy_selected_with_x
+# "Buy {dollar_value_to_buy} dollars of each stock in your portfolio until you cannot buy anymore with x ${with_buying_power}
+# -------------------------------------------------------------------------------------------------------------------------------------
+    def buy_selected_with_x_prev(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+        if buying_with != '':
+            buying_power = float(buying_with)
+        else:
+            buying_power = 0.0
+
+        dollar_value_to_buy = float(dollar_value_to_sell)
+        stock_symbols = []
+        method_name = self.ui.cmbAction.currentText()
+        
+        buy_list = []
+        found  = False
+        tot = 0.0
+        gtotal = 0.0
+        quantity_to_buy = 0.0
+        #format list to buy, get stocks from portfolio and remove stocks not in the list and sort the list
+        tickersPerf = self.get_stocks_from_portfolio(acc_num)
+        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":       
+            #get rid of all other tickers except the ones in the sector
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        else:
+            #exclude the tickets in excludeList
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+
+        sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
+        if n_tickersPerf is None or len(n_tickersPerf) == 0:
+            self.lstTerm_update_progress_fn(f"Buy new list of stocks:")
+            buy_list = self.new_lstShares
+        else:
+            
+            if buying_power != 0.0: # user entered a buying power amount
+
+                while not (buying_power <= 0):
+                    for item in sorted_lst:
+                            #Item 0 =  tickers
+                            #Item 1 = Total_return
+                            #Item 2 = stock_quantity_to_sell/buy
+                            #Item 3 = last price
+                            #item[4]= your quantities
+                            #item[5]=today's return
+                        # if there is no money left then break and continue buying the stocks that are in the list
+                        if buying_power <= 0:
+                            break    
+                    
+                        if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
+                            quantity_to_buy = dollar_value_to_buy
+                        elif self.ui.cmbDollarShare.currentText() == "Buy in USD":
+                            quantity_to_buy = dollar_value_to_buy / float(item[3])     
+                    
+                        tot = quantity_to_buy*float(item[3])
+                        frm_tot = "{0:.2f}".format(tot)
+                        strquantity_to_buy = "{0:.2f}".format(quantity_to_buy)
+                    
+                        for i,value  in enumerate(buy_list): #check if already in list and return index
+                            if value[0] == item[0]:
+                                exist_quantity = buy_list[i][1]
+                                found = True
+                                    # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
+                                if tot < buying_power:    
+                                    buy_list[i][1] = "{0:.2f}".format(float(exist_quantity) + float(strquantity_to_buy))
+                                    buying_power -= tot
+                                    break
+                            else:
+                                found = False
+                                        
+                        if not found:
+                            itm = [item[0],float(strquantity_to_buy),item[3]]
+                            buy_list.append(itm)
+                            buying_power -= tot 
+
+        return buy_list, float(raise_amount) - buying_power
+
 #------------------------------------------------------------------------------------------------------------
 # buy_selected_with_x
 # "Buy {dollar_value_to_buy} dollars of each stock in your portfolio until you cannot buy anymore with x ${with_buying_power}
@@ -2257,9 +2357,9 @@ class MainWindow(QMainWindow):
             
     
 
-        file_buy_write = open("stocks_buy.csv" + method_name,"w")
-        stocks_format = ",".join(stock_symbols)
-        file_buy_write.write(stocks_format)
+        file_buy_write = open("stocks_buy_" + method_name + ".csv","w")
+        stocks_format = "\n".join(stock_symbols)
+        file_buy_write.write(f"{stocks_format}")
         file_buy_write.close()
         stock_symbols = []
         fmt_gtotal = "{0:,.2f}".format(gtotal)
@@ -2368,8 +2468,8 @@ class MainWindow(QMainWindow):
 
 
 
-        stocks_format = ",".join(stock_symbols)
-        file_sell_write.write(stocks_format)
+        stocks_format = "\n".join(stock_symbols)
+        file_sell_write.write(f"{stocks_format}")
             
             
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
@@ -2471,8 +2571,8 @@ class MainWindow(QMainWindow):
                     self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
 
         
-        stocks_format = ",".join(stock_symbols)
-        file_sell_write.write(stocks_format)
+        stocks_format = "\n".join(stock_symbols)
+        file_sell_write.write(f"{stocks_format}")
                 
             
                   
@@ -2566,8 +2666,8 @@ class MainWindow(QMainWindow):
                     self.lstTerm_update_progress_fn(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
 
         
-        stocks_format = ",".join(stock_symbols)
-        file_sell_write.write(stocks_format)
+        stocks_format = "\n".join(stock_symbols)
+        file_sell_write.write(f"{stocks_format}")
         fmt_tgains_actual = "{0:.2f}".format(tgains_actual)
         file_sell_write.close() 
             
@@ -2587,10 +2687,15 @@ class MainWindow(QMainWindow):
         raised_mount_lst = []
         raise_amount_converged = False
         stock_symbols = []
+        n_tickersPerf = []
 
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
-       
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":       
+            #get rid of all other tickers except the ones in the sector
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        else:
+            #exclude the tickets in excludeList
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
         
         
         
@@ -2681,14 +2786,16 @@ class MainWindow(QMainWindow):
         raise_amount_converged = False
         tot_gains = 0.0
         tgains = 0.0
-
+        method_name = self.ui.cmbAction.currentText()
         tickersPerf = self.get_stocks_from_portfolio(acc_num)   
         
 
-        #exclude the tickets in excludeList
-        
-            
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+        if method_name == "allocate_reallocate_to_sectors":       
+            #get rid of all other tickers except the ones in the sector
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        else:
+            #exclude the tickets in excludeList
+            n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
           
        
       #Item 0 =  tickers
@@ -2809,16 +2916,16 @@ class MainWindow(QMainWindow):
 
             last_price = "{0:,.2f}".format(float(item[2]))
             frm_tot = "{0:,.2f}".format(tot)
-            self.lstTerm_update_progress_fn(f"{str_quantity} shares of {item[0]} sold at market price ${last_price} - Total: ${tgains_actual} ")
+            self.lstTerm_update_progress_fn(f"{str_quantity} shares of {item[0]} sold at market price ${last_price} - Total: ${frm_tot} ")
 
 
                     
-            
-    
-        file_path = os.path.join(self.data_path,"stocks_sell.csv")
+
+
+        file_path = os.path.join(self.data_path,"stocks_sell_" + method_name + ".csv")
         file_sell_write = open(file_path,"w")
-        stocks_format = ",".join(stock_symbols)
-        file_sell_write.write(stocks_format)
+        stocks_format = "\n".join(stock_symbols)
+        file_sell_write.write(f"{stocks_format}")
         file_sell_write.close()
         stock_symbols = []  
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
