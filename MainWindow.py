@@ -2356,11 +2356,10 @@ class MainWindow(QMainWindow):
            
             
     
-
-        file_buy_write = open("stocks_buy_" + method_name + ".csv","w")
-        stocks_format = "\n".join(stock_symbols)
-        file_buy_write.write(f"{stocks_format}")
-        file_buy_write.close()
+        file_path = os.path.join(self.data_path, "stocks_buy_" + method_name + ".csv")
+        with open(file_path,"w") as file_buy_write:
+            stocks_format = "\n".join(stock_symbols)
+            file_buy_write.write(f"{stocks_format}")
         stock_symbols = []
         fmt_gtotal = "{0:,.2f}".format(gtotal)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_gtotal}")
