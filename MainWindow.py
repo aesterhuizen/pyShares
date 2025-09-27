@@ -22,10 +22,10 @@ from PyQt6.QtGui import QPalette
 from dotenv import load_dotenv, set_key
 
 
-from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout,QAbstractItemView
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
-from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
+from PyQt6.QtCore import QSize,Qt,QPoint, QTimer, QEvent
 
 from layout import Ui_MainWindow
 
@@ -42,12 +42,13 @@ class MainWindow(QMainWindow):
         # self.quantity = []
 
         
-        self.ver_string = "v1.0.31"
+     
+        self.ver_string = "v1.0.32"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
         self.data_path = ''
-       
+        self.env_path = ''
         
         self.update_thread = None
         self.command_thread = None
@@ -322,6 +323,7 @@ class MainWindow(QMainWindow):
         self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
         self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
+        
         #setup allocation page connections
         self.ui.edtAllocAmount.textChanged.connect(self.edtAllocAmount_changed)
         #setup from sector combo box
@@ -329,7 +331,8 @@ class MainWindow(QMainWindow):
         #setup to sector combo box
         self.ui.cmbToSector.activated.connect(self.cmbToSector_clicked)
 
-        
+        #setup list Term to always scroll to bottom when new item is added
+        self.ui.lstTerm.model().rowsInserted.connect(lambda parent, first, last: QTimer.singleShot(0, self.ui.lstTerm.scrollToBottom))
         #create an update worker thread to update the asset list every 10 seconds
         self.update_thread = UpdateThread(self.updateLstAssets)
         self.update_thread.start()
@@ -370,13 +373,13 @@ class MainWindow(QMainWindow):
     def highlight_stocks_in_table(self,lst_stocks):
         #clear all previous selections
         self.ui.tblAssets.clearSelection()
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
         #loop over the list of stocks and highlight them in the table
-        for stock in lst_stocks:
-            symbol = stock.split(':')[0]
-            #find the stock in self.ticker_lst
-            for index, match in enumerate(self.ticker_lst):
-                if match[0] == symbol:
-                    self.ui.tblAssets.selectRow(index)
+        symbols = [stock.split(':')[0] for stock in lst_stocks]
+        for symbol in symbols:
+            index = self.ui.tblAssets.findItems(symbol, Qt.MatchFlag.MatchContains)
+            if index:
+                self.ui.tblAssets.selectRow(index[0].row())
         return
 
     def get_symbols_From_sectors(self) -> list[str]:
@@ -421,6 +424,7 @@ class MainWindow(QMainWindow):
     def get_symbols_in_sector(self, name):
         # Get the list of stocks in sector
         lst_stocks_in_sector = self.dict_sectors[name]
+
         return lst_stocks_in_sector
 
     def monitor_command_thread(self):
@@ -436,9 +440,15 @@ class MainWindow(QMainWindow):
     def eventFilter(self, obj, event):
         if event.type() == event.Type.Enter:
             self.showTableTooltip(obj)
+            
         elif event.type() == event.Type.Leave:
                 if self.tooltip:
                     self.tooltip.close()
+        elif event.type() == event.Type.MouseButtonPress:
+                if isinstance(obj, QPushButton):
+                    if event.button() == Qt.MouseButton.LeftButton:
+                        lst_stocks = self.get_symbols_in_sector(obj.objectName())
+                        self.highlight_stocks_in_table(lst_stocks)
         return super().eventFilter(obj, event)
     
     def showTableTooltip(self,button):
@@ -476,10 +486,10 @@ class MainWindow(QMainWindow):
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
 
-        button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), "5% Increase/Reduce", self)
-        button.setObjectName("btn_5pct")
-        button.installEventFilter(self) #listen to mouse movement events for the buttons
-        self.ui.statusBar.addWidget(button, 1)
+        # button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), "5% Increase/Reduce", self)
+        # button.setObjectName("btn_5pct")
+        # button.installEventFilter(self) #listen to mouse movement events for the buttons
+        # self.ui.statusBar.addWidget(button, 1)
             
         tbl_Index = QTableWidget()
        
@@ -586,7 +596,7 @@ class MainWindow(QMainWindow):
         self.dict_sectors = dict(sorted(self.dict_sectors.items(), key=lambda item: sum(float(x.split(':')[1]) for x in item[1]), reverse=True))
 
        #remove all sector button if it exist
-        remove_buttons = [child for child in self.ui.statusBar.children() if isinstance(child, QPushButton) and child.objectName() != "btn_5pct"]
+        remove_buttons = [child for child in self.ui.statusBar.children() if isinstance(child, QPushButton)]
 
         #remove old buttons that are not necessary
         for button in remove_buttons:
@@ -650,7 +660,11 @@ class MainWindow(QMainWindow):
     def lstTerm_update_progress_fn(self, n):
         t_now = datetime.now()
         frm_date = t_now.strftime("%Y-%m-%d %H:%M:%S")
-        self.ui.lstTerm.addItem(frm_date + " - " + n)
+        if os.environ['debug'] == '1':
+            self.ui.lstTerm.addItem("Debug - " + frm_date + " - " + n)
+        else:
+            self.ui.lstTerm.addItem(frm_date + " - " + n)
+        
 
     def updateStatusBar(self,temp_lst):
        
@@ -1456,6 +1470,13 @@ class MainWindow(QMainWindow):
                 case _:
                     self.Execute_operation(None) #default
 
+    def write_to_file(self, data):
+        method_name = self.ui.cmbAction.currentText() 
+        file_path = os.path.join(self.data_path, f"{method_name}_{self.current_account_num}.csv")
+        with open(file_path,"w") as file_write:
+            stocks_format = "\n".join(data)
+            file_write.write(f"{stocks_format}")
+
     def cmbAction_clicked(self):
         #Item[0] =  tickers
         #Item[1]= Total_return
@@ -2200,19 +2221,28 @@ class MainWindow(QMainWindow):
                         if os.environ['debug'] == '0':
                             try:
                                 buy_info = r.order(symbol=stock_name,quantity=frm_per_quantity,side='buy',timeInForce='gfd',limitPrice=buy_price,account_number=acc_num)
+                                time.sleep(1)
+                                buy_info = r.get_stock_order_info(buy_info['id'])
+                                #if not state infor is filled then wait till it is filled
+                                while 'state' not in buy_info and buy_info['state'] != 'filled':
+                                    time.sleep(2)
+                                    buy_info = r.get_stock_order_info(buy_info['id'])
+
+                              
                             except Exception as e:
                                 self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                                continue  
-                        time.sleep(5)
-                        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                        stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{buy_price}")
-                        self.lstTerm_update_progress_fn(f"{frm_per_quantity} shares of {stock_name} bought at {buy_price}" )
-                        spent += frm_per_quantity*buy_price
+                                continue
 
-        file_buy_write = open(os.path.join(self.data_path, "stocks_buy_" + method_name + "_" + self.current_account_num + ".csv"),"w")
-        stocks_format = "\n".join(stock_symbols)
-        file_buy_write.write(f"{stocks_format}")
-        file_buy_write.close()
+                        time.sleep(2)
+
+                        fill_price = "{0:.2f}".format(buy_info['price'])
+                            #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{fill_price}")
+                        self.lstTerm_update_progress_fn(f"{frm_per_quantity} shares of {stock_name} bought at {fill_price}" )
+                        spent += frm_per_quantity*fill_price        
+
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
 
         self.lstTerm_update_progress_fn(f"You spent ${spent:.2f} of ${total_gains:.2f} on buying shares lower than what you sold.")
         
@@ -2301,6 +2331,10 @@ class MainWindow(QMainWindow):
 # "Buy {dollar_value_to_buy} dollars of each stock in your portfolio until you cannot buy anymore with x ${with_buying_power}
 # -------------------------------------------------------------------------------------------------------------------------------------
     def buy_selected_with_x(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+
+        frm_total = "0.0"
+        fill_price = "0.0"
+        buy_info = {}
         if buying_with != '':
             buying_power = float(buying_with)
         else:
@@ -2308,7 +2342,7 @@ class MainWindow(QMainWindow):
 
         dollar_value_to_buy = float(dollar_value_to_sell)
         stock_symbols = []
-        method_name = self.ui.cmbAction.currentText()
+      
         
         buy_list = []
         found  = False
@@ -2318,13 +2352,8 @@ class MainWindow(QMainWindow):
         #format list to buy, get stocks from portfolio and remove stocks not in the list and sort the list
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
-         #if allocate/reallocate then get rid of all other tickers except the ones in the sector
-        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":       
-            #get rid of all other tickers except the ones in the sector
-            n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
-        else:
-            #exclude the tickets in excludeList
-            n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+        
+      
         sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
         if n_tickersPerf is None or len(n_tickersPerf) == 0:
             self.lstTerm_update_progress_fn(f"Buy new list of stocks:")
@@ -2429,33 +2458,38 @@ class MainWindow(QMainWindow):
                 
                 if os.environ['debug'] == '0':
                     try:
-                        buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=float(item[2])+0.05,account_number=acc_num)
+                        buy_info = r.order(symbol=item[0],quantity=item[1],side='buy',timeInForce='gfd',limitPrice=float(item[2])+0.01,account_number=acc_num)
+                        
+                        time.sleep(1)
+                        buy_info = r.get_stock_order_info(buy_info['id'])
+                        #if not state infor is filled then wait till it is filled
+                        while 'state' not in buy_info and buy_info['state'] != 'filled':
+                            time.sleep(2)
+                            buy_info = r.get_stock_order_info(buy_info['id'])
+
+                      
+
                         if 'detail' in buy_info and buy_info['detail'] is not None:
                                     self.lstTerm_update_progress_fn(f"Error: {buy_info['detail']}")
+
+                        
                     except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             continue
-                time.sleep(5)
                 
-                stock_symbols.append("{0}:{1}:{2}".format(item[0],item[1],item[2]) ) 
-                
-                lprize = float(item[2])+0.05
-                last_price = "{0:,.2f}".format(lprize)
-                total = item[1]*lprize
-                gtotal += total
-                frm_total = "{0:,.2f}".format(total)
-                self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${last_price} - Total: ${frm_total}")
-            
+                time.sleep(2)
+                if buy_info:
+                    fill_price = "{0:.2f}".format(buy_info['price'])
+                    stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
+                    total = item[1]*fill_price
+                    gtotal += total
+                    frm_total = "{0:,.2f}".format(total)
 
-
-
-           
-
-
-        file_path = os.path.join(self.data_path, "stocks_buy_" + method_name + "_" + self.current_account_num + ".csv")
-        with open(file_path,"w") as file_buy_write:
-            stocks_format = "\n".join(stock_symbols)
-            file_buy_write.write(f"{stocks_format}")
+                self.lstTerm_update_progress_fn(f"{str_quantity} of {item[0]} shares bought at market price - ${fill_price} - Total: ${frm_total}")
+       
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
+        
         stock_symbols = []
         fmt_gtotal = "{0:,.2f}".format(gtotal)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_gtotal}")
@@ -2503,6 +2537,9 @@ class MainWindow(QMainWindow):
         stock_symbols = []
         tgains_actual = 0.0 
         priceTotal = 0.0
+        sell_info = {}
+        frm_tot = "0.0"
+        fill_price = "0.0"
         method_name = self.ui.cmbAction.currentText()
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         frm_quantity_dollar_amount = "{0:.2f}".format(float(dollar_value_to_sell))  
@@ -2517,8 +2554,7 @@ class MainWindow(QMainWindow):
         self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${priceTotal*int(n):,.2f}") 
 
 
-        file_path = os.path.join(self.data_path,"stocks_sell_" + method_name + "_" + self.current_account_num + ".csv")
-        file_sell_write = open(file_path,"w")
+        
         for index in range(int(n)):
             if self.command_thread.stop_event.is_set():
                 print("stop event")
@@ -2540,37 +2576,39 @@ class MainWindow(QMainWindow):
                 shares_to_sell = float(dollar_value_to_sell)/float(item[3])
                 frm_shares_to_sell = "{0:.2f}".format(shares_to_sell)
                 # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
-                if float(item[4]*float(item[3])) > float(dollar_value_to_sell) :
+                if (float(item[4])*float(item[3]) > float(dollar_value_to_sell)) and not (float(item[4]) <= 1.0):
                     if os.environ['debug'] == '0':
                         try:
                             sell_info = r.order_sell_market(symbol=item[0],quantity=frm_shares_to_sell,timeInForce='gfd',account_number=acc_num)
+                            time.sleep(1)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+                            #if not state infor is filled then wait till it is filled
+                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                                time.sleep(2)
+                                sell_info = r.get_stock_order_info(sell_info['id'])
+
+                           
                             if 'detail' in sell_info and sell_info['detail'] is not None:
-                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                                    self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                            
+                           
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             return
+                    time.sleep(2)
+                    if sell_info:
+                        sell_price = "{0:.2f}".format(sell_info['price'])
+                        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        stock_symbols.append(f'{item[0]}:{item[1]}:{sell_price}')
+                        tot = float(dollar_value_to_sell)
+                        tgains_actual += float(tot)
                     
-
-                    
-
-                    
-                    #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:{item[3]}")
-                    tot = float(dollar_value_to_sell)
-                    tgains_actual += float(tot)
-
-                    last_price = "{0:,.2f}".format(float(item[3]))
-                    frm_tot = "{0:,.2f}".format(tot)
-                    self.lstTerm_update_progress_fn(f"${frm_quantity_dollar_amount} of {item[0]} shares sold at market price - ${last_price} - Total: {shares_to_sell:,.2f} shares")
-
-
-
-        stocks_format = "\n".join(stock_symbols)
-        file_sell_write.write(f"{stocks_format}")
-            
+                    self.lstTerm_update_progress_fn(f"${frm_quantity_dollar_amount} of {item[0]} shares sold at market price - ${sell_price} - Total: {shares_to_sell:,.2f} shares")
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
             
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
-        file_sell_write.close()
+        
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
         self.print_terminal_to_file()
         
@@ -2592,11 +2630,12 @@ class MainWindow(QMainWindow):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-    
+        fill_price = "0.0"
+        frm_tot = "0.0"
         tot_gains = 0.0
         tot_tgains = 0.0
-        method_name = self.ui.cmbAction.currentText() 
-         
+        
+        sell_info = {} 
         stock_symbols = []
         tgains_actual = 0.0
                 
@@ -2614,9 +2653,7 @@ class MainWindow(QMainWindow):
             self.lstTerm_update_progress_fn(f"Sell Gains: Total gains ~ ${fmt_tot_gains} exclude = {lst}")
 
 
-        file_path = os.path.join(self.data_path,"stocks_sell_" + method_name + "_" + self.current_account_num + ".csv" )
-        file_sell_write = open(file_path,"w")  
-        
+              
         for index in range(int(n)):
             self.lstTerm_update_progress_fn(f"Iteration{index+1}")
               #if user click cancel then cancel operation
@@ -2638,34 +2675,41 @@ class MainWindow(QMainWindow):
                 
 
                 frm_quantity = "{0:,.2f}".format(float(item[2]))
-                # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
-                if not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) :
+                # stock_quantity_to_sell and your quantity > stock_quantity_to_sell or stock quantity <=1.0
+                if (not (float(item[2]) <= 0) and (float(item[2]) >= 0.01) and (float(item[4]) > float(item[2])) ) and not (float(item[4]) <= 1.0):
                     if os.environ['debug'] == '0':
                         try:
                             sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                            time.sleep(1)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+                            #if not state infor is filled then wait till it is filled
+                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                                time.sleep(2)
+                                sell_info = r.get_stock_order_info(sell_info['id'])
+
+                          
+
                             if 'detail' in sell_info and sell_info['detail'] is not None:
-                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                                    self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             return
                     
+                    time.sleep(2)
+                    if sell_info:    #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(sell_info['price'])
+                        stock_symbols.append(f"{item[0]}:{item[2]}:{fill_price}")
+                        tot = float(item[2])*float(fill_price)
+                        tgains_actual += float(tot)
+                        frm_tot = "{0:,.2f}".format(tot)
+
+                    self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares sold at market price - ${fill_price} - Total: ${frm_tot}")
                                              
-                        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    stock_symbols.append(f"{item[0]}:{item[2]}:{item[3]}")
-                    tot = float(item[2])*float(item[3])
-                    tgains_actual += float(tot)
+                   
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
 
-                    last_price = "{0:,.2f}".format(float(item[3]))
-                    frm_tot = "{0:,.2f}".format(tot)
-                    self.lstTerm_update_progress_fn(f"{frm_quantity} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
 
-        
-        stocks_format = "\n".join(stock_symbols)
-        file_sell_write.write(f"{stocks_format}")
-                
-            
-                  
-        file_sell_write.close()
         tgains_actual= "{0:,.2f}".format(tgains_actual)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${tgains_actual}")
         self.print_terminal_to_file()
@@ -2690,10 +2734,11 @@ class MainWindow(QMainWindow):
         #item[9]=change in price since previous close
 
 
-
+        fill_price = "0.0"
+        frm_tot = "0.0"
         stock_symbols = []
         tgains_actual = 0.0 
-        method_name = self.ui.cmbAction.currentText()
+        sell_info = {}
         
         tickersPerf = self.get_stocks_from_portfolio(acc_num)
         n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
@@ -2703,8 +2748,7 @@ class MainWindow(QMainWindow):
         
         self.lstTerm_update_progress_fn(f"Sell Todays Return: Total gains = ${fmt_tgains}") 
 
-        file_path = os.path.join(self.data_path,"stocks_sell_" + method_name + "_" + self.current_account_num + ".csv" )
-        file_sell_write = open(file_path,"w")
+        
         for index in range(int(n)):
                #if user click cancel then cancel operation
             if self.command_thread.stop_event.is_set():
@@ -2728,37 +2772,40 @@ class MainWindow(QMainWindow):
                 amount_to_sell = float(item[5]) / float(item[3])
                 frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
 
-            # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0
-                if not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) :
+            # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0 and stock quantity is not <= 1
+                if (not (float(item[5]) <= 0.1) and (float(item[4]) > amount_to_sell) ) and not (float(item[4]) <= 1.0):
                     if os.environ['debug'] == '0':
                         try:
-                            sell_info = r.order_sell_market(symbol=item[0],quantity=frm_amount_to_sell,timeInForce='gfd',account_number=acc_num)
+                            sell_info = r.order_sell_market(symbol=item[0],quantity="{0:.2f}".format(float(item[2])),timeInForce='gfd',account_number=acc_num)
+                            time.sleep(1)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+                            #if not state infor is filled then wait till it is filled
+                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                                time.sleep(2)
+                                sell_info = r.get_stock_order_info(sell_info['id'])
+
                             if 'detail' in sell_info and sell_info['detail'] is not None:
-                                self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
-                                
-                            
+                                    self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            self.lstTerm_update_progress_fn(f"Error: Continueing...")
                             continue
+                   
+                    time.sleep(2)
                     
-                    
-                
-                    #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    stock_symbols.append(f"{item[0]}:{frm_amount_to_sell}:{item[3]}")
-                    tot = amount_to_sell*float(item[3])
-                    tgains_actual += tot
+                    if sell_info:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(sell_info['price'])
+                        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        stock_symbols.append(f"{item[0]}:{frm_amount_to_sell}:{fill_price}")
+                        tot = amount_to_sell*float(fill_price)
+                        tgains_actual += tot
+                        frm_tot = "{0:,.2f}".format(tot)
 
-                    last_price = "{0:.2f}".format(float(item[3]))
-                    frm_tot = "{0:,.2f}".format(tot)
-                    self.lstTerm_update_progress_fn(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${last_price} - Total: ${frm_tot}")
+                    self.lstTerm_update_progress_fn(f"{frm_amount_to_sell} of {item[0]} shares sold at market price - ${fill_price} - Total: ${frm_tot}")                
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
 
-        
-        stocks_format = "\n".join(stock_symbols)
-        file_sell_write.write(f"{stocks_format}")
-        fmt_tgains_actual = "{0:.2f}".format(tgains_actual)
-        file_sell_write.close() 
-            
+        fmt_tgains_actual = "{0:.2f}".format(tgains_actual)    
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
         self.print_terminal_to_file()
 
@@ -2874,6 +2921,10 @@ class MainWindow(QMainWindow):
         raise_amount_converged = False
         tot_gains = 0.0
         tgains = 0.0
+        frm_tot = "0.0"
+        fill_price = "0.0"
+
+
         method_name = self.ui.cmbAction.currentText()
         tickersPerf = self.get_stocks_from_portfolio(acc_num)   
         
@@ -2911,7 +2962,7 @@ class MainWindow(QMainWindow):
 
         index = 0
         tgains_actual = 0.0
-        
+        sell_info = {}
         
 
         while not (raised_amount >= n_raise_amount or raise_amount_converged==True):
@@ -2949,8 +3000,8 @@ class MainWindow(QMainWindow):
                     if (value[0] == item[0]):
                         exist_quantity = sell_list[i][1]
                         found = True
-                        # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
-                        if (float(exist_quantity) + quantity_to_sell) < item[4]:    
+                        # stock_quantity_to_sell and your quantity > stock_quantity_to_sell or stock quantity <=1.0
+                        if ((float(exist_quantity) + quantity_to_sell) < item[4]) and not (float(item[4]) <= 1.0):    
                             sell_list[i][1] = "{0:.2f}".format(float(exist_quantity) + quantity_to_sell)
                             raised_amount += quantity_to_sell*float(item[3])
                             raised_amount_lst.append(raised_amount)
@@ -2990,30 +3041,32 @@ class MainWindow(QMainWindow):
             if os.environ['debug'] == '0':
                     try:
                         sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+
+                        time.sleep(1)
+                        sell_info = r.get_stock_order_info(sell_info['id'])
+                        #if not state infor is filled then wait till it is filled
+                        while 'state' not in sell_info and sell_info['state'] != 'filled':
+                            time.sleep(2)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+
                         if 'detail' in sell_info and sell_info['detail'] is not None:
                                     self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
                     except Exception as e:
                         self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                         return
-           
-            
-            stock_symbols.append("{0}:{1}:{2}".format(item[0],str_quantity,item[2]))
-            tot = float(item[1])*float(item[2])
-            tgains_actual += tot
+            time.sleep(2)
+            if sell_info:
+                fill_price = "{0:.2f}".format(sell_info['price'])
+                stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
+                tot = float(item[1])*float(fill_price)
+                tgains_actual += tot
+                frm_tot = "{0:,.2f}".format(tot)
 
-            last_price = "{0:,.2f}".format(float(item[2]))
-            frm_tot = "{0:,.2f}".format(tot)
-            self.lstTerm_update_progress_fn(f"{str_quantity} shares of {item[0]} sold at market price ${last_price} - Total: ${frm_tot} ")
+            self.lstTerm_update_progress_fn(f"{str_quantity} shares of {item[0]} sold at market price ${fill_price} - Total: ${frm_tot} ")                    
 
-
-                    
-
-
-        file_path = os.path.join(self.data_path,"stocks_sell_" + method_name + "_" + self.current_account_num + ".csv")
-        file_sell_write = open(file_path,"w")
-        stocks_format = "\n".join(stock_symbols)
-        file_sell_write.write(f"{stocks_format}")
-        file_sell_write.close()
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
+        
         stock_symbols = []  
         fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
