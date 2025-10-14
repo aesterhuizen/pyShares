@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
 from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
-from layout import Ui_MainWindow
+from layout_dev import Ui_MainWindow
 
 from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts
 from WorkerThread import CommandThread, UpdateThread
@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.34"
+        self.ver_string = "v1.0.35"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -108,7 +108,10 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("buy_lower_with_gains")
         self.ui.cmbAction.addItem("allocate_reallocate_to_sectors")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
-        
+        #add items to cmbGraphType
+        self.ui.cmbGraphType.addItem("Gain/Loss")
+        self.ui.cmbGraphType.addItem("Sector Colors")
+        self.ui.cmbGraphType.addItem("Volume")
         #add combo box items to Dollar Share selector
         self.ui.cmbDollarShare.addItem("Buy in USD")
         self.ui.cmbDollarShare.addItem("Buy in Shares")
@@ -1614,7 +1617,7 @@ class MainWindow(QMainWindow):
                 
         match perform_action:
             case "stock_info":
-                self.ui.stackPage.setCurrentIndex(3)
+                self.ui.stackPage.setCurrentIndex(4)
                 
                 self.ui.edtRaiseAmount.setVisible(False)
                 self.ui.lblRaiseAmount.setVisible(False)
@@ -3191,8 +3194,8 @@ class MpfCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=7, height=4):
           
         
-        self.fig = mpf.figure(figsize=(width, height), style='mike', tight_layout=True)
-        ax = self.fig.add_subplot(111)
+        self.fig = mpf.figure(figsize=(width, height))
+        self.ax = self.fig.add_subplot(111)
         super().__init__(self.fig)
     
       
