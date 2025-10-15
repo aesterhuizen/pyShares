@@ -304,6 +304,7 @@ class MainWindow(QMainWindow):
         self.ui.cmbAccount.activated.connect(self.account_clicked)
         #connect sigals and slots Actions combo box
         self.ui.cmbAction.activated.connect(self.cmbAction_clicked)
+        self.ui.cmbAction.currentIndexChanged.connect(self.cmbAction_clicked)
         #connect signal/slot for label Iteration button
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
@@ -353,6 +354,7 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
 
+    
     def btnBrowseBuySell_clicked(self):
         options = QFileDialog.Option.DontUseNativeDialog
         lstShares = []
@@ -491,7 +493,7 @@ class MainWindow(QMainWindow):
     def get_symbols_in_sector(self, name):
         # Get the list of stocks in sector
         lst_stocks_in_sector = self.dict_sectors[name]
-
+        
         return lst_stocks_in_sector
 
     def monitor_command_thread(self):
@@ -521,10 +523,16 @@ class MainWindow(QMainWindow):
                         self.showTableTooltip(obj)
                         lst_stocks = self.get_symbols_in_sector(obj.objectName())
                         self.highlight_stocks_in_table(lst_stocks)
+                        self.ui.tblAssets.repaint()
+                        
+                        if not self.ui.cmbAction.currentText() == "buy_selected_with_x":
+                            self.ui.cmbAction.setCurrentIndex(4)
+                        
+                        self.ui.edtRaiseAmount.setText(','.join([item.split(':')[0] for item in lst_stocks]))
                         self.setup_plot(self.ticker_lst)
 
             
-       QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
        return super().eventFilter(obj, event)
     
     def showTableTooltip(self,button):
@@ -1610,8 +1618,8 @@ class MainWindow(QMainWindow):
         self.ui.edtBuyWith.setVisible(False)
         self.ui.cmbDollarShare.setVisible(False)
         self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-        self.clear_all_clicked()
-                
+        
+        
         match perform_action:
             case "stock_info":
                 self.ui.stackPage.setCurrentIndex(3)
@@ -1626,7 +1634,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtBuyWith.setVisible(False)
                 self.ui.cmbDollarShare.setVisible(False)
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-                self.clear_all_clicked()
+                
                 self.setup_plot(self.ticker_lst)  
             case "sell_selected":
                 self.ui.stackPage.setCurrentIndex(2)
@@ -1654,7 +1662,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtBuyWith.setText("")   
 
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)             
-          
+               
             case "sell_gains_except_x":
                 self.ui.stackPage.setCurrentIndex(1)
                 total_return,_ = self.cal_today_total_gains(self.ticker_lst)
@@ -1666,6 +1674,7 @@ class MainWindow(QMainWindow):
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
                 self.ui.btnExecute.setEnabled(True)  # Disable the button initially
+               
             case "sell_todays_return_except_x":
                 self.ui.stackPage.setCurrentIndex(1)
                 _,todays_stockReturn = self.cal_today_total_gains(self.ticker_lst)
@@ -1675,6 +1684,7 @@ class MainWindow(QMainWindow):
                 
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+             
             case "buy_selected_with_x":
                 self.ui.stackPage.setCurrentIndex(2)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
@@ -1693,7 +1703,7 @@ class MainWindow(QMainWindow):
                 self.ui.cmbDollarShare.setVisible(True)
                 self.ui.cmbDollarShare.setToolTip("Sell/Buy in US Dollars/Shares")
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
-        
+              
             case "buy_lower_with_gains":
                 self.ui.btnExecute.setEnabled(True)
                  #FIX ME
@@ -1727,7 +1737,7 @@ class MainWindow(QMainWindow):
                 self.ui.edtBuyWith.setVisible(False)
                 self.ui.edtBuyWith.setText("")
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)   
-        
+        #self.clear_all_clicked()
         return
         
    
@@ -1904,7 +1914,7 @@ class MainWindow(QMainWindow):
                             if float(self.raised_amount) < float(raise_amount):
                                 msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                                         f"Except: {lst}\n" \
-                                        f"Sell Amount: Can only raise ${self.raised_amount} when selling ${dollar_value_to_sell} of each share, reduce share count to raise more\n" \
+                                        f"Sell Amount: Can only raise ${self.raised_amount} when selling ${dollar_value_to_sell} of each share, reduce dollar amount to raise more money\n" \
                                         f"\nPreview:\n{preview_sell_list}"
                             else:
                                 msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
