@@ -859,6 +859,8 @@ class MainWindow(QMainWindow):
         for _ in range(100):
             if self._shutting_down:
                 return
+            if self.command_thread is not None and self.command_thread.is_alive():
+                return
             time.sleep(0.1)
         # if there is stocks in list update it every 10 seconds if there is something to update
         if self._shutting_down:
@@ -883,12 +885,24 @@ class MainWindow(QMainWindow):
                     return
                 last_price = r.get_quotes(item[0], "last_trade_price")[0]
                 prev_close = r.get_quotes(item[0], "previous_close")[0]
-                total_return = (float(last_price) - float(item[6])) * float(item[4])
-                todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
-                quantity = item[4]
-                change = float(last_price) - float(prev_close) 
-                equity = float(item[4]) * float(last_price)   
-                lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10],item[11]])
+                if last_price is None or prev_close is None:
+                    self.ui.lstTerm.addItem(f"Error: Could not retrieve price for {item[0]}")
+                    last_price = 0.0
+                    prev_close = 0.0
+                    total_return = 0.0
+                    todays_return = 0.0
+                    quantity = item[4]
+                    change = float(last_price) - float(prev_close) 
+                    equity = float(item[4]) * float(last_price)   
+                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10],item[11]])
+                    continue
+                else:
+                    total_return = (float(last_price) - float(item[6])) * float(item[4])
+                    todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
+                    quantity = item[4]
+                    change = float(last_price) - float(prev_close) 
+                    equity = float(item[4]) * float(last_price)   
+                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10],item[11]])
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -2202,8 +2216,6 @@ class MainWindow(QMainWindow):
         
         if  self.ui.cmbAction.currentText() == "buy_selected" or \
             self.ui.cmbAction.currentText() == "sell_selected" or \
-            self.ui.cmbAction.currentText() == "sell_gains_except_x" or \
-            self.ui.cmbAction.currentText() == "sell_todays_return_except_x" or \
             self.ui.cmbAction.currentText() == "buy_selected_with_x":
             
             lst = self.ui.edtRaiseAmount.text().split(",")
@@ -2224,8 +2236,10 @@ class MainWindow(QMainWindow):
                     return False,lst
             else:
                 check_two = True
-        else: 
-            lst = self.ui.edtRaiseAmount.text().split(",")
+        elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x" or \
+             self.ui.cmbAction.currentText() == "sell_gains_except_x": 
+            
+            lst = self.ui.edtLstStocksSellected.text().split(",")
             check_two = True
     
     
