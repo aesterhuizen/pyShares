@@ -2153,16 +2153,17 @@ class MainWindow(QMainWindow):
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
-        #item[10] = stock name
-        #item[11] = % of portfolio
-        #item[12] = dividend yield
+        #item[6]= 1 year history <-- removed
+        #item[6]= average buy price
+        #item[7]=%change in price
+        #item[8]=change in price since previous close
+        #item[9] = stock name
+        #item[10] = % of portfolio
+        #item[11] = dividend yield
         tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,
                                avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio,div_yield) )
-        sorted_list = sorted(tickersPerf,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+        
+        sorted_list = sorted(tickersPerf,key=lambda x: x[9],reverse=True)
 
         return sorted_list
 
