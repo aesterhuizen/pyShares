@@ -30,7 +30,7 @@ from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
 from layout import Ui_MainWindow
 
-from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts
+from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts,confirmMsgBox
 from WorkerThread import CommandThread, UpdateThread
 
 class MainWindow(QMainWindow):
@@ -1115,15 +1115,14 @@ class MainWindow(QMainWindow):
         #Item[3]= last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
+        #item[6]= average buy price
+        #item[7]=%change in price
+        #item[8]=change in price since previous close
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
-        #item[10] = stock name
-        #item[11] = % of portfolio
-        #item[12] = div yield
+        #item[9] = stock name
+        #item[10] = % of portfolio
+        #item[11] = div yield
 
        
                
@@ -1150,7 +1149,7 @@ class MainWindow(QMainWindow):
                     self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
                     self.plot.draw()
                 case "sell_gains_except_x":
-                    if self.ui.edtLstStocksSellected.isReadOnly() is False:
+                    
                         strjoinlst = ",".join(stock_tickers)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
                         n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_tickers,0)
@@ -1159,12 +1158,13 @@ class MainWindow(QMainWindow):
                         self.ui.edtAmountEst.setText(f"{total_return:,.2f}")
 
                 case "sell_todays_return_except_x":
-                    if self.ui.edtLstStocksSellected.isReadOnly() is False:
+                    
                         strjoinlst = ",".join(stock_tickers)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
                         n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_tickers,0)
                         todays_return = self.cal_today_total_gains(n_tickersPerf)[1]
-                        self.ui.edtBuyWithAmount.setText(f"{todays_return:,.2f}")
+                        self.ui.edtAmountEst.setReadOnly(True)
+                        self.ui.edtAmountEst.setText(f"{todays_return:,.2f}")
                 case "buy_selected_with_x":
                     strjoinlst = ",".join(stock_tickers)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
@@ -1698,7 +1698,8 @@ class MainWindow(QMainWindow):
                 
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-             
+                self.ui.btnExecute.setEnabled(True)
+                
             case "buy_selected_with_x":
                 self.ui.stackPage.setCurrentIndex(2)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
@@ -1836,12 +1837,13 @@ class MainWindow(QMainWindow):
         #item[12] = div yield
 
         sell_list = []
-        preview_sell_list = "No Preview Available"
+        
         msg = ""
         raise_amount = ""
         dollar_value_to_sell = 0.0
         buying_with_amount = ""
-        
+        preview_sellbuy_list = []
+
         if lst is None:
             lst = ["Don't Care"]
         
@@ -1872,29 +1874,29 @@ class MainWindow(QMainWindow):
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Selected: {lst}\n" \
                             f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                            f"\nPreview:\n{preview_sell_list}"
+                            f"\nPreview:"
                     
                 case "sell_gains_except_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
-                            f"\nPreview:\n{preview_sell_list}"
+                            f"\nPreview:"
                     
                 case "sell_todays_return_except_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
-                            f"\nPreview:\n{preview_sell_list}"
+                            f"\nPreview:"
                 case "buy_selected_with_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                            f"\nPreview:\n{preview_sell_list}"
+                            f"\nPreview:\n"
                 case "buy_lower_with_gains":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
-                            f"\nPreview:\n{preview_sell_list}"
+                            f"\nPreview:\n"
                 case "allocate_reallocate_to_sectors":
                     pass
                 case "raise_x_sell_y_dollars_except_z":
@@ -1902,70 +1904,71 @@ class MainWindow(QMainWindow):
                     if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors": 
                         sell_list,self.raised_amount = self.raise_x_sell_y_dollars_except_z_prev(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
                         buy_list,raised_amount = self.buy_selected_with_x_prev(num_iter,self.current_account_num,self.symbols_to,raise_amount,dollar_value_to_sell,buying_with_amount)
-                        if sell_list: 
+                        if sell_list or buy_list: 
                             format_sell_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list]
                             format_buy_list = [f"{item[0]}: buy {item[1]} shares" for item in buy_list]
-                            preview_sell_list = "\n".join(format_sell_list)
-                            preview_buy_list = "\n".join(format_buy_list)
+                            preview_sellbuy_list = format_sell_list + format_buy_list
+                            
                         if float(self.raised_amount) < float(raise_amount):
                             msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                                     f"Except: {lst}\n" \
                                     f"Allocate Amount: Can only allocate ${self.raised_amount} when selling ${dollar_value_to_sell} of each share, reduce share count to raise more\n" \
-                                    f"\nPreview:\n" \
-                                    f"{preview_sell_list}\n{preview_buy_list}"
+                                    f"\nPreview:\n" 
+                                    
                         else:
                             msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                                 f"Allocate from Sector '{self.ui.cmbFromSector.currentText()}' - {self.symbols_from} to Sector '{self.ui.cmbToSector.currentText()}' - {self.symbols_to}\n" \
                                 f"Allocate Amount: {raise_amount}\n" \
-                                f"\nPreview:\n" \
-                                f"{preview_sell_list}\n\n{preview_buy_list}"
+                                f"\nPreview:\n"
+                                
                     else:
                         #preview function
                         sell_list,self.raised_amount = self.raise_x_sell_y_dollars_except_z_prev(num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
                         if sell_list: 
                             format_sell_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list if float(item[1]) != 0.0]
-                            preview_sell_list = "\n".join(format_sell_list)
+                            preview_sellbuy_list = format_sell_list
                             if float(self.raised_amount) < float(raise_amount):
                                 msg =  f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                                         f"Except: {lst}\n" \
                                         f"Sell Amount: Can only raise ${self.raised_amount} when selling ${dollar_value_to_sell} of each share, reduce dollar amount to raise more money\n" \
-                                        f"\nPreview:\n{preview_sell_list}"
+                                        f"\nPreview:\n"
                             else:
                                 msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                                         f"Except: {lst}\n" \
                                         f"Sell Amount: {raise_amount}\n" \
-                                        f"\nPreview:\n{preview_sell_list}"
+                                        f"\nPreview:\n"
                     
                 case _: #default
                     pass
-            confirm = QMessageBox.question(self, "Confirm",msg,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )                                             
-            if confirm != QMessageBox.StandardButton.Yes:
+            confirm = confirmMsgBox(msg,preview_sellbuy_list, self)
+            button = confirm.exec() #show the popup box for the user to enter account number
+
+        if button != 1: #if user did NOT click yes then return else execute
                 self.ui.btnExecute.setText("Execute ...")
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
                 return            
-
-        self.ui.btnExecute.setText("Cancel")
-        self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
-        
-        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
-            self.ui.lstTerm.addItem(f"Allocating/Reallocating sectors From: ' {self.ui.cmbFromSector.currentText()} ' To: ' {self.ui.cmbToSector.currentText()} ' Amount: ${self.ui.edtAllocAmount.text()} '")
         else:
-            self.ui.lstTerm.clear()
 
-        #call the method to execute
-        if method_name is None:
-            name_of_method = self.ui.cmbAction.currentText()
-        else:
-            name_of_method = method_name
+            self.ui.btnExecute.setText("Cancel")
+            self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
+            
+            if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
+                self.ui.lstTerm.addItem(f"Allocating/Reallocating sectors From: ' {self.ui.cmbFromSector.currentText()} ' To: ' {self.ui.cmbToSector.currentText()} ' Amount: ${self.ui.edtAllocAmount.text()} '")
+            else:
+                self.ui.lstTerm.clear()
 
-        fn = getattr(self, name_of_method)
-        self.command_thread = CommandThread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount) # Any other args, kwargs are passed to the run function
-        # start thread
-        self.command_thread.start()
+            #call the method to execute
+            if method_name is None:
+                name_of_method = self.ui.cmbAction.currentText()
+            else:
+                name_of_method = method_name
 
-        return 
+            fn = getattr(self, name_of_method)
+            self.command_thread = CommandThread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount) # Any other args, kwargs are passed to the run function
+            # start thread
+            self.command_thread.start()
+
+            return 
             
 
 

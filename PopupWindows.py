@@ -1,9 +1,37 @@
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, \
-                            QFileDialog, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
+                            QFileDialog, QListWidget, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
 
 
 
 import os.path
+
+class confirmMsgBox(QDialog):
+    def __init__(self, message,lst=[], parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Confirm Action")
+
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        vlayout = QVBoxLayout()
+
+       
+        message = QLabel(message)
+        lstbox_shares = QListWidget()
+        if len(lst) > 0:
+            for share in lst:
+                lstbox_shares.addItem(share)
+        else:
+            lstbox_shares.addItem("<no Preview items>")   
+                 
+        vlayout.addWidget(message)
+        vlayout.addWidget(lstbox_shares)
+        vlayout.addWidget(self.buttonBox)
+
+        self.setLayout(vlayout)
 
 class msgBoxGetCredentialFile(QDialog):
     def __init__(self, parent=None):
