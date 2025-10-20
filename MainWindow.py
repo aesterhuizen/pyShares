@@ -394,7 +394,7 @@ class MainWindow(QMainWindow):
             if self.ui.cmbAction.currentText() == "sell_gains_except_x" :
                 #new list with stocks excluded
                 lst_share_name = self.find_and_remove(self.ticker_lst, stocks,0)
-                totalamount, _ = self.cal_today_total_gains(lst_share_name)
+                total_amount, _ = self.cal_today_total_gains(lst_share_name)
                 
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
                 lst_share_name = self.find_and_remove(self.ticker_lst, stocks,0)
@@ -1877,13 +1877,13 @@ class MainWindow(QMainWindow):
                 case "sell_gains_except_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
-                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
                             f"\nPreview:\n{preview_sell_list}"
                     
                 case "sell_todays_return_except_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
-                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
                             f"\nPreview:\n{preview_sell_list}"
                 case "buy_selected_with_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
