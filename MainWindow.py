@@ -2213,35 +2213,32 @@ class MainWindow(QMainWindow):
         else:
             txtIter = self.ui.ledit_Iteration.text()
             check_one = True
-        
-        if  self.ui.cmbAction.currentText() == "buy_selected" or \
-            self.ui.cmbAction.currentText() == "sell_selected" or \
-            self.ui.cmbAction.currentText() == "buy_selected_with_x":
-            
-            lst = self.ui.edtRaiseAmount.text().split(",")
-            check_two = True
-        elif self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
-            self.alloc_from = self.get_symbols_From_sectors()
-            self.alloc_to = self.get_symbols_To_sectors()
-            
-            if len(self.alloc_from) == 0 or len(self.alloc_to) == 0:
-                msg = QMessageBox.warning(self,"Selection","There are no stocks in the selected sector.",QMessageBox.StandardButton.Ok)
-                if msg == QMessageBox.StandardButton.Ok:
-                    lst = ['err']
-                    return False,lst
-            elif self.ui.cmbFromSector.currentText() == self.ui.cmbToSector.currentText():
-                msg = QMessageBox.warning(self,"Selection","To and From sectors are the same!.",QMessageBox.StandardButton.Ok)
-                if msg == QMessageBox.StandardButton.Ok:
-                    lst = ['err']   
-                    return False,lst
-            else:
+
+        match self.ui.cmbAction.currentText() :
+            case "buy_selected" | "buy_selected_with_x" | "sell_selected":
+                lst = self.ui.edtRaiseAmount.text().split(",")
                 check_two = True
-        elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x" or \
-             self.ui.cmbAction.currentText() == "sell_gains_except_x": 
-            
-            lst = self.ui.edtLstStocksSellected.text().split(",")
-            check_two = True
-    
+            case "allocate_reallocate_to_sectors":
+                self.alloc_from = self.get_symbols_From_sectors()
+                self.alloc_to = self.get_symbols_To_sectors()
+                
+                if len(self.alloc_from) == 0 or len(self.alloc_to) == 0:
+                    msg = QMessageBox.warning(self,"Selection","There are no stocks in the selected sector.",QMessageBox.StandardButton.Ok)
+                    if msg == QMessageBox.StandardButton.Ok:
+                        lst = ['err']
+                        return False,lst
+                elif self.ui.cmbFromSector.currentText() == self.ui.cmbToSector.currentText():
+                    msg = QMessageBox.warning(self,"Selection","To and From sectors are the same!.",QMessageBox.StandardButton.Ok)
+                    if msg == QMessageBox.StandardButton.Ok:
+                        lst = ['err']   
+                        return False,lst
+                else:
+                    check_two = True
+            case "sell_todays_return_except_x" | "sell_gains_except_x": 
+                lst = self.ui.edtLstStocksSellected.text().split(",")
+                check_two = True
+            case "raise_x_sell_y_dollars_except_z":
+                lst = self.ui.edtRaiseAmount.text().split(",")
     
         if check_one and check_two:
             return txtIter,lst
