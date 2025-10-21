@@ -6,6 +6,7 @@ import pyotp
 import robin_stocks.robinhood as r
 
 
+import matplotlib.colors as mcolors
 import matplotlib
 import pandas as pd
 import mplfinance as mpf
@@ -23,7 +24,9 @@ from PyQt6.QtGui import QPalette
 from dotenv import load_dotenv, set_key
 
 
-from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout, QFileDialog
+from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, \
+    QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout, QFileDialog, \
+    QScrollArea, QSizePolicy
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
 from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
@@ -93,8 +96,11 @@ class MainWindow(QMainWindow):
         self.seq_timer.timeout.connect(self._check_and_run_next)
 
         self.ui.setupUi(self)
-        self.plot = MpfCanvas(self, width=12, height=12)
-        self.ui.grdGraph.addWidget(self.plot)
+        self.plot = MpfCanvas(self, width=30, height=15)
+        self.plot_scroll = QScrollArea(self)
+        self.plot_scroll.setWidgetResizable(True)
+        self.plot_scroll.setWidget(self.plot)
+        self.ui.grdGraph.addWidget(self.plot_scroll)
         self.setGeometry(300, 300, 2500, 1000)
                 
         self.ui.splt_horizontal.setSizes([10, 550])
@@ -109,9 +115,10 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("allocate_reallocate_to_sectors")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
         #add items to cmbGraphType
-        self.ui.cmbGraphType.addItem("Gain/Loss")
-        self.ui.cmbGraphType.addItem("Sector Colors")
-        self.ui.cmbGraphType.addItem("Volume")
+        self.ui.cmbGraphType.addItem("Bar (Gain/Loss)")
+        self.ui.cmbGraphType.addItem("Bar (Sector Colors)")
+        self.ui.cmbGraphType.addItem("Bar (Individual Stocks)")
+        self.ui.cmbGraphType.activated.connect(self.cmbGraphType_clicked)
         #add combo box items to Dollar Share selector
         self.ui.cmbDollarShare.addItem("Buy in USD")
         self.ui.cmbDollarShare.addItem("Buy in Shares")
@@ -131,7 +138,7 @@ class MainWindow(QMainWindow):
         
         # #show the stack Page default to index 1
         if self.ui.stackPage.count() > 0:
-            self.ui.stackPage.setCurrentIndex(3)
+            self.ui.stackPage.setCurrentIndex(4)
             self.ui.stackPage.setVisible(True)
 
       
@@ -356,6 +363,11 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
 
+    def cmbGraphType_clicked(self):
+        #redraw the plot based on the selected graph type
+        self.plot.add_plot_to_figure(self.ticker_lst,self.get_tickers_from_selected_lstAssets(),self.ui.cmbGraphType.currentText(),self.dict_sectors)
+        self.plot.draw()
+        return
     def btnBrowseBuySell_clicked(self):
         options = QFileDialog.Option.DontUseNativeDialog
         lstShares = []
@@ -385,7 +397,7 @@ class MainWindow(QMainWindow):
             str_stock_names = ','.join([item[0] for item in lstShares])  
             stocks = [item[0] for item in lstShares]
             self.highlight_stocks_in_table(stocks)
-            self.plot.add_plot_to_figure(self.ticker_lst, stocks, self.ui.cmbAction.currentText())
+            self.plot.add_plot_to_figure(self.ticker_lst, stocks, self.ui.cmbGraphType.currentText())
             self.plot.draw()
             total_amount = sum([float(item[1])*float(item[2]) for item in lstShares])
             cur_amount = self.ui.edtAmountEst.text()
@@ -923,8 +935,8 @@ class MainWindow(QMainWindow):
             
             self.lstupdated_tblAssets = lst_elements_to_update
             
-            self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
-            self.plot.draw()
+            # self.plot.add_plot_to_figure(self.ticker_lst,get_selected_tickers,self.ui.cmbAction.currentText())           
+            # self.plot.draw()
             self.updateStatusBar(self.ticker_lst)
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
@@ -1112,7 +1124,7 @@ class MainWindow(QMainWindow):
         if len(stock_tickers) > 0:
             match self.ui.cmbAction.currentText():
                 case "stock_info":
-                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
+                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbGraphType.currentText())
                     self.plot.draw()
 
                 case "sell_selected":
@@ -1128,7 +1140,7 @@ class MainWindow(QMainWindow):
                         self.ui.edtBuyWithAmount.setText(f"{priceTotal:,.2f}")
                     
                     self.highlight_stocks_in_table(stock_tickers)
-                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
+                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbGraphType.currentText())
                     self.plot.draw()
                 case "sell_gains_except_x":
                     if self.ui.edtLstStocksSellected.isReadOnly() is False:
@@ -1150,7 +1162,7 @@ class MainWindow(QMainWindow):
                     strjoinlst = ",".join(stock_tickers)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
 
-                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbAction.currentText())
+                    self.plot.add_plot_to_figure(self.ticker_lst, stock_tickers,self.ui.cmbGraphType.currentText())
                     self.plot.draw()
                 case "buy_lower_with_gains":
                     self.ui.edtRaiseAmount.setText(strjoinlst)
@@ -1484,7 +1496,7 @@ class MainWindow(QMainWindow):
         # else: #default
 
     def setup_plot(self,tickersPerf = []):
-        action_selection = self.ui.cmbAction.currentText()
+        action_selection = self.ui.cmbGraphType.currentText()
         self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),action_selection)
         self.plot.draw()
         return
@@ -3195,13 +3207,24 @@ class MpfCanvas(FigureCanvasQTAgg):
           
         
         self.fig = mpf.figure(figsize=(width, height))
-        self.ax = self.fig.add_subplot(111)
+        
         super().__init__(self.fig)
-    
-      
+        self.setMinimumSize(800, 400)
+        self.legend_handles = []
+ 
+        
+
+    def _ensure_scrollable(self, n_rows: int, n_cols: int):
+        # Give each subplot a reasonable pixel footprint; QScrollArea will add scrollbars
+        per_w, per_h = 260, 220  # px per subplot (tune as desired)
+        dpi = self.fig.get_dpi()
+        width_px = max(800, n_cols * per_w)
+        height_px = max(400, n_rows * per_h)
+        self.fig.set_size_inches(width_px / dpi, height_px / dpi)
+        self.setMinimumSize(int(width_px), int(height_px))
    
 
-    def add_plot_to_figure(self,ticker_lst,selected_tickers=[],action_selection="stock_info"):
+    def add_plot_to_figure(self,ticker_lst,selected_tickers=[],action_selection="Bar Graph (Gain/Loss)", sectorsDict={}):
 
        
 
@@ -3215,212 +3238,353 @@ class MpfCanvas(FigureCanvasQTAgg):
         #item[7]= average buy price
         #item[8]=%change in price
         #item[9]=change in price since previous close
-        x_data = []; y_data = []
+       
         
         bars = []
         n_col = 1
         n_row = 1
-
-        if  len(selected_tickers) == 0:
-            self.fig.clear()
-            n_row = 1
-            n_col = 1
-            index=1
-           
-            
-            
-            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
-            #self.axes = fig.add_subplot(111)
-                
-            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-            for item in sorted_list:
-                x_data.append(item[0])
-                y_data.append(float(item[4])*float(item[3]))
-
-            ax = self.fig.add_subplot(n_row,n_col,index)
-            
-            ax.grid(True)
-            bars = ax.bar(x_data, y_data, width=0.7)
-            for i, ticker in enumerate(sorted_list):
-                if ticker[8] < 0.0:
-                    bars[i].set_facecolor('darkred')
-                elif ticker[8] > 0.0:
-                    bars[i].set_facecolor('darkgreen')
-                else:
-                    bars[i].set_facecolor('gray')
-                
-               
-
-            ax.set_xlabel('Stocks')
-            ax.set_ylabel('$value of stock')
-            ax.set_title('Stocks Ticker/Quantity')
-            ax.tick_params(axis='x', rotation=55)
-            self._add_gain_loss_legend(ax)
-            return
-        elif action_selection == "stock_info" and len(selected_tickers) >= 1:
-            
-            self.fig.clear()
-            n_row = 1
-            n_col = 1
-            index=1
-            
-            
-            
-           
-                
-            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-            for item in sorted_list:
-                x_data.append(item[0])
-                y_data.append(float(item[4])*float(item[3]))
-
-            ax = self.fig.add_subplot(n_row,n_col,index)
-            
-            ax.grid(True)
-            bars = ax.bar(x_data, y_data, width=0.7)
-            for i, ticker in enumerate(sorted_list):
-                if ticker[8] < 0.0:
-                    bars[i].set_facecolor('darkred')
-                elif ticker[8] > 0.0:
-                    bars[i].set_facecolor('darkgreen')
-                else:
-                    bars[i].set_facecolor('gray')
-                
-                if ticker[0] in selected_tickers:
-                    bars[i].set_edgecolor('yellow')
-                    bars[i].set_linestyle('solid')
-                    bars[i].set_linewidth(2.5)
-
-
-            ax.set_xlabel('Stocks')
-            ax.set_ylabel('$value of stock')
-            ax.set_title('Stocks Ticker/Quantity')
-            ax.tick_params(axis='x', rotation=55)
-            self._add_gain_loss_legend(ax)
-
-            return
-            # self.fig.clear()
-
-            # max_col = 4
-            # n_row = 1
-            # n_col=1
-            # index = 1
-     
-            
-
-            # hist_dict = r.get_stock_historicals(selected_tickers, interval='hour', span='week', bounds='regular', info=None)
-            # df = pd.DataFrame(hist_dict)
-            # #format datatable
-            # fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
-            # date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
-            
-            # df["begins_at"] = date_timeIndex # set the Date column as the index
-            # float_op = [float(item) for item in df['open_price']]
-            # float_cl = [float(item) for item in df['close_price']]
-            # float_hi = [float(item) for item in df['high_price']]
-            # float_lo = [float(item) for item in df['low_price']]
-
-
-            # df['open_price'] = float_op
-            # df['close_price'] = float_cl
-            # df['high_price'] = float_hi
-            # df['low_price'] = float_lo
-            # df.rename(columns={'open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
-            # df.set_index('begins_at',inplace=True) # Set the Date column as the index
-            
-          
-           
-            # #split tickets in seperate plots
-            # for item in selected_tickers:
-            #     df_plot = df[df['symbol'] == item]
-                
-                
-            #     df_plot_slice = df_plot[['Open','Close','High','Low','Volume']] # Select required columns    
-            #     ax_plot = self.fig.add_subplot(n_row,n_col,index)
-            #     mpf.plot(df_plot_slice,ax=ax_plot,type='candle',xrotation=15)
-            #     ax_plot.set_title(f"{item} - 1 week")
-            #     ax_plot.axes.set_xlabel('Date')
-            #     ax_plot.set_ylabel('Price')             
         
-            # return
-        elif action_selection != "stock_info" and len(selected_tickers) > 0:
-            self.fig.clear()
-            n_row = 1
-            n_col = 1
-            index=1
-            
-            
-            
-            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
-            #self.axes = fig.add_subplot(111)
+        # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
+        # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
+        # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
+        match action_selection:
+            case "Bar (Individual Stocks)":
+                if len(selected_tickers) == 0:
+
+                    self.fig.clear()
+                    n_row = 1
+                    n_col = 1
+                    index=1
+           
+                    #calculate row and columns max columns = 5
+                    if len(ticker_lst) > 5:
+                        n_col = 5
+                        n_row = len(ticker_lst) // 5
+                        if len(ticker_lst) % 5 != 0:
+                            n_row += 1
+                    # Resize canvas so scrollbars show when content is larger than viewport
+                    #self._ensure_scrollable(n_row, n_col)
+
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    #plot each stock in a subplot
+                    for index,ticker in enumerate(sorted_list):
+                        hist_dict = r.get_stock_historicals(ticker[0], interval='day', span='month', bounds='regular', info=None)
+                        df = pd.json_normalize(hist_dict)
+                        df["begins_at"] = pd.to_datetime(df["begins_at"])
+                        fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
+                        date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
+
+                        df["begins_at"] = date_timeIndex
+                        df['open_price'] = [float(item) for item in df['open_price']]
+                        df['close_price'] = [float(item) for item in df['close_price']]
+                        df['high_price'] = [float(item) for item in df['high_price']]
+                        df['low_price'] = [float(item) for item in df['low_price']]
+                        df['volume'] = [float(item) for item in df['volume']]
+
+                        df.rename(columns={'begins_at':'Date','open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
+                        df.set_index('Date',inplace=True) # Set the Date column as the index
+                        df_filter = df[['Open','Close','High','Low','Volume']] # Select required columns
+                            
+                    
+                        ax = self.fig.add_subplot(n_row,n_col,index+1)
+                        
+                        ax.grid(True)
+                        # bars = ax.bar(x_data, y_data, width=0.7)
+                        # for i, ticker in enumerate(sorted_list):
+                        #     if ticker[8] < 0.0:
+                        #         bars[i].set_facecolor('darkred')
+                        #     elif ticker[8] > 0.0:
+                        #         bars[i].set_facecolor('darkgreen')
+                        #     else:
+                        #         bars[i].set_facecolor('gray')
+                            
+                        
+
+                        
+                        ax.set_ylabel('Price')
+                        
+                        #ax.tick_params(axis='x', rotation=55)
+                        #self._add_gain_loss_legend(ax)
+                        mpf.plot(df_filter,ax=ax,type='candle',xrotation=15,axtitle=f"{ticker[0]}")
+                elif len(selected_tickers) >= 1:
+                        
+                    self.fig.clear()
+                    n_row = 1
+                    n_col = 1
+                    index=1
+           
+                    #calculate row and columns max columns = 5
+                    if len(ticker_lst) > 5:
+                        n_col = 5
+                        n_row = len(ticker_lst) // 5
+                        if len(ticker_lst) % 5 != 0:
+                            n_row += 1
+                    # Resize canvas so scrollbars show when content is larger than viewport
+                    #self._ensure_scrollable(n_row, n_col)
+
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    
+                    #plot each stock in a subplot
+                    for index,ticker in enumerate(selected_tickers):
+                        hist_dict = r.get_stock_historicals(ticker[0], interval='day', span='month', bounds='regular', info=None)
+                        df = pd.json_normalize(hist_dict)
+                        df["begins_at"] = pd.to_datetime(df["begins_at"])
+                        fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
+                        date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
+
+                        df["begins_at"] = date_timeIndex
+                        df['open_price'] = [float(item) for item in df['open_price']]
+                        df['close_price'] = [float(item) for item in df['close_price']]
+                        df['high_price'] = [float(item) for item in df['high_price']]
+                        df['low_price'] = [float(item) for item in df['low_price']]
+                        df['volume'] = [float(item) for item in df['volume']]
+
+                        df.rename(columns={'begins_at':'Date','open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
+                        df.set_index('Date',inplace=True) # Set the Date column as the index
+                        df_filter = df[['Open','Close','High','Low','Volume']] # Select required columns
+                            
+                    
+                        ax = self.fig.add_subplot(n_row,n_col,index+1,style='yahoo')
+                        
+                        ax.grid(True)
+                        # bars = ax.bar(x_data, y_data, width=0.7)
+                        # for i, ticker in enumerate(sorted_list):
+                        #     if ticker[8] < 0.0:
+                        #         bars[i].set_facecolor('darkred')
+                        #     elif ticker[8] > 0.0:
+                        #         bars[i].set_facecolor('darkgreen')
+                        #     else:
+                        #         bars[i].set_facecolor('gray')
+                            
+                        
+
+                        
+                        ax.set_ylabel('Price')
+                        
+                        #ax.tick_params(axis='x', rotation=55)
+                        #self._add_gain_loss_legend(ax)
+                        mpf.plot(df_filter,ax=ax,type='candle',xrotation=15,axtitle=f"{ticker[0]}")
+
+            case "Bar (Gain/Loss)":
+                    self.fig.clear()
+                    n_row = 1
+                    n_col = 1
+                    index=1
+                    self.legend_handles = []
+                 
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+                    x_data = []
+                    y_data = []
+                    for item in sorted_list:
+                        x_data.append(item[0])
+                        y_data.append(float(item[4])*float(item[3]))
+
+                   
+
+                    ax = self.fig.add_subplot(n_row,n_col,index)
+                    
+                    ax.grid(True)
+                    bars = ax.bar(x_data, y_data, width=0.7)
+                    for i, ticker in enumerate(sorted_list):
+                        if ticker[8] < 0.0:
+                            bars[i].set_facecolor('darkred')
+                        elif ticker[8] > 0.0:
+                            bars[i].set_facecolor('darkgreen')
+                        else:
+                            bars[i].set_facecolor('gray')
+                            
+                        if ticker[0] in selected_tickers:
+                            bars[i].set_edgecolor('yellow')
+                            bars[i].set_linestyle('solid')
+                            bars[i].set_linewidth(2.5)
+
+
+                    ax.set_xlabel('Stocks')
+                    ax.set_ylabel('$value of stock')
+                    ax.set_title('Stocks Ticker/Quantity')
+                    ax.tick_params(axis='x', rotation=90, labelsize=9)
+                    self._add_legend(ax)
+                    
+            case "Bar (Sector Colors)":
+                self.fig.clear()
+                n_row = 1
+                n_col = 1
+               
+                self.legend_handles = []
                 
-            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
 
-            for item in sorted_list:
-                x_data.append(item[0])
-                y_data.append(float(item[4])*float(item[3]))
+                x_data = []
+                y_data = []
+                sorted_list_stock_name = [item[0] for item in sorted_list]
+                #build bars according to sectors    
+                for sector, stocks_in_sector in sectorsDict.items():   
+                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                    for stock in lst_stock_in_sec:
+                        index = sorted_list_stock_name.index(stock)
+                        x_data.append(stock)
+                        y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
 
-            ax = self.fig.add_subplot(n_row,n_col,index)
 
-            ax.grid(True)
-            bars = ax.bar(x_data, y_data)
-            
-            for i, ticker in enumerate(sorted_list):
-                if ticker[8] < 0.0:
-                    bars[i].set_facecolor('darkred')
-                elif ticker[8] > 0.0:
-                    bars[i].set_facecolor('darkgreen')
-                else:
-                    bars[i].set_facecolor('gray')
+                index=1
+                ax = self.fig.add_subplot(n_row,n_col,index)
                 
-                if ticker[0] in selected_tickers:
-                    bars[i].set_edgecolor('yellow')
-                    bars[i].set_linestyle('solid')
-                    bars[i].set_linewidth(2.5)
-
-            ax.set_xlabel('Stocks')
-            ax.set_ylabel('$value of stock')
-            ax.set_title('Stocks Ticker/Quantity')
-            ax.tick_params(axis='x', rotation=55)
-            
-            return
-        elif action_selection == "allocate_reallocate_to_sectors" and len(selected_tickers) > 0:
-            self.fig.clear()
-            n_row = 1
-            n_col = 1
-            index=1
-            
-            
-            
-            #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
-            #self.axes = fig.add_subplot(111)
+                ax.grid(True)
+                handles = []
                 
-            sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                bar_index = 0
+                sec_index = 1
+                colors = mcolors.CSS4_COLORS
+                names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
+                bars = ax.bar(x_data, y_data, width=0.7)
+                
+                for sector, stocks_in_sector in sectorsDict.items():
+                    
+                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                    color_idx = sec_index
+                    color = names[color_idx % len(names)]
+                    patch = Patch(facecolor=color, edgecolor='black', label=sector)
+                    self.legend_handles.append(patch)       
+                    sec_index += 20
+                    for stock in lst_stock_in_sec:
+                        bars[bar_index].set_facecolor(color)
+                        bar_index += 1
+                        
 
-            for item in sorted_list:
-                x_data.append(item[0])
-                y_data.append(float(item[4])*float(item[3]))
+                self._add_legend(ax)    
+                
+                    
+                #     if ticker[0] in selected_tickers:
+                #         bars[i].set_edgecolor('yellow')
+                #         bars[i].set_linestyle('solid')
+                #         bars[i].set_linewidth(2.5)
 
-            ax = self.fig.add_subplot(n_row,n_col,index)
+
+                ax.set_xlabel('Stocks')
+                ax.set_ylabel('$value of stock')
+                ax.set_title('Stocks Ticker/Quantity')
+                ax.tick_params(axis='x', rotation=90, labelsize=9)
+         
+            case _:
+                pass
             
-            ax.grid(True)
-            ax.bar(x_data, y_data)
-            ax.set_xlabel('Stocks')
-            ax.set_ylabel('$value of stock')
-            ax.set_title('Stocks Ticker/Quantity')
-            ax.tick_params(axis='x', rotation=55)
-            return
+        return
+        # elif action_selection == "stock_info" and len(selected_tickers) >= 1:
+            
+        #     self.fig.clear()
+        #     n_row = 1
+        #     n_col = 1
+        #     index=1
+            
+            
+            
+        
+                
+        #     sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+        #     for item in sorted_list:
+        #         x_data.append(item[0])
+        #         y_data.append(float(item[4])*float(item[3]))
+
+        #     ax = self.fig.add_subplot(n_row,n_col,index)
+            
+        #     ax.grid(True)
+        #     bars = ax.bar(x_data, y_data, width=0.7)
+        #     for i, ticker in enumerate(sorted_list):
+        #         if ticker[8] < 0.0:
+        #             bars[i].set_facecolor('darkred')
+        #         elif ticker[8] > 0.0:
+        #             bars[i].set_facecolor('darkgreen')
+        #         else:
+        #             bars[i].set_facecolor('gray')
+                
+        #         if ticker[0] in selected_tickers:
+        #             bars[i].set_edgecolor('yellow')
+        #             bars[i].set_linestyle('solid')
+        #             bars[i].set_linewidth(2.5)
+
+
+        #     ax.set_xlabel('Stocks')
+        #     ax.set_ylabel('$value of stock')
+        #     ax.set_title('Stocks Ticker/Quantity')
+        #     ax.tick_params(axis='x', rotation=55)
+        #     self._add_gain_loss_legend(ax)
+
+        #     return
+            
+        # elif action_selection != "stock_info" and len(selected_tickers) > 0:
+        #     self.fig.clear()
+        #     n_row = 1
+        #     n_col = 1
+        #     index=1
+            
+            
+            
+        #     #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
+        #     #self.axes = fig.add_subplot(111)
+                
+        #     sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+        #     for item in sorted_list:
+        #         x_data.append(item[0])
+        #         y_data.append(float(item[4])*float(item[3]))
+
+        #     ax = self.fig.add_subplot(n_row,n_col,index)
+
+        #     ax.grid(True)
+        #     bars = ax.bar(x_data, y_data)
+            
+        #     for i, ticker in enumerate(sorted_list):
+        #         if ticker[8] < 0.0:
+        #             bars[i].set_facecolor('darkred')
+        #         elif ticker[8] > 0.0:
+        #             bars[i].set_facecolor('darkgreen')
+        #         else:
+        #             bars[i].set_facecolor('gray')
+                
+        #         if ticker[0] in selected_tickers:
+        #             bars[i].set_edgecolor('yellow')
+        #             bars[i].set_linestyle('solid')
+        #             bars[i].set_linewidth(2.5)
+
+        #     ax.set_xlabel('Stocks')
+        #     ax.set_ylabel('$value of stock')
+        #     ax.set_title('Stocks Ticker/Quantity')
+        #     ax.tick_params(axis='x', rotation=55)
+            
+        #     return
+        # elif action_selection == "allocate_reallocate_to_sectors" and len(selected_tickers) > 0:
+        #     self.fig.clear()
+        #     n_row = 1
+        #     n_col = 1
+        #     index=1
+            
+            
+            
+        #     #fig = mpf.figure(figsize=(5,4), dpi=100,layout='constrained')
+        #     #self.axes = fig.add_subplot(111)
+                
+        #     sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+        #     for item in sorted_list:
+        #         x_data.append(item[0])
+        #         y_data.append(float(item[4])*float(item[3]))
+
+        #     ax = self.fig.add_subplot(n_row,n_col,index)
+            
+        #     ax.grid(True)
+        #     ax.bar(x_data, y_data)
+        #     ax.set_xlabel('Stocks')
+        #     ax.set_ylabel('$value of stock')
+        #     ax.set_title('Stocks Ticker/Quantity')
+        #     ax.tick_params(axis='x', rotation=55)
+        #     return
     
-    def _add_gain_loss_legend(self, ax):
-        legend_handles = [
-            Patch(facecolor='darkgreen', edgecolor='black', label='Gain'),
-            Patch(facecolor='darkred', edgecolor='black', label='Loss'),
-            Patch(facecolor='gray', edgecolor='black', label='No Change'),
-        ]
-        leg = ax.legend(handles=legend_handles, loc='upper center', frameon=True, fontsize=8)
-        for t in leg.get_texts():
-            t.set_color('white')
+    def _add_legend(self, ax):
+        
+        leg = ax.legend(handles=self.legend_handles, loc='upper right', frameon=True, fontsize=9)
+       
 
 class TableToolTip(QWidget):
     def __init__(self, obj ,parent=MainWindow):
