@@ -60,8 +60,7 @@ class MainWindow(QMainWindow):
 
         self.totalGains = 0.0
         self.todayGains = 0.0
-        self.single_plot_height_inches = 6.54
-        self.single_plot_width_inches = 18.69
+       
         
         self.current_account_num = ""
         self.account_info = ''
@@ -3231,7 +3230,7 @@ class MpfCanvas(FigureCanvasQTAgg):
 
     def _ensure_scrollable(self, n_rows: int, n_cols: int, frm_h: int, frm_w: int):
         # Give each subplot a reasonable pixel footprint; QScrollArea will add scrollbars
-        per_w, per_h = 250, 410  # px per subplot (tune as desired)
+        per_w, per_h = 210, 410  # px per subplot (tune as desired)
         dpi = self.fig.get_dpi()
         width_px = max(frm_w, n_cols * per_w)
         height_px = max(frm_h, n_rows * per_h)
@@ -3285,12 +3284,6 @@ class MpfCanvas(FigureCanvasQTAgg):
                             n_row += 1
                     # Resize canvas so scrollbars show when content is larger than viewport
                     self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
-                   
-
-                    print("(Individual Stocks) Fig size before adding plot called ensure_scrollable:")
-                    height_inches = self.fig.get_figheight()
-                    width_inches = self.fig.get_figwidth()
-                    print(f"Height: {height_inches} inches, Width: {width_inches} inches")
                     sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
                     #plot each stock in a subplot
                     for index,ticker in enumerate(sorted_list):
