@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
 from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
-from layout_dev import Ui_MainWindow
+from layout import Ui_MainWindow
 
 from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts
 from WorkerThread import CommandThread, UpdateThread
