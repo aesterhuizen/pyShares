@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '.\AppLayout_splitter.ui'
+# Form implementation generated from reading ui file '.\AppLayout_splitter_dev.ui'
 #
 # Created by: PyQt6 UI code generator 6.4.2
 #
@@ -281,6 +281,15 @@ class Ui_MainWindow(object):
         self.blankPage = QtWidgets.QWidget()
         self.blankPage.setObjectName("blankPage")
         self.stackPage.addWidget(self.blankPage)
+        self.StockGraphInfoPage = QtWidgets.QWidget()
+        self.StockGraphInfoPage.setObjectName("StockGraphInfoPage")
+        self.cmbGraphType = QtWidgets.QComboBox(parent=self.StockGraphInfoPage)
+        self.cmbGraphType.setGeometry(QtCore.QRect(90, 10, 121, 22))
+        self.cmbGraphType.setObjectName("cmbGraphType")
+        self.label_4 = QtWidgets.QLabel(parent=self.StockGraphInfoPage)
+        self.label_4.setGeometry(QtCore.QRect(10, 10, 71, 16))
+        self.label_4.setObjectName("label_4")
+        self.stackPage.addWidget(self.StockGraphInfoPage)
         self.gridLayout_5.addWidget(self.stackPage, 0, 2, 1, 1)
         self.verticalLayout_2.addWidget(self.frame)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
@@ -377,7 +386,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.stackPage.setCurrentIndex(2)
+        self.stackPage.setCurrentIndex(4)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -401,6 +410,7 @@ class Ui_MainWindow(object):
         self.lblbuyWith.setText(_translate("MainWindow", "with"))
         self.lblBuyWithAmount.setText(_translate("MainWindow", "Dollar Value to Buy of Stock:"))
         self.lblDollarValueToSell.setText(_translate("MainWindow", "Dollar Value to Sell:"))
+        self.label_4.setText(_translate("MainWindow", "Graph View:"))
         self.btnExecute.setText(_translate("MainWindow", "Execute ..."))
         self.btnClearAll.setText(_translate("MainWindow", "Clear All"))
         self.btnSelectAll.setText(_translate("MainWindow", "Select All"))
