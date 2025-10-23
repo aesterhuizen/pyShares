@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.35"
+        self.ver_string = "v1.0.36"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -297,12 +297,14 @@ class MainWindow(QMainWindow):
         
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(self.icon_path +'/application--arrow.png'), "Exit", self)
+        button_action = QAction(QIcon(self.icon_path +'/exit.png'), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
         
+        self.ui.toolBar.addSeparator()
+
         #add credentials button
-        button_cred_action = QAction(QIcon(self.icon_path +'/animal-monkey.png'), "Credentials", self)
+        button_cred_action = QAction(QIcon(self.icon_path +'/Credentials.png'), "Credentials", self)
         button_cred_action.triggered.connect(self.Show_msgCredentials)
         button_cred_action = self.ui.toolBar.addAction(button_cred_action)
 
