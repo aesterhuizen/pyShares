@@ -300,12 +300,17 @@ class MainWindow(QMainWindow):
         button_action = QAction(QIcon(self.icon_path +'/application--arrow.png'), "Exit", self)
         button_action.triggered.connect(self.closeMenu_clicked)
         button_action = self.ui.toolBar.addAction(button_action)
-
+        
         #add credentials button
         button_cred_action = QAction(QIcon(self.icon_path +'/animal-monkey.png'), "Credentials", self)
         button_cred_action.triggered.connect(self.Show_msgCredentials)
         button_cred_action = self.ui.toolBar.addAction(button_cred_action)
 
+        #add charts button
+        button_chart_action = QAction(QIcon(self.icon_path +'/bar-chart.png'), "View Bar Chart (Sector Colors)", self)
+        button_chart_action.triggered.connect(self.showCharts_clicked)
+        button_chart_action = self.ui.toolBar.addAction(button_chart_action)
+        
         # set tooltip for edtBuyWith textbox
         self.ui.edtBuyWith.setToolTip("Optional, If entered will iterate through selected list and buy stocks until the (buy with) amount is reached\nIf left blank then will only buy amount as indicated in (Buy in USD) or (Buy in Shares)")
         #connect edtBuyWith textbox 
@@ -365,6 +370,20 @@ class MainWindow(QMainWindow):
         self.setupStatusbar()
         # show the Mainwindow
         self.show()
+
+
+
+    def showCharts_clicked(self):
+         #redraw the plot based on the selected graph type
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        QApplication.setOverrideCursor(cursor)
+        
+        self.ui.cmbGraphType.setCurrentIndex(1)
+        self.setup_plot(self.ticker_lst)
+
+        QApplication.restoreOverrideCursor()
+        return
 
     def cmbGraphType_clicked(self):
         #redraw the plot based on the selected graph type
@@ -2612,7 +2631,7 @@ class MainWindow(QMainWindow):
                     fill_price = "0.00"
                     
                 stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
-                total = item[1]*float(fill_price)
+                total = float(item[1])*float(fill_price)
                 gtotal += total
                 frm_total = "{0:,.2f}".format(total)
 
