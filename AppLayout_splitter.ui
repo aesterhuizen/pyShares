@@ -24,7 +24,7 @@
     <item row="0" column="0">
      <widget class="QSplitter" name="splt_horizontal">
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -40,7 +40,7 @@
       </property>
       <widget class="QFrame" name="frame_left">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -76,8 +76,8 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>841</width>
-              <height>120</height>
+              <width>0</width>
+              <height>0</height>
              </size>
             </property>
             <property name="maximumSize">
@@ -640,6 +640,31 @@
                 </layout>
                </widget>
                <widget class="QWidget" name="blankPage"/>
+               <widget class="QWidget" name="StockGraphInfoPage">
+                <widget class="QComboBox" name="cmbGraphType">
+                 <property name="geometry">
+                  <rect>
+                   <x>90</x>
+                   <y>10</y>
+                   <width>121</width>
+                   <height>22</height>
+                  </rect>
+                 </property>
+                </widget>
+                <widget class="QLabel" name="label_4">
+                 <property name="geometry">
+                  <rect>
+                   <x>10</x>
+                   <y>10</y>
+                   <width>71</width>
+                   <height>16</height>
+                  </rect>
+                 </property>
+                 <property name="text">
+                  <string>Graph View:</string>
+                 </property>
+                </widget>
+               </widget>
               </widget>
              </item>
             </layout>
@@ -773,7 +798,11 @@
          <enum>QLayout::SetDefaultConstraint</enum>
         </property>
         <item row="0" column="0">
-         <layout class="QGridLayout" name="grdGraph"/>
+         <layout class="QGridLayout" name="grdGraph">
+          <property name="sizeConstraint">
+           <enum>QLayout::SetNoConstraint</enum>
+          </property>
+         </layout>
         </item>
        </layout>
       </widget>
@@ -798,7 +827,22 @@
     <addaction name="separator"/>
     <addaction name="action_Exit"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <widget class="QMenu" name="menuPlots">
+     <property name="title">
+      <string>Plots</string>
+     </property>
+     <addaction name="actionBar_plot_Gain_Loss"/>
+     <addaction name="actionBar_plot_Sector_Colors"/>
+     <addaction name="actionIndividual_plot"/>
+    </widget>
+    <addaction name="menuPlots"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuView"/>
   </widget>
   <widget class="QStatusBar" name="statusBar">
    <property name="sizePolicy">
@@ -836,6 +880,21 @@
   <action name="actionCredentials_File">
    <property name="text">
     <string>&amp;Credentials File</string>
+   </property>
+  </action>
+  <action name="actionBar_plot_Gain_Loss">
+   <property name="text">
+    <string>Bar plot - (Gain\Loss)</string>
+   </property>
+  </action>
+  <action name="actionBar_plot_Sector_Colors">
+   <property name="text">
+    <string>Bar plot - (Sector Colors)</string>
+   </property>
+  </action>
+  <action name="actionIndividual_plot">
+   <property name="text">
+    <string>Individual plot</string>
    </property>
   </action>
  </widget>

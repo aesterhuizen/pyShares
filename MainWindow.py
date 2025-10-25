@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         self.portfolio_tvalue = 0.0
         
         self.lstupdated_tblAssets = []
-        self.setGeometry(300, 300, 2500, 1000)
+        #self.setGeometry(300, 300, 2500, 1000)
         #variable allocations to hold the lists stocks in the selected sectors with percentagesof poerfoli
         self.alloc_from = []
         self.alloc_to = []
@@ -294,6 +294,11 @@ class MainWindow(QMainWindow):
         #menu Qaction_exit
         self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
         self.ui.actionCredentials_File.triggered.connect(self.Show_msgCredentials)
+
+        #menu actions Plot menu
+        self.ui.actionBar_plot_Gain_Loss.triggered.connect(self.showGainLossChart)
+        self.ui.actionBar_plot_Sector_Colors.triggered.connect(self.showSectorChart)
+        self.ui.actionIndividual_plot.triggered.connect(self.showIndividualChart)
         
         #Toolbar
         self.ui.toolBar.setIconSize(QSize(32,32))
@@ -310,7 +315,7 @@ class MainWindow(QMainWindow):
 
         #add charts button
         button_chart_action = QAction(QIcon(self.icon_path +'/bar-chart.png'), "View Bar Chart (Sector Colors)", self)
-        button_chart_action.triggered.connect(self.showCharts_clicked)
+        button_chart_action.triggered.connect(self.showSectorChart)
         button_chart_action = self.ui.toolBar.addAction(button_chart_action)
         
         # set tooltip for edtBuyWith textbox
@@ -327,6 +332,9 @@ class MainWindow(QMainWindow):
         #connect signal/slot for label Iteration button
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
+        #tbl default sellection mode to multi selection
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)    
+        #connect signal/slot for ledit_Iteration
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
         
         #connect signal/slot for Execute button
@@ -374,18 +382,40 @@ class MainWindow(QMainWindow):
         self.show()
 
 
+    def showGainLossChart(self):
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        QApplication.setOverrideCursor(cursor)
+        
+        self.ui.cmbGraphType.setCurrentIndex(0)
+        self.ui.cmbGraphType.setCurrentText("Bar (Gain/Loss)")
+        self.setup_plot(self.ticker_lst)
 
-    def showCharts_clicked(self):
-         #redraw the plot based on the selected graph type
+        QApplication.restoreOverrideCursor()
+    
+    def showSectorChart(self):
         cursor = QCursor()
         cursor.setShape(cursor.shape().WaitCursor)
         QApplication.setOverrideCursor(cursor)
         
         self.ui.cmbGraphType.setCurrentIndex(1)
+        self.ui.cmbGraphType.setCurrentText("Bar (Sector Colors)")
         self.setup_plot(self.ticker_lst)
 
         QApplication.restoreOverrideCursor()
         return
+    def showIndividualChart(self):
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        QApplication.setOverrideCursor(cursor)
+        
+        self.ui.cmbGraphType.setCurrentIndex(2)
+        self.ui.cmbGraphType.setCurrentText("Bar (Individual Stocks)")
+        self.setup_plot(self.ticker_lst)
+
+        QApplication.restoreOverrideCursor()
+        return
+  
 
     def cmbGraphType_clicked(self):
         #redraw the plot based on the selected graph type
@@ -1144,10 +1174,10 @@ class MainWindow(QMainWindow):
         return priceTotal
     
     def tblAsset_clicked(self):
-        stock_tickers = []
+        stock_names = []
         priceTotal = 0.0
 
-        stock_tickers = self.get_tickers_from_selected_lstAssets()
+        stock_names = self.get_tickers_from_selected_lstAssets()
         
        
          #Item[0] =  tickers
@@ -1168,44 +1198,48 @@ class MainWindow(QMainWindow):
        
                
 
-        if len(stock_tickers) > 0:
+        if len(stock_names) > 0:
             match self.ui.cmbAction.currentText():
                 case "stock_info":
-                    self.setup_plot(self.ticker_lst)
+                    if self.ui.cmbGraphType.currentText() == "Bar (Individual Stocks)":
+                        sub_ticker_lst = self.find_and_remove(self.ticker_lst,stock_names,1)
+                        self.setup_plot(sub_ticker_lst)
+                    else:    
+                        self.setup_plot(self.ticker_lst)
 
                 case "sell_selected":
-                    
-                    strjoinlst = ",".join(stock_tickers)
+
+                    strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
 
                     dollar_value_buy_sell = self.ui.edtDollarValueToSell.text()
                     if dollar_value_buy_sell == "" :
                         self.ui.edtBuyWithAmount.setText("0.00")
                     else:
-                        priceTotal = self.find_total_equity_for_buysell_amount(stock_tickers,float(dollar_value_buy_sell))
+                        priceTotal = self.find_total_equity_for_buysell_amount(stock_names,float(dollar_value_buy_sell))
                         self.ui.edtBuyWithAmount.setText(f"{priceTotal:,.2f}")
                     
-                    self.highlight_stocks_in_table(stock_tickers)
+                    self.highlight_stocks_in_table(stock_names)
                     self.setup_plot(self.ticker_lst)
                 case "sell_gains_except_x":
-                    
-                        strjoinlst = ",".join(stock_tickers)
+
+                        strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
-                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_tickers,0)
+                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
                         total_return = self.cal_today_total_gains(n_tickersPerf)[0]
                         self.ui.edtAmountEst.setReadOnly(True)
                         self.ui.edtAmountEst.setText(f"{total_return:,.2f}")
 
                 case "sell_todays_return_except_x":
                     
-                        strjoinlst = ",".join(stock_tickers)
+                        strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
-                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_tickers,0)
+                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
                         todays_return = self.cal_today_total_gains(n_tickersPerf)[1]
                         self.ui.edtAmountEst.setReadOnly(True)
                         self.ui.edtAmountEst.setText(f"{todays_return:,.2f}")
                 case "buy_selected_with_x":
-                    strjoinlst = ",".join(stock_tickers)
+                    strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
 
                     self.setup_plot(self.ticker_lst)
@@ -1216,7 +1250,7 @@ class MainWindow(QMainWindow):
                     pass
 
                 case "raise_x_sell_y_dollars_except_z":
-                    strjoinlst = ",".join(stock_tickers)
+                    strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
 
                 case _:
@@ -1542,11 +1576,11 @@ class MainWindow(QMainWindow):
 
     def setup_plot(self,tickersPerf = []):
         action_selection = self.ui.cmbGraphType.currentText()
-
+        
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
-        self.plot.figure.clf()  # Clear the figure to avoid overlapping plots
+        self.plot.fig.clear()  # Clear the figure to avoid overlapping plots
         self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),action_selection, self.dict_sectors,frm_h,frm_w)
         self.plot.draw()
        
@@ -2109,20 +2143,20 @@ class MainWindow(QMainWindow):
         return
     
     def get_tickers_from_selected_lstAssets(self):
-        stock_tickers = []
+        stock_tickers_names = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        selected_tickers = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
+        selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
        
 
-        if len(selected_tickers) > 0:
+        if len(selected_tblRow) > 0:
             #get stock tickers from selected items
-            for index, ticker in enumerate(selected_tickers):
+            for index, ticker in enumerate(selected_tblRow):
                 match = re.search(r"\((\w+\.?\w*)\)", ticker)
                 if match:
-                    stock_tickers.append(match.group(1))
-            return stock_tickers
-        
-        return selected_tickers
+                    stock_tickers_names.append(match.group(1))
+            return stock_tickers_names
+
+        return stock_tickers_names
     
     def get_stocks_from_portfolio(self, acc_num):
         
@@ -3257,11 +3291,11 @@ class MainWindow(QMainWindow):
 
 class MpfCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=MainWindow, width=8, height=4):
+    def __init__(self, parent=None, width=8, height=4):
         # Use inches + dpi (not pixels)
         dpi = 100
 
-        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=False)
+        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=True)
         super().__init__(self.fig)
 
         # Let the scroll area control when to add scrollbars
@@ -3288,7 +3322,7 @@ class MpfCanvas(FigureCanvasQTAgg):
             self.setMinimumSize(int(width_px), int(height_px))
    
 
-    def add_plot_to_figure(self,ticker_lst,selected_tickers=[],action_selection="Bar Graph (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0):
+    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar Graph (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0):
 
        
 
@@ -3306,32 +3340,40 @@ class MpfCanvas(FigureCanvasQTAgg):
         
         bars = []
         self.legend_handles = []  # reset
-        n_col = 1
-        n_row = 1
-        index = 1
+        n_col = 0
+        n_row = 0
+        index = 0
         # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
         # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
         # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
-      
+        add_val = 0
         
         match action_selection:
             case "Bar (Individual Stocks)":
-                if len(selected_tickers) == 0:
-                    n_row = 1
-                    n_col = 1
-                    index=1
-           
+                if len(sel_ticker_lst) >= 1:
                     #calculate row and columns max columns = 4
-                    if len(ticker_lst) > 4:
+                    if len(sel_ticker_lst) > 4:
                         n_col = 4
-                        n_row = len(ticker_lst) // 4
-                        if len(ticker_lst) % 4 != 0:
+                        n_row = (len(sel_ticker_lst) // 4)
+                        if len(sel_ticker_lst) % 4 != 0:
                             n_row += 1
+                            #add_val = (n_row +1)*4
+                    elif len(sel_ticker_lst) == 1:
+                        n_col = 1
+                        n_row = 1
+                        #add_val = len(sel_ticker_lst)
+                    elif len(sel_ticker_lst) > 1:
+                        n_col = len(ticker_lst)
+                        n_row = 1
+                        #add_val = len(sel_ticker_lst)
+
                     # Resize canvas so scrollbars show when content is larger than viewport
                     self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-                    #plot each stock in a subplot
-                    for index,ticker in enumerate(sorted_list):
+                   
+                    sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
+                    
+                    #plot each selected stock in a subplot
+                    for index,ticker in enumerate(sorted_name_list):
                         hist_dict = r.get_stock_historicals(ticker[0], interval='day', span='month', bounds='regular', info=None)
                         df = pd.json_normalize(hist_dict)
                         df["begins_at"] = pd.to_datetime(df["begins_at"])
@@ -3349,63 +3391,21 @@ class MpfCanvas(FigureCanvasQTAgg):
                         df.set_index('Date',inplace=True) # Set the Date column as the index
                         df_filter = df[['Open','Close','High','Low','Volume']] # Select required columns
                             
-                    
-                        ax = self.fig.add_subplot(n_row,n_col,index+1)
-                     
-
-                        ax.grid(True)
-                        ax.set_ylabel('Price')
+                        s   = mpf.make_mpf_style(base_mpl_style='fast',base_mpf_style='nightclouds')
+                        i = index + 1
                         
-                        #ax.tick_params(axis='x', rotation=55)
-                        #self._add_gain_loss_legend(ax)
-                        mpf.plot(df_filter,ax=ax,type='candle',xrotation=15,axtitle=f"{ticker[0]}")
-                elif len(selected_tickers) >= 1:
-                    n_row = 1
-                    n_col = 1
-                    index=1
-           
-                    #calculate row and columns max columns = 4
-                    if len(ticker_lst) > 4:
-                        n_col = 4
-                        n_row = len(ticker_lst) // 4
-                        if len(ticker_lst) % 4 != 0:
-                            n_row += 1
-                    # Resize canvas so scrollbars show when content is larger than viewport
-                    self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
-                    
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-                    
-                    #plot each stock in a subplot
-                    for index,ticker in enumerate(selected_tickers):
-                        hist_dict = r.get_stock_historicals(ticker[0], interval='day', span='month', bounds='regular', info=None)
-                        df = pd.json_normalize(hist_dict)
-                        df["begins_at"] = pd.to_datetime(df["begins_at"])
-                        fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
-                        date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
-
-                        df["begins_at"] = date_timeIndex
-                        df['open_price'] = [float(item) for item in df['open_price']]
-                        df['close_price'] = [float(item) for item in df['close_price']]
-                        df['high_price'] = [float(item) for item in df['high_price']]
-                        df['low_price'] = [float(item) for item in df['low_price']]
-                        df['volume'] = [float(item) for item in df['volume']]
-
-                        df.rename(columns={'begins_at':'Date','open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
-                        df.set_index('Date',inplace=True) # Set the Date column as the index
-                        df_filter = df[['Open','Close','High','Low','Volume']] # Select required columns
-                            
-                    
-                        ax = self.fig.add_subplot(n_row,n_col,index+1)
                         
+
+                        ax = self.fig.add_subplot(n_row,n_col,i,style=s)
+                        #av = self.fig.add_subplot(n_row,n_col,i+add_val,style=s)
                         ax.grid(True)
-                      
-                            
                         
 
                         
                         ax.set_ylabel('Price')
-                       
-                        mpf.plot(df_filter,ax=ax,type='candle',xrotation=15,axtitle=f"{ticker[0]}")
+                        mpf.plot(df_filter, ax=ax, type='candle', axtitle=f"{ticker[0]}")
+                        #mpf.plot(df_filter,ax=ax,type='candle',axtitle=f"{ticker[0]}")
+                        #mpf.plot(df_filter,ax=ax,type='line',xrotation=15,axtitle=f"{ticker[0]}")
 
             case "Bar (Gain/Loss)":
                     n_row = 1
@@ -3445,7 +3445,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                         else:
                             bars[i].set_facecolor('gray')
                             
-                        if ticker[0] in selected_tickers:
+                        if ticker[0] in sel_ticker_lst:
                             bars[i].set_edgecolor('yellow')
                             bars[i].set_linestyle('solid')
                             bars[i].set_linewidth(2.5)
