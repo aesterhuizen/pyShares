@@ -7,10 +7,11 @@ import robin_stocks.robinhood as r
 
 
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 import mplfinance as mpf
-
+import yfinance as yf
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -94,10 +95,11 @@ class MainWindow(QMainWindow):
         self.seq_timer = QTimer(self)
         self.seq_timer.setInterval(200)
         self.seq_timer.timeout.connect(self._check_and_run_next)
-
+        
         self.ui.setupUi(self)
         self.ui.splt_horizontal.setSizes([10, 550])
         self.ui.vertical_splitter.setSizes([450, 50])
+        
         self.plot = MpfCanvas(self,8,4)
         self.plot_scroll = QScrollArea(self)
         self.plot_scroll.setWidgetResizable(True)
@@ -381,6 +383,28 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
 
+    
+  
+  
+    def setup_plot(self,tickersPerf = []):
+        
+        action_selection = self.ui.cmbGraphType.currentText()
+        
+         #setup plot area
+         #get plot data
+        self.plot.fig.clear()
+        self.plot.create_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),action_selection, self.dict_sectors)
+        self.plot.draw()           
+        # frm_h = self.plot_scroll.height()
+        # frm_w = self.plot_scroll.width()
+
+        #self.plot.figure.clear()  # Clear the figure to avoid overlapping plots
+        
+
+       
+        return
+
+   
 
     def showGainLossChart(self):
         cursor = QCursor()
@@ -1574,18 +1598,7 @@ class MainWindow(QMainWindow):
         #   
         # else: #default
 
-    def setup_plot(self,tickersPerf = []):
-        action_selection = self.ui.cmbGraphType.currentText()
-        
-        frm_h = self.plot_scroll.height()
-        frm_w = self.plot_scroll.width()
-
-        self.plot.fig.clear()  # Clear the figure to avoid overlapping plots
-        self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),action_selection, self.dict_sectors,frm_h,frm_w)
-        self.plot.draw()
-       
-        return
-
+   
 
     def StoreAccounts(self):
         msgBox = msgBoxGetAccounts()
@@ -3289,239 +3302,23 @@ class MainWindow(QMainWindow):
         return
     # end of class MainWIndow
 
-class MpfCanvas(FigureCanvasQTAgg):
+# class MpfCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=8, height=4):
-        # Use inches + dpi (not pixels)
-        dpi = 100
+#     def __init__(self, parent=None, width=8, height=4):
+#         # Use inches + dpi (not pixels)
+#         dpi = 100
 
-        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=True)
-        super().__init__(self.fig)
+#         self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=True)
+#         super().__init__(self.fig)
 
-        # Let the scroll area control when to add scrollbars
-        self.setMinimumSize(1, 1)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self.legend_handles = []
+#         # Let the scroll area control when to add scrollbars
+#         self.setMinimumSize(1, 1)
+#         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+#         self.legend_handles = []
        
          
         
   
-
-    def _ensure_scrollable(self, n_rows: int, n_cols: int, frm_h: int, frm_w: int):
-        # Give each subplot a reasonable pixel footprint; QScrollArea will add scrollbars
-        per_w, per_h = 210, 410  # px per subplot (tune as desired)
-        dpi = self.fig.get_dpi()
-        width_px = max(frm_w, n_cols * per_w)
-        height_px = max(frm_h, n_rows * per_h)
-        self.fig.set_size_inches(width_px / dpi, height_px / dpi)
-        # Do not inflate minimum beyond required
-        # When going back to a single plot, allow the canvas to shrink again
-        if n_rows * n_cols <= 1:
-            self.setMinimumSize(1, 1)
-        else:
-            self.setMinimumSize(int(width_px), int(height_px))
-   
-
-    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar Graph (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0):
-
-       
-
-       #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
-       
-        
-        bars = []
-        self.legend_handles = []  # reset
-        n_col = 0
-        n_row = 0
-        index = 0
-        # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
-        # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
-        # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
-        add_val = 0
-        
-        match action_selection:
-            case "Bar (Individual Stocks)":
-                if len(sel_ticker_lst) >= 1:
-                    #calculate row and columns max columns = 4
-                    if len(sel_ticker_lst) > 4:
-                        n_col = 4
-                        n_row = (len(sel_ticker_lst) // 4)
-                        if len(sel_ticker_lst) % 4 != 0:
-                            n_row += 1
-                            #add_val = (n_row +1)*4
-                    elif len(sel_ticker_lst) == 1:
-                        n_col = 1
-                        n_row = 1
-                        #add_val = len(sel_ticker_lst)
-                    elif len(sel_ticker_lst) > 1:
-                        n_col = len(ticker_lst)
-                        n_row = 1
-                        #add_val = len(sel_ticker_lst)
-
-                    # Resize canvas so scrollbars show when content is larger than viewport
-                    self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
-                   
-                    sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
-                    
-                    #plot each selected stock in a subplot
-                    for index,ticker in enumerate(sorted_name_list):
-                        hist_dict = r.get_stock_historicals(ticker[0], interval='day', span='month', bounds='regular', info=None)
-                        df = pd.json_normalize(hist_dict)
-                        df["begins_at"] = pd.to_datetime(df["begins_at"])
-                        fmt_timestamp  = [pd.to_datetime(item) for item in df["begins_at"]]
-                        date_timeIndex = pd.DatetimeIndex(fmt_timestamp)
-
-                        df["begins_at"] = date_timeIndex
-                        df['open_price'] = [float(item) for item in df['open_price']]
-                        df['close_price'] = [float(item) for item in df['close_price']]
-                        df['high_price'] = [float(item) for item in df['high_price']]
-                        df['low_price'] = [float(item) for item in df['low_price']]
-                        df['volume'] = [float(item) for item in df['volume']]
-
-                        df.rename(columns={'begins_at':'Date','open_price':'Open','close_price':'Close','high_price':'High','low_price':'Low','volume':'Volume'},inplace=True)
-                        df.set_index('Date',inplace=True) # Set the Date column as the index
-                        df_filter = df[['Open','Close','High','Low','Volume']] # Select required columns
-                            
-                        s   = mpf.make_mpf_style(base_mpl_style='fast',base_mpf_style='nightclouds')
-                        i = index + 1
-                        
-                        
-
-                        ax = self.fig.add_subplot(n_row,n_col,i,style=s)
-                        #av = self.fig.add_subplot(n_row,n_col,i+add_val,style=s)
-                        ax.grid(True)
-                        
-
-                        
-                        ax.set_ylabel('Price')
-                        mpf.plot(df_filter, ax=ax, type='candle', axtitle=f"{ticker[0]}")
-                        #mpf.plot(df_filter,ax=ax,type='candle',axtitle=f"{ticker[0]}")
-                        #mpf.plot(df_filter,ax=ax,type='line',xrotation=15,axtitle=f"{ticker[0]}")
-
-            case "Bar (Gain/Loss)":
-                    n_row = 1
-                    n_col = 1
-                    index=1
-                    self.legend_handles = []  # reset
-
-                    self._ensure_scrollable(1, 1, frm_h, frm_w)
-                    
-
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-                    x_data = []
-                    y_data = []
-                    for item in sorted_list:
-                        x_data.append(item[0])
-                        y_data.append(float(item[4])*float(item[3]))
-
-
-                    patch = [Patch(facecolor='darkred', edgecolor='black', label='Loss'), \
-                        Patch(facecolor='darkgreen', edgecolor='black', label='Gain'), \
-                        Patch(facecolor='gray', edgecolor='black', label='No Change')]
-                    for p in patch:
-                        self.legend_handles.append(p)
-                    
-                    ax = self.fig.add_subplot(n_row,n_col,index)
-                    
-                  
-                  
-                    ax.grid(True)
-                    bars = ax.bar(x_data, y_data, width=0.7)
-                    for i, ticker in enumerate(sorted_list):
-                        if ticker[8] < 0.0:
-                            bars[i].set_facecolor('darkred')
-                        elif ticker[8] > 0.0:
-                            bars[i].set_facecolor('darkgreen')
-                        else:
-                            bars[i].set_facecolor('gray')
-                            
-                        if ticker[0] in sel_ticker_lst:
-                            bars[i].set_edgecolor('yellow')
-                            bars[i].set_linestyle('solid')
-                            bars[i].set_linewidth(2.5)
-
-
-                    ax.set_xlabel('Stocks')
-                    ax.set_ylabel('$value of stock')
-                    ax.set_title('Stocks Ticker/Quantity')
-                    ax.tick_params(axis='x', rotation=90, labelsize=9)
-                    self._add_legend(ax)
-                    
-            case "Bar (Sector Colors)":
-                
-                n_row = 1
-                n_col = 1
-                index = 1
-                
-                self._ensure_scrollable(1,1,frm_h,frm_w)
-
-                sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-                x_data = []
-                y_data = []
-                sorted_list_stock_name = [item[0] for item in sorted_list]
-                #build bars according to sectors    
-                for sector, stocks_in_sector in sectorsDict.items():   
-                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
-                    for stock in lst_stock_in_sec:
-                        index = sorted_list_stock_name.index(stock)
-                        x_data.append(stock)
-                        y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
-
-
-                index=1
-                ax = self.fig.add_subplot(n_row,n_col,index)
-                
-              
-                bars = ax.bar(x_data, y_data, width=0.7)
-                
-                ax.grid(True)
-               
-                
-                bar_index = 0
-                sec_index = 1
-                colors = mcolors.CSS4_COLORS
-                names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
-                
-                
-                for sector, stocks_in_sector in sectorsDict.items():
-                    
-                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
-                    color_idx = sec_index
-                    color = names[color_idx % len(names)]
-                    patch = Patch(facecolor=color, edgecolor='black', label=sector)
-                    self.legend_handles.append(patch)       
-                    sec_index += 20
-                    for stock in lst_stock_in_sec:
-                        bars[bar_index].set_facecolor(color)
-                        bar_index += 1
-                        
-
-                self._add_legend(ax)    
-                
-                ax.set_xlabel('Stocks')
-                ax.set_ylabel('$value of stock')
-                ax.set_title('Stocks Ticker/Quantity')
-                ax.tick_params(axis='x', rotation=90, labelsize=9)
-         
-            case _:
-                pass
-        QApplication.restoreOverrideCursor()    
-        return
- 
-    
-    def _add_legend(self, ax):
-       ax.legend(handles=self.legend_handles, loc='upper right', frameon=True, fontsize=9)
 
 class TableToolTip(QWidget):
     def __init__(self, obj ,parent=MainWindow):
@@ -3696,5 +3493,256 @@ class TableToolTip(QWidget):
        
         return
 
+class MpfCanvas(FigureCanvasQTAgg):
 
+    def __init__(self, parent=None, width=8, height=4):
+        # Use inches + dpi (not pixels)
+        dpi = 100
+
+        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=True)
+        super().__init__(self.fig)
+
+        # Let the scroll area control when to add scrollbars
+        self.setMinimumSize(1, 1)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.legend_handles = []
+
+    def _ensure_scrollable(self, n_rows: int, n_cols: int, frm_h: int, frm_w: int):
+        # Give each subplot a reasonable pixel footprint; QScrollArea will add scrollbars
+        per_w, per_h = 210, 410  # px per subplot (tune as desired)
+        dpi = self.fig.get_dpi()
+        width_px = max(frm_w, n_cols * per_w)
+        height_px = max(frm_h, n_rows * per_h)
+        self.plot.figure.set_size_inches(width_px / dpi, height_px / dpi)
+        # Do not inflate minimum beyond required
+        # When going back to a single plot, allow the canvas to shrink again
+        if n_rows * n_cols <= 1:
+            self.setMinimumSize(1, 1)
+        else:
+            self.setMinimumSize(int(width_px), int(height_px))        
+
+    def create_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar (Individual Stocks)", sectorsDict={}) -> tuple[Figure,list]:
+
+       
+
+       #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+       
+        
+        bars = []
+        self.legend_handles = []  # reset
+        n_col = 0
+        n_row = 0
+        index = 0
+        # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
+        # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
+        # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
+        my_style = mpf.make_mpf_style(
+            base_mpf_style='charles',
+            rc={'font.size': 10},
+            marketcolors=mpf.make_marketcolors(
+                up='green', down='red',
+                edge='inherit', wick='black',
+                volume='in'
+            ),
+            facecolor='lightgray',
+            gridcolor='white'
+        )
+        offset = 0
+        match action_selection:
+            case "Bar (Individual Stocks)":
+                if len(sel_ticker_lst) >= 1:
+                    #calculate row and columns max columns = 4
+                    if len(sel_ticker_lst) > 4:
+                        n_col = 4
+                        n_row = (len(sel_ticker_lst) // 4)
+                        if len(sel_ticker_lst) % 4 != 0:
+                            n_row += 2
+                            #add_val = (n_row +1)*4
+                    elif len(sel_ticker_lst) == 1:
+                        n_col = 1
+                        n_row = 2
+                        #add_val = len(sel_ticker_lst)
+                    elif len(sel_ticker_lst) > 1:
+                        n_col = len(ticker_lst)
+                        n_row = 2
+                        #add_val = len(sel_ticker_lst)
+
+                    # Resize canvas so scrollbars show when content is larger than viewport
+                    #self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
+                    
+                   
+                    sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
+                    
+                    #plot each selected stock in a subplot
+                    for index,ticker in enumerate(sorted_name_list):
+                        if n_col > 1:
+                            idx = index + 1
+                            offset = n_col
+                        elif n_col == 1:
+                            idx = (index * 2) + 1
+                            offset = 1
+                        
+
+                        # Step 1: Download sample stock data
+                        data = yf.download(ticker[0], start='2024-01-01', end='2025-10-26')
+                        data.index.name = 'Date'
+
+                        # Fix the column structure - flatten the MultiIndex columns
+                        # mplfinance expects columns named: Open, High, Low, Close, Volume
+                        data.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
+
+                   
+
+                        ma50 = data['Close'].rolling(50).mean()
+                        ma200 = data['Close'].rolling(200).mean()
+                        
+                        
+                        # Create main price subplot
+                        ax_main = self.fig.add_subplot(n_row, n_col, idx)
+                        # Create volume subplot
+                        ax_volume = self.fig.add_subplot(n_row, n_col, idx+offset, sharex=ax_main)
+                        # Step 3: Create a custom subplot (e.g., 50-day moving average)
+                        apds = [
+                            mpf.make_addplot(ma50, color='blue', panel=0, ylabel='50-day MA',ax=ax_main),
+                            mpf.make_addplot(ma200, color='orange', panel=0, ylabel='200-day MA',ax=ax_main)
+                            ]
+    
+                      
+                        # Step 4: Plot with custom style and subplot
+                        mpf.plot(
+                            data,
+                            type='candle',
+                            ax=ax_main,
+                            style=my_style,
+                            addplot=apds,
+                            volume=ax_volume,                            
+                            axtitle=f'{ticker[0]}',
+                            
+                        )
+                        
+
+            case "Bar (Gain/Loss)":
+                    n_row = 1
+                    n_col = 1
+                    index=1
+                    self.legend_handles = []  # reset
+
+                    #self._ensure_scrollable(1, 1, frm_h, frm_w)
+                    
+
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    #generate the data series
+                    s_data = pd.Series([float(item[4])*float(item[3]) for item in sorted_list], index=[item[0] for item in sorted_list])
+                    df = pd.DataFrame(data=s_data,index=s_data.index)
+                   
+
+
+                    patch = [Patch(facecolor='darkred', edgecolor='black', label='Loss'), \
+                        Patch(facecolor='darkgreen', edgecolor='black', label='Gain'), \
+                        Patch(facecolor='gray', edgecolor='black', label='No Change')]
+                    for p in patch:
+                        self.legend_handles.append(p)
+                    
+                    ax = self.fig.add_subplot(n_row,n_col,index)
+                    
+                
+                
+                    ax.grid(True)
+                    bars = ax.bar(s_data.index, s_data.values, width=0.7)
+                    for i, ticker in enumerate(sorted_list):
+                        if ticker[8] < 0.0:
+                            bars[i].set_facecolor('darkred')
+                        elif ticker[8] > 0.0:
+                            bars[i].set_facecolor('darkgreen')
+                        else:
+                            bars[i].set_facecolor('gray')
+                            
+                        if ticker[0] in sel_ticker_lst:
+                            bars[i].set_edgecolor('yellow')
+                            bars[i].set_linestyle('solid')
+                            bars[i].set_linewidth(2.5)
+
+
+                    ax.set_xlabel('Stocks')
+                    ax.set_ylabel('$value of stock')
+                    ax.set_title('Stocks Ticker/Quantity')
+                    ax.tick_params(axis='x', rotation=90, labelsize=9)
+                    self._add_legend(ax)
+                    
+                
+            case "Bar (Sector Colors)":
+                
+                n_row = 1
+                n_col = 1
+                index = 1
+                
+                #self._ensure_scrollable(1,1,frm_h,frm_w)
+
+                sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+                x_data = []
+                y_data = []
+                sorted_list_stock_name = [item[0] for item in sorted_list]
+                #build bars according to sectors   
+                
+                for sector, stocks_in_sector in sectorsDict.items():   
+                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                    for stock in lst_stock_in_sec:
+                        index = sorted_list_stock_name.index(stock)
+                        x_data.append(stock)
+                        y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
+
+
+                index=1
+                ax = self.fig.add_subplot(n_row,n_col,index)
+                
+                
+                bars = ax.bar(x_data, y_data, width=0.7)
+                
+                ax.grid(True)
+                
+                
+                bar_index = 0
+                sec_index = 1
+                colors = mcolors.CSS4_COLORS
+                names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
+                
+                
+                for sector, stocks_in_sector in sectorsDict.items():
+                    
+                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                    color_idx = sec_index
+                    color = names[color_idx % len(names)]
+                    patch = Patch(facecolor=color, edgecolor='black', label=sector)
+                    self.legend_handles.append(patch)       
+                    sec_index += 20
+                    for stock in lst_stock_in_sec:
+                        bars[bar_index].set_facecolor(color)
+                        bar_index += 1
+                        
+
+                self._add_legend(ax)    
+                
+                ax.set_xlabel('Stocks')
+                ax.set_ylabel('$value of stock')
+                ax.set_title('Stocks Ticker/Quantity')
+                ax.tick_params(axis='x', rotation=90, labelsize=9)
+         
+            case _:
+                pass
+        QApplication.restoreOverrideCursor()    
+        return
+ 
+    
+    def _add_legend(self, ax):
+       ax.legend(handles=self.legend_handles, loc='upper right', frameon=True, fontsize=9)
                 
