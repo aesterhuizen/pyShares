@@ -3030,7 +3030,7 @@ class MainWindow(QMainWindow):
             n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
         
         
-        
+        n_tickersPerf = sorted(n_tickersPerf,key=lambda x: x[0]) 
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0
         quantity_to_sell = 0.0
@@ -3126,7 +3126,7 @@ class MainWindow(QMainWindow):
         tgains = 0.0
         frm_tot = "0.0"
         fill_price = "0.0"
-
+        n_tickersPerf = []
 
         method_name = self.ui.cmbAction.currentText()
         tickersPerf = self.get_stocks_from_portfolio(acc_num)   
@@ -3151,7 +3151,7 @@ class MainWindow(QMainWindow):
         #item[8]=%change in price
         #item[9]=change in price since previous close
        
-
+        n_tickersPerf = sorted(n_tickersPerf,key=lambda x: x[0])
         tot_gains,tgains = self.cal_today_total_gains(n_tickersPerf)
 
         accu_quantity_to_buy = 0.0
