@@ -12,10 +12,12 @@ import matplotlib
 import pandas as pd
 import mplfinance as mpf
 import yfinance as yf
+import yfinance as yf
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
+import matplotlib.gridspec as gridspec
 
 matplotlib.use('QtAgg')
 
@@ -48,7 +50,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.36"
+        self.ver_string = "v1.0.37"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -335,7 +337,7 @@ class MainWindow(QMainWindow):
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
         #tbl default sellection mode to multi selection
-        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)    
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)    
         #connect signal/slot for ledit_Iteration
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
         
@@ -1722,7 +1724,7 @@ class MainWindow(QMainWindow):
         self.ui.lblbuyWith.setVisible(False)
         self.ui.edtBuyWith.setVisible(False)
         self.ui.cmbDollarShare.setVisible(False)
-        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         
         
         match perform_action:
@@ -1738,7 +1740,7 @@ class MainWindow(QMainWindow):
                 self.ui.lblbuyWith.setVisible(False)
                 self.ui.edtBuyWith.setVisible(False)
                 self.ui.cmbDollarShare.setVisible(False)
-                self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+                
                 
                 self.setup_plot(self.ticker_lst)  
             case "sell_selected":
@@ -3043,7 +3045,7 @@ class MainWindow(QMainWindow):
             n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
         
         
-        
+        n_tickersPerf = sorted(n_tickersPerf,key=lambda x: x[0]) 
         accu_quantity_to_buy = 0.0
         raised_amount = 0.0
         quantity_to_sell = 0.0
@@ -3139,7 +3141,7 @@ class MainWindow(QMainWindow):
         tgains = 0.0
         frm_tot = "0.0"
         fill_price = "0.0"
-
+        n_tickersPerf = []
 
         method_name = self.ui.cmbAction.currentText()
         tickersPerf = self.get_stocks_from_portfolio(acc_num)   
@@ -3164,7 +3166,7 @@ class MainWindow(QMainWindow):
         #item[8]=%change in price
         #item[9]=change in price since previous close
        
-
+        n_tickersPerf = sorted(n_tickersPerf,key=lambda x: x[0])
         tot_gains,tgains = self.cal_today_total_gains(n_tickersPerf)
 
         accu_quantity_to_buy = 0.0
@@ -3499,17 +3501,52 @@ class MpfCanvas(FigureCanvasQTAgg):
         # Use inches + dpi (not pixels)
         dpi = 100
 
-        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=True)
+        self.fig = mpf.figure(figsize=(width, height), dpi=dpi, tight_layout=False)
         super().__init__(self.fig)
 
         # Let the scroll area control when to add scrollbars
         self.setMinimumSize(1, 1)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         self.legend_handles = []
+       
+
+
+
+    @staticmethod
+    def compute_rsi(data, window=14):
+        delta = data['Close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.rolling(window=window).mean()
+        avg_loss = loss.rolling(window=window).mean()
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    @staticmethod
+    def compute_macd(data, fast=12, slow=26, signal=9):
+        ema_fast = data['Close'].ewm(span=fast, adjust=False).mean()
+        ema_slow = data['Close'].ewm(span=slow, adjust=False).mean()
+        macd = ema_fast - ema_slow
+        signal_line = macd.ewm(span=signal, adjust=False).mean()
+        histogram = macd - signal_line
+        return macd, signal_line, histogram
+
+
+    @staticmethod
+    def compute_stochastic(data, k_window=14, d_window=3):
+        low_min = data['Low'].rolling(window=k_window).min()
+        high_max = data['High'].rolling(window=k_window).max()
+        k = 100 * ((data['Close'] - low_min) / (high_max - low_min))
+        d = k.ewm(span=d_window, adjust=False).mean()
+        return k, d
+
+
+
 
     def _ensure_scrollable(self, n_rows: int, n_cols: int, frm_h: int, frm_w: int):
         # Give each subplot a reasonable pixel footprint; QScrollArea will add scrollbars
-        per_w, per_h = 210, 410  # px per subplot (tune as desired)
+        per_w, per_h = 220, 420  # px per subplot (tune as desired)
         dpi = self.fig.get_dpi()
         width_px = max(frm_w, n_cols * per_w)
         height_px = max(frm_h, n_rows * per_h)
@@ -3545,91 +3582,124 @@ class MpfCanvas(FigureCanvasQTAgg):
         # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
         # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
         # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
-        my_style = mpf.make_mpf_style(
-            base_mpf_style='charles',
-            rc={'font.size': 10},
-            marketcolors=mpf.make_marketcolors(
-                up='green', down='red',
-                edge='inherit', wick='black',
-                volume='in'
-            ),
-            facecolor='lightgray',
-            gridcolor='white'
-        )
-        offset = 0
+
+        
         match action_selection:
             case "Bar (Individual Stocks)":
                 if len(sel_ticker_lst) >= 1:
-                    #calculate row and columns max columns = 4
-                    if len(sel_ticker_lst) > 4:
-                        n_col = 4
-                        n_row = (len(sel_ticker_lst) // 4)
-                        if len(sel_ticker_lst) % 4 != 0:
-                            n_row += 2
-                            #add_val = (n_row +1)*4
+                    #calculate row and columns max columns = 3
+                    if len(sel_ticker_lst) > 3:
+                        n_col = 3
+                        n_row = len(sel_ticker_lst) // 3
+                        if len(sel_ticker_lst) % 3 != 0:
+                            n_row += 1
+                            
                     elif len(sel_ticker_lst) == 1:
                         n_col = 1
-                        n_row = 2
-                        #add_val = len(sel_ticker_lst)
+                        n_row = 1
+
                     elif len(sel_ticker_lst) > 1:
                         n_col = len(ticker_lst)
-                        n_row = 2
-                        #add_val = len(sel_ticker_lst)
+                        n_row = 1
 
+
+                    my_style = mpf.make_mpf_style(
+                            base_mpf_style='charles',
+                            rc={'font.size': 10},
+                            marketcolors=mpf.make_marketcolors(
+                                up='green', down='red',
+                                edge='inherit', wick='black',
+                                volume='in'
+                            ),
+                            facecolor='lightgray',
+                            gridcolor='white'
+                    )
                     # Resize canvas so scrollbars show when content is larger than viewport
-                    #self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
-                    
-                   
+                    self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
+                    outer_grid = self.fig.add_gridspec(n_row, n_col, hspace=0.08, wspace=0.2)
+
                     sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
                     
                     #plot each selected stock in a subplot
                     for index,ticker in enumerate(sorted_name_list):
-                        if n_col > 1:
-                            idx = index + 1
-                            offset = n_col
-                        elif n_col == 1:
-                            idx = (index * 2) + 1
-                            offset = 1
+                        row, col = divmod(index, n_col)
+                        subgrid = outer_grid[row, col].subgridspec(5, 1, height_ratios=[3, 1, 1, 1, 1], hspace=0.06)
+                        ax_price = self.fig.add_subplot(subgrid[0])
+                        ax_volume = self.fig.add_subplot(subgrid[1], sharex=ax_price)
+                        ax_rsi = self.fig.add_subplot(subgrid[2], sharex=ax_price)
+                        ax_macd = self.fig.add_subplot(subgrid[3], sharex=ax_price)
+                        ax_stoch = self.fig.add_subplot(subgrid[4], sharex=ax_price)
+
+                        df = yf.download(ticker[0], period='1y', interval='1d', progress=False)
                         
 
-                        # Step 1: Download sample stock data
-                        data = yf.download(ticker[0], start='2024-01-01', end='2025-10-26')
-                        data.index.name = 'Date'
-
-                        # Fix the column structure - flatten the MultiIndex columns
-                        # mplfinance expects columns named: Open, High, Low, Close, Volume
-                        data.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
-
-                   
-
-                        ma50 = data['Close'].rolling(50).mean()
-                        ma200 = data['Close'].rolling(200).mean()
+                        df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
                         
                         
-                        # Create main price subplot
-                        ax_main = self.fig.add_subplot(n_row, n_col, idx)
-                        # Create volume subplot
-                        ax_volume = self.fig.add_subplot(n_row, n_col, idx+offset, sharex=ax_main)
-                        # Step 3: Create a custom subplot (e.g., 50-day moving average)
+                        ax_price.set_title(ticker[0], fontsize=9)
+                        ax_price.tick_params(axis='y', labelsize=9, left=True)
+                        ax_price.set_ylabel('Price',fontsize=9)
+                        ax_price.grid(True, linestyle='solid',alpha=1)
+                        ax_price.xaxis.set_visible(False)
+
+                        ax_volume.tick_params(axis='y', labelsize=9, left=True)
+                        ax_volume.xaxis.set_visible(False)
+                        ax_volume.set_ylabel('Volume',fontsize=9)
+                        ax_volume.grid(True, linestyle='solid', alpha=1)
+                        ax_volume.xaxis.set_visible(False)
+
+                        ax_rsi.tick_params(axis='y', labelsize=9, left=True)
+                        ax_rsi.set_ylim(0, 100)
+                        ax_rsi.set_ylabel('RSI',fontsize=9)
+                        ax_rsi.grid(True, linestyle='solid', alpha=1)
+                        ax_rsi.xaxis.set_visible(False)
+
+                        ax_macd.tick_params(axis='y', labelsize=9, left=True)
+                        ax_macd.xaxis.set_visible(False)
+                        ax_macd.set_ylabel('MACD',fontsize=9)
+                        ax_macd.grid(True, linestyle='solid', alpha=1)
+                        ax_macd.xaxis.set_visible(False)
+                        
+                        ax_stoch.tick_params(axis='y', labelsize=9, left=True)
+                        ax_stoch.tick_params(axis='x', labelsize=9)
+                        ax_stoch.set_ylabel('Stochastic',fontsize=9)
+                        ax_stoch.set_ylim(0, 100)
+                        ax_stoch.grid(True, linestyle='solid', alpha=1)
+                        
+                        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = self.compute_macd(df)
+                        df['Stoch_K'], df['Stoch_D'] = self.compute_stochastic(df)
+                        df['RSI'] = self.compute_rsi(df)
+                        ma50 = df['Close'].rolling(50).mean()
+                        ma200 = df['Close'].rolling(200).mean()
+
+                        
                         apds = [
-                            mpf.make_addplot(ma50, color='blue', panel=0, ylabel='50-day MA',ax=ax_main),
-                            mpf.make_addplot(ma200, color='orange', panel=0, ylabel='200-day MA',ax=ax_main)
-                            ]
-    
-                      
-                        # Step 4: Plot with custom style and subplot
+                            mpf.make_addplot(ma50, ax=ax_price, color='orange', label='MA50'),
+                            mpf.make_addplot(ma200, ax=ax_price, color='blue', label='MA200'),
+                            mpf.make_addplot(df['RSI'], ax=ax_rsi, color='purple', ylim=(0,100)),
+                            mpf.make_addplot(df['MACD'], ax=ax_macd, color='blue'),
+                            mpf.make_addplot(df['MACD_Signal'], ax=ax_macd, color='orange'),
+                            mpf.make_addplot(df['MACD_Hist'], ax=ax_macd, type='bar', color='gray'),
+                            mpf.make_addplot(df['Stoch_K'], ax=ax_stoch, color='green'),
+                            mpf.make_addplot(df['Stoch_D'], ax=ax_stoch, color='red'),
+                            mpf.make_addplot(df['Volume'], ax=ax_volume, type='bar', color='grey'), #overlap volume on price
+                        ]
+                        #ax.grid(True)
+                        
+
+                        
+                        #ax.set_ylabel('Price')
                         mpf.plot(
-                            data,
-                            type='candle',
-                            ax=ax_main,
+                            df,
+                            ax=ax_price,
                             style=my_style,
                             addplot=apds,
-                            volume=ax_volume,                            
-                            axtitle=f'{ticker[0]}',
-                            
+                            type='candle',
+                            volume=False,
+                            warn_too_much_data=10000
                         )
-                        
-
+                       
+                    
             case "Bar (Gain/Loss)":
                     n_row = 1
                     n_col = 1
@@ -3739,12 +3809,12 @@ class MpfCanvas(FigureCanvasQTAgg):
          
             case _:
                 pass
-        QApplication.restoreOverrideCursor()    
+          
         return
  
     
     def _add_legend(self, ax):
-       ax.legend(handles=self.legend_handles, loc='upper right', frameon=True, fontsize=9)
+       ax.legend(handles=self.legend_handles, loc='best', frameon=True, fontsize=9)
 
 class PortfolioTableModel(QAbstractTableModel):
     def __init__(self, data):
