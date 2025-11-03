@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
     QScrollArea, QSizePolicy
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
-from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
+from PyQt6.QtCore import QSize, Qt, QPoint, QTimer, QAbstractTableModel
 
 from layout import Ui_MainWindow
 
@@ -3745,4 +3745,19 @@ class MpfCanvas(FigureCanvasQTAgg):
     
     def _add_legend(self, ax):
        ax.legend(handles=self.legend_handles, loc='upper right', frameon=True, fontsize=9)
+
+class PortfolioTableModel(QAbstractTableModel):
+    def __init__(self, data):
+        super().__init__()
+        self._data = data
+
+    def data(self, index, role):
+        if role == Qt.ItemDataRole.DisplayRole:
+            return str(self._data[index.row()][index.column()])
+
+    def rowCount(self, index):
+        return len(self._data)
+
+    def columnCount(self, index):
+        return len(self._data[0]) if self._data else 0
                 
