@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
     QScrollArea, QSizePolicy
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
-from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
+from PyQt6.QtCore import QSize,Qt,QPoint, QTimer,QAbstractTableModel,QSortFilterProxyModel
 
 from layout import Ui_MainWindow
 
@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.37"
+        self.ver_string = "v1.0.38"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -71,9 +71,13 @@ class MainWindow(QMainWindow):
         self.dict_sectors = {}
         self.portfolio  = {}
         self.portfolio_tvalue = 0.0
-        
+        self.plot_type = {0: "Bar (Gain/Loss)", 
+                                  1: "Bar (Sector Colors)", 
+                                  2: "Bar (Individual Stocks)"}
+        self.current_plot_type = self.plot_type[1]
+
         self.lstupdated_tblAssets = []
-        #self.setGeometry(300, 300, 2500, 1000)
+        self.setGeometry(300, 300, 1000, 1000)
         #variable allocations to hold the lists stocks in the selected sectors with percentagesof poerfoli
         self.alloc_from = []
         self.alloc_to = []
@@ -121,6 +125,7 @@ class MainWindow(QMainWindow):
         self.ui.cmbGraphType.addItem("Bar (Gain/Loss)")
         self.ui.cmbGraphType.addItem("Bar (Sector Colors)")
         self.ui.cmbGraphType.addItem("Bar (Individual Stocks)")
+        
         self.ui.cmbGraphType.activated.connect(self.cmbGraphType_clicked)
         #add combo box items to Dollar Share selector
         self.ui.cmbDollarShare.addItem("Buy in USD")
@@ -316,7 +321,8 @@ class MainWindow(QMainWindow):
 
         #add charts button
         button_chart_action = QAction(QIcon(self.icon_path +'/bar-chart.png'), "View Bar Chart (Sector Colors)", self)
-        button_chart_action.triggered.connect(self.showSectorChart)
+        button_chart_action.triggered.connect(self.cmbGraphType_clicked)
+        button_chart_action.setToolTip("Toggle Graph Type")
         button_chart_action = self.ui.toolBar.addAction(button_chart_action)
         
         # set tooltip for edtBuyWith textbox
@@ -334,7 +340,7 @@ class MainWindow(QMainWindow):
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
         #tbl default sellection mode to multi selection
-        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)    
+        #self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)    
         #connect signal/slot for ledit_Iteration
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
         
@@ -355,7 +361,7 @@ class MainWindow(QMainWindow):
         #connect clear selection button
         self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
-        self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
+        #self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         
         #setup allocation page connections
         self.ui.edtAllocAmount.textChanged.connect(self.edtAllocAmount_changed)
@@ -369,9 +375,9 @@ class MainWindow(QMainWindow):
         #setup list Term to always scroll to bottom when new item is added
         self.ui.lstTerm.model().rowsInserted.connect(lambda parent, first, last: QTimer.singleShot(0, self.ui.lstTerm.scrollToBottom))
         #create an update worker thread to update the asset list every 10 seconds
-        self.update_thread = UpdateThread(self.updateLstAssets)
-        self.update_thread.daemon = True
-        self.update_thread.start()
+        # self.update_thread = UpdateThread(self.updateLstAssets)
+        # self.update_thread.daemon = True
+        # self.update_thread.start()
 
         #Monitor to see if command thread is currently running and if it is not then change the button to green
         self.monitor_thread = UpdateThread(self.monitor_command_thread)
@@ -388,9 +394,11 @@ class MainWindow(QMainWindow):
         cursor.setShape(cursor.shape().WaitCursor)
         QApplication.setOverrideCursor(cursor)
         
+        self.current_plot_type = self.plot_type[0]
         self.ui.cmbGraphType.setCurrentIndex(0)
         self.ui.cmbGraphType.setCurrentText("Bar (Gain/Loss)")
-        self.setup_plot(self.ticker_lst)
+
+        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
     
@@ -399,9 +407,10 @@ class MainWindow(QMainWindow):
         cursor.setShape(cursor.shape().WaitCursor)
         QApplication.setOverrideCursor(cursor)
         
+        self.current_plot_type = self.plot_type[1]
         self.ui.cmbGraphType.setCurrentIndex(1)
         self.ui.cmbGraphType.setCurrentText("Bar (Sector Colors)")
-        self.setup_plot(self.ticker_lst)
+        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -410,9 +419,10 @@ class MainWindow(QMainWindow):
         cursor.setShape(cursor.shape().WaitCursor)
         QApplication.setOverrideCursor(cursor)
         
+        self.current_plot_type = self.plot_type[2]
         self.ui.cmbGraphType.setCurrentIndex(2)
         self.ui.cmbGraphType.setCurrentText("Bar (Individual Stocks)")
-        self.setup_plot(self.ticker_lst)
+        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -424,8 +434,18 @@ class MainWindow(QMainWindow):
         cursor.setShape(cursor.shape().WaitCursor)
         QApplication.setOverrideCursor(cursor)
         
+        current_index = self.ui.cmbGraphType.currentIndex()
+        current_index += 1
+
+        if current_index // 3 == 1:
+            current_index = 0
         
-        self.setup_plot(self.ticker_lst)
+            
+            
+        self.ui.cmbGraphType.setCurrentIndex(current_index)    
+        plot_type = self.plot_type[current_index]
+        self.clear_all_clicked()
+        self.setup_plot(self.ticker_lst, plot_type=plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -625,10 +645,10 @@ class MainWindow(QMainWindow):
             if not isinstance(child, QVBoxLayout):
                 self.ui.statusBar.removeWidget(child)
 
-        lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
-        lblStatusBar.setMinimumWidth(100)
-        lblStatusBar.setObjectName("lblStatusBar")
-        self.ui.statusBar.addWidget(lblStatusBar,1)
+        # lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+        # lblStatusBar.setMinimumWidth(100)
+        # lblStatusBar.setObjectName("lblStatusBar")
+        # self.ui.statusBar.addWidget(lblStatusBar,1)
 
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         lblStatusBar_pctT = QLabel(f"Total Return: ${frm_TotalGains}")
@@ -1204,7 +1224,7 @@ class MainWindow(QMainWindow):
                 case "stock_info":
                     if self.ui.cmbGraphType.currentText() == "Bar (Individual Stocks)":
                         sub_ticker_lst = self.find_and_remove(self.ticker_lst,stock_names,1)
-                        self.setup_plot(sub_ticker_lst)
+                        self.setup_plot(self.ticker_lst,sub_ticker_lst)
                     else:    
                         self.setup_plot(self.ticker_lst)
 
@@ -1575,14 +1595,16 @@ class MainWindow(QMainWindow):
         #   
         # else: #default
 
-    def setup_plot(self,tickersPerf = []):
-        action_selection = self.ui.cmbGraphType.currentText()
+    def setup_plot(self,tickersPerf = [],sellected_tickets = [],plot_type = "Bar (Gain/Loss)"):
+        
         
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
         self.plot.fig.clear()  # Clear the figure to avoid overlapping plots
-        self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),action_selection, self.dict_sectors,frm_h,frm_w)
+        error_msg = self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),plot_type, self.dict_sectors,frm_h,frm_w)
+        if error_msg != "":
+            self.ui.lstTerm.addItem(f"Error: {error_msg}")
         self.plot.draw()
        
         return
@@ -1685,13 +1707,13 @@ class MainWindow(QMainWindow):
         #Item[3]= last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
+        #item[5]= 1 year history
+        #item[6]= average buy price
+        #item[7]=%change in price
+        #item[8]=change in price since previous close
         #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
         #updated_items = update_current_assets()
-        #item[10] = stock name
+        #item[9] = stock name
 
         allStockReturn = 0.0
         todays_stockReturn = 0.0
@@ -1923,6 +1945,7 @@ class MainWindow(QMainWindow):
         buying_with_amount = ""
         preview_sellbuy_list = []
 
+        #populate variables based on method name
         if lst is None:
             lst = ["Don't Care"]
         
@@ -1946,6 +1969,7 @@ class MainWindow(QMainWindow):
             if dollar_value_to_sell == "":
                 dollar_value_to_sell = "Not Used"
             buying_with_amount = self.ui.edtBuyWith.text()
+            
 
         if ask_confirm:
             match method_name:
@@ -2016,17 +2040,20 @@ class MainWindow(QMainWindow):
                                         f"Except: {lst}\n" \
                                         f"Sell Amount: {raise_amount}\n" \
                                         f"\nPreview:\n"
-                    
+
+                            lst = [item for item in sell_list if float(item[1]) != 0.0]
                 case _: #default
                     pass
+                
             confirm = confirmMsgBox(msg,preview_sellbuy_list, self)
             button = confirm.exec() #show the popup box for the user to enter account number
 
-        if button != 1: #if user did NOT click yes then return else execute
+            if button != 1: #if user did NOT click yes then return else execute
                 self.ui.btnExecute.setText("Execute ...")
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
                 return            
-        else:
+        
+        else: # no confirmation needed
 
             self.ui.btnExecute.setText("Cancel")
             self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
@@ -2081,11 +2108,11 @@ class MainWindow(QMainWindow):
         
         
         sorted_by_Name = sorted(curlist, key=lambda x: x[9])  # Sort by the 10th element (index 9)
-        self.ui.tblAssets.setColumnCount(9)
-        self.ui.tblAssets.setRowCount(len(curlist))
+        #self.ui.tblAssets.setColumnCount(9)
+        #self.ui.tblAssets.setRowCount(len(curlist))
         
 
-        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio", "Div Yield"])
+        #self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio", "Div Yield"])
 
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
@@ -2100,42 +2127,50 @@ class MainWindow(QMainWindow):
             equity = float(last_price) * float(quantity)
             lst_elements_to_update.append([f"{item[9]} ({item[0]})", float(last_price), change, item[4], todays_return, total_return, equity, item[10],item[11]])
 
-        #update table
-        for row in range(len(lst_elements_to_update)):
-            join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
+        dataModel = PortfolioTableModel(lst_elements_to_update)
+        proxyModel = QSortFilterProxyModel()
+        
+        proxyModel.setSourceModel(dataModel)
+        proxyModel.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.ui.tableView.setModel(proxyModel)
+        self.ui.tableView.setSortingEnabled(True)
+        
+        # #update table
+        # for row in range(len(lst_elements_to_update)):
+        #     join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
             
-            for col in range(len(lst_elements_to_update[row])):
-                table_item = QTableWidgetItem()
+        #     for col in range(len(lst_elements_to_update[row])):
+        #         table_item = QTableWidgetItem()
                     
-                if col == 2 and lst_elements_to_update[row][col] > 0.0:
-                    # found change item add up/down arrow depending on the value
-                    table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-                    #table_item.setForeground(QColor("green"))
-                elif col ==2 and lst_elements_to_update[row][col] < 0.0:
-                    table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-                    #table_item.setForeground(QColor("red"))
-                elif col == 2 and lst_elements_to_update[row][col] == 0.0:
-                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
-                    #table_item.setForeground(QColor("grey"))
-                else:
-                    if col == 0:
-                        table_item.setText(lst_elements_to_update[row][col])
-                    elif col == 7 or col == 8: #percentage column
-                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    else:
-                        table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
+        #         if col == 2 and lst_elements_to_update[row][col] > 0.0:
+        #             # found change item add up/down arrow depending on the value
+        #             table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
+        #             table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+        #             #table_item.setForeground(QColor("green"))
+        #         elif col ==2 and lst_elements_to_update[row][col] < 0.0:
+        #             table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
+        #             table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+        #             #table_item.setForeground(QColor("red"))
+        #         elif col == 2 and lst_elements_to_update[row][col] == 0.0:
+        #             table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+        #             table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+        #             #table_item.setForeground(QColor("grey"))
+        #         else:
+        #             if col == 0:
+        #                 table_item.setText(lst_elements_to_update[row][col])
+        #             elif col == 7 or col == 8: #percentage column
+        #                 table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+        #             else:
+        #                 table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
                   
-                #set table properties
-                table_item.setForeground(QColor("white"))
-                table_item.setBackground(QColor("black"))
-                table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
-                self.ui.tblAssets.setItem(row,col,table_item)
+        #         #set table properties
+        #         table_item.setForeground(QColor("white"))
+        #         table_item.setBackground(QColor("black"))
+        #         table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        #         table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
+        #         self.ui.tblAssets.setItem(row,col,table_item)
             
-        self.ui.tblAssets.resizeColumnsToContents()       
+        #self.ui.tblAssets.resizeColumnsToContents()       
            
            
         plst = "\n".join(join_list)
@@ -2145,17 +2180,17 @@ class MainWindow(QMainWindow):
     
     def get_tickers_from_selected_lstAssets(self):
         stock_tickers_names = []
-        sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
+        # sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
+        # selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
        
 
-        if len(selected_tblRow) > 0:
-            #get stock tickers from selected items
-            for index, ticker in enumerate(selected_tblRow):
-                match = re.search(r"\((\w+\.?\w*)\)", ticker)
-                if match:
-                    stock_tickers_names.append(match.group(1))
-            return stock_tickers_names
+        # if len(selected_tblRow) > 0:
+        #     #get stock tickers from selected items
+        #     for index, ticker in enumerate(selected_tblRow):
+        #         match = re.search(r"\((\w+\.?\w*)\)", ticker)
+        #         if match:
+        #             stock_tickers_names.append(match.group(1))
+        #     return stock_tickers_names
 
         return stock_tickers_names
     
@@ -2416,7 +2451,7 @@ class MainWindow(QMainWindow):
                                 time.sleep(0.5)
                                 buy_info = r.get_stock_order_info(buy_info['id'])
                                 #if not state infor is filled then wait till it is filled
-                                while 'state' not in buy_info and buy_info['state'] != 'filled':
+                                while 'state' not in buy_info and buy_info['state'] != 'filled' and buy_info['state'] != 'queued':
                                     time.sleep(0.5)
                                     buy_info = r.get_stock_order_info(buy_info['id'])
 
@@ -2647,7 +2682,7 @@ class MainWindow(QMainWindow):
                         time.sleep(0.5)
                         buy_info = r.get_stock_order_info(buy_info['id'])
                         #if not state infor is filled then wait till it is filled
-                        while 'state' not in buy_info and buy_info['state'] != 'filled':
+                        while 'state' not in buy_info and buy_info['state'] != 'filled' and buy_info['state'] != 'queued':
                             time.sleep(0.5)
                             buy_info = r.get_stock_order_info(buy_info['id'])
 
@@ -2763,14 +2798,14 @@ class MainWindow(QMainWindow):
                 shares_to_sell = float(dollar_value_to_sell)/float(item[3])
                 frm_shares_to_sell = "{0:.2f}".format(shares_to_sell)
                 #if share quantity > shares to sell then sell shares_to_sell
-                if float(item[4]) - shares_to_sell >= 1.0:
+                if float(item[4]) - shares_to_sell >= 0.1:
                     if os.environ['debug'] == '0':
                         try:
                             sell_info = r.order_sell_market(symbol=item[0],quantity=frm_shares_to_sell,timeInForce='gfd',account_number=acc_num)
                             time.sleep(0.5)
                             sell_info = r.get_stock_order_info(sell_info['id'])
                             #if not state infor is filled then wait till it is filled
-                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                            while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
                                 time.sleep(0.5)
                                 sell_info = r.get_stock_order_info(sell_info['id'])
 
@@ -2791,7 +2826,7 @@ class MainWindow(QMainWindow):
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
                     tot = float(dollar_value_to_sell)
-                    tgains_actual += float(tot)
+                    tgains_actual += tot
 
                     self.lstTerm_update_progress_fn(f"${frm_quantity_dollar_amount} of {item[0]} shares sold at market price - ${fill_price} - Total: {shares_to_sell:,.2f} shares")
         
@@ -2875,7 +2910,7 @@ class MainWindow(QMainWindow):
                             time.sleep(0.5)
                             sell_info = r.get_stock_order_info(sell_info['id'])
                             #if not state infor is filled then wait till it is filled
-                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                            while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
                                 time.sleep(0.5)
                                 sell_info = r.get_stock_order_info(sell_info['id'])
 
@@ -2975,7 +3010,7 @@ class MainWindow(QMainWindow):
                             time.sleep(0.5)
                             sell_info = r.get_stock_order_info(sell_info['id'])
                             #if not state infor is filled then wait till it is filled
-                            while 'state' not in sell_info and sell_info['state'] != 'filled':
+                            while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
                                 time.sleep(0.5)
                                 sell_info = r.get_stock_order_info(sell_info['id'])
 
@@ -3036,6 +3071,7 @@ class MainWindow(QMainWindow):
         raised_amount = 0.0
         quantity_to_sell = 0.0
         strquantity_to_sell = "0.0"
+        total_new_quantity = 0.0
         n_raise_amount = float(raise_amount)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
         frmt_dollar_value = "{0:,.2f}".format(n_dollar_value_to_sell)
@@ -3063,9 +3099,9 @@ class MainWindow(QMainWindow):
                 if raised_amount >= n_raise_amount or raise_amount_converged:
                     break    
 
-                if item[4] - (n_dollar_value_to_sell / float(item[3])) >= 1.0:  # you have enough shares to sell
+                if not (n_dollar_value_to_sell / float(item[3]) >= item[4]+0.1): #check if you have enough shares to sell
                     quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
-                    strquantity_to_sell = "{0:.2f}".format(quantity_to_sell)
+                    strquantity_to_sell = "{0:.2f}".format(quantity_to_sell) 
                 else:
                     quantity_to_sell = 0.0    
                     strquantity_to_sell = "0.0"
@@ -3078,7 +3114,7 @@ class MainWindow(QMainWindow):
                         found = True
                         # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell)
                         total_new_quantity = float(exist_quantity) + quantity_to_sell
-                        if (total_new_quantity < item[4]+1.0):
+                        if not (total_new_quantity >= item[4] + 0.1):
                             sell_list[i][1] = "{0:.2f}".format(total_new_quantity)
                             raised_amount += quantity_to_sell*float(item[3])
                             raised_amount_lst.append(raised_amount)
@@ -3092,8 +3128,8 @@ class MainWindow(QMainWindow):
                         found = False
                                 
                 if not found:
-                    #don't add to the sell list if the quantity is less than or equal to 1
-                    if quantity_to_sell != 0.0:
+                   #don't add to list when you do not have enough shares to sell
+                    if not ((n_dollar_value_to_sell / float(item[3])) >= item[4]+0.1):
                         itm = [item[0],strquantity_to_sell,item[3]]
                         sell_list.append(itm)
                         raised_amount += quantity_to_sell*float(item[3])   
@@ -3118,7 +3154,7 @@ class MainWindow(QMainWindow):
 #---------------------------------------------------------------------------------------------------------------------------------
     def raise_x_sell_y_dollars_except_z(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
       
-        sell_list = []
+          
         found  = False
         stock_symbols = []
         raised_amount_lst = []
@@ -3135,22 +3171,13 @@ class MainWindow(QMainWindow):
 
         if method_name == "allocate_reallocate_to_sectors":       
             #get rid of all other tickers except the ones in the sector
-            n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+            sell_list = self.find_and_remove(tickersPerf, lst,1)
         else:
             #exclude the tickets in excludeList
-            n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+            sell_list = lst
           
        
-      #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
+   
        
         n_tickersPerf = sorted(n_tickersPerf,key=lambda x: x[0])
         tot_gains,tgains = self.cal_today_total_gains(n_tickersPerf)
@@ -3159,6 +3186,7 @@ class MainWindow(QMainWindow):
         raised_amount = 0.0
         raised_amount_lst = []
         quantity_to_sell = 0.0
+        total_new_quantity = 0.0
         strquantity_to_sell = "0.0"
         n_raise_amount = float(raise_amount)
         n_dollar_value_to_sell = float(dollar_value_to_sell)
@@ -3170,72 +3198,12 @@ class MainWindow(QMainWindow):
         sell_info = {}
         
 
-        while not (raised_amount >= n_raise_amount or raise_amount_converged==True):
-              #if user click cancel then cancel operation
-            if self.command_thread.stop_event.is_set():
-                print("stop event")
-                self.lstTerm_update_progress_fn("Operation Cancelled!")
-                break
-            #loop through the list of tickers and build a new list(sell_list) of quantities to sell
-            for item in n_tickersPerf:
-                if self.command_thread.stop_event.is_set():
-                    print("stop event")
-                    self.lstTerm_update_progress_fn("Operation Cancelled!")
-                    break
-                #Item[0] =  tickers
-                #Item[1] = Total_return
-                #Item[2] = stock_quantity_to_sell/buy
-                #Item[3] = last price
-                #item[4]= your quantities
-                #item[5]=today's return
-
-                if raised_amount >= n_raise_amount or raise_amount_converged:
-                    break    
-
-                if item[4] - (n_dollar_value_to_sell / float(item[3]))  >= 1.0: # you have enough shares to sellkeep 1 share
-                    quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
-                    strquantity_to_sell = "{0:.2f}".format(quantity_to_sell)
-                else:
-                    quantity_to_sell = 0.0    
-                    strquantity_to_sell = "0.0"
-                
-                                       
-                for i,value  in enumerate(sell_list): #check if already in list and return index
-                    #if found in list and you have enough shares to sell 
-                    if (value[0] == item[0]) and quantity_to_sell != 0.0:
-                        exist_quantity = sell_list[i][1]
-                        found = True
-                        # stock_quantity_to_sell and your quantity > stock_quantity_to_sell or stock quantity <=1.0
-                        total_new_quantity = float(exist_quantity) + quantity_to_sell
-                        #don't sell more than you own + 1 share
-                        if (total_new_quantity < item[4]+1.0):
-                            sell_list[i][1] = "{0:.2f}".format(total_new_quantity)
-                            raised_amount += quantity_to_sell*float(item[3])
-                            raised_amount_lst.append(raised_amount)
-                            #look at 2 previous amounts if they are the same then break
-                            if len(raised_amount_lst) > 2:
-                                if raised_amount_lst[-1] == raised_amount_lst[-2] == raised_amount_lst[-3]:
-                                    raise_amount_converged = True
-                                    break
-                        break
-                    else:
-                        found = False
-                                
-                if not found:
-                    #don't add to the sell list if the quantity of share is less than or equal to 1
-                    if quantity_to_sell != 0.0:
-                        itm = [item[0],strquantity_to_sell,item[3]]
-                        sell_list.append(itm)
-                        raised_amount += quantity_to_sell*float(item[3])
-                        raised_amount_lst.append(raised_amount)
-
         if method_name == "allocate_reallocate_to_sectors":
             self.lstTerm_update_progress_fn(f"Raise Amount: ${n_raise_amount} by selling {lst}")
         else:
             self.lstTerm_update_progress_fn(f"Raise Amount: ${n_raise_amount} by selling except {lst}")
-
-     
-        #place sell orders
+   
+    #     #place sell orders
         for item in sell_list:        
             
             time.sleep(5)
@@ -3265,7 +3233,7 @@ class MainWindow(QMainWindow):
                                     self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
                     except Exception as e:
                         self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                        return
+                        continue
             
             if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     fill_price = "{0:.2f}".format(float(sell_info['average_price']))
@@ -3283,7 +3251,7 @@ class MainWindow(QMainWindow):
             self.write_to_file(stock_symbols)
         
         stock_symbols = []  
-        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual)
         self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
         self.print_terminal_to_file()
 
@@ -3354,30 +3322,31 @@ class MpfCanvas(FigureCanvasQTAgg):
             self.setMinimumSize(int(width_px), int(height_px))
    
 
-    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar Graph (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0):
-
-       
-
-       #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
+    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
+        #Item[0] =  tickers
+        #Item[1]= Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3]= last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history
-        #item[7]= average buy price
-        #item[8]=%change in price
-        #item[9]=change in price since previous close
+        #item[5]= 1 year history
+        #item[6]= average buy price
+        #item[7]=%change in price
+        #item[8]=change in price since previous close
+        #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
+        #updated_items = update_current_assets()
+        #item[9] = stock name
        
-        
+
+     
+       
+        err_msg = ""
         bars = []
         self.legend_handles = []  # reset
         n_col = 0
         n_row = 0
         index = 0
-        # self.ui.cmbGraphType.addItem("Bar Graph (Gain/Loss)")
-        # self.ui.cmbGraphType.addItem("Bar Graph (Sector Colors)")
-        # self.ui.cmbGraphType.addItem("Line Graph (Individual Stocks)")
+        
 
         
         match action_selection:
@@ -3417,89 +3386,85 @@ class MpfCanvas(FigureCanvasQTAgg):
                     sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
                     
                     #plot each selected stock in a subplot
-                    for index,ticker in enumerate(sorted_name_list):
-                        row, col = divmod(index, n_col)
-                        subgrid = outer_grid[row, col].subgridspec(5, 1, height_ratios=[3, 1, 1, 1, 1], hspace=0.06)
-                        ax_price = self.fig.add_subplot(subgrid[0])
-                        ax_volume = self.fig.add_subplot(subgrid[1], sharex=ax_price)
-                        ax_rsi = self.fig.add_subplot(subgrid[2], sharex=ax_price)
-                        ax_macd = self.fig.add_subplot(subgrid[3], sharex=ax_price)
-                        ax_stoch = self.fig.add_subplot(subgrid[4], sharex=ax_price)
+                    for index, ticker in enumerate(sorted_name_list):
+                        try:
+                            df = yf.download(ticker[0], period='1y', interval='1d', progress=False)
+                            df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
 
-                        df = yf.download(ticker[0], period='1y', interval='1d', progress=False)
-                        
+                            row, col = divmod(index, n_col)
+                            subgrid = outer_grid[row, col].subgridspec(5, 1, height_ratios=[5, 1, 1, 1, 1], hspace=0.06)
+                            ax_price = self.fig.add_subplot(subgrid[0])
+                            ax_volume = self.fig.add_subplot(subgrid[1], sharex=ax_price)
+                            ax_rsi = self.fig.add_subplot(subgrid[2], sharex=ax_price)
+                            ax_macd = self.fig.add_subplot(subgrid[3], sharex=ax_price)
+                            ax_stoch = self.fig.add_subplot(subgrid[4], sharex=ax_price)
+                            ax_price.set_title(ticker[0], fontsize=9)
+                            ax_price.tick_params(axis='y', labelsize=9, left=True)
+                            ax_price.set_ylabel('Price',fontsize=9)
+                            ax_price.grid(True, linestyle='solid',alpha=1)
+                            ax_price.xaxis.set_visible(False)
 
-                        df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
-                        
-                        
-                        ax_price.set_title(ticker[0], fontsize=9)
-                        ax_price.tick_params(axis='y', labelsize=9, left=True)
-                        ax_price.set_ylabel('Price',fontsize=9)
-                        ax_price.grid(True, linestyle='solid',alpha=1)
-                        ax_price.xaxis.set_visible(False)
+                            ax_volume.tick_params(axis='y', labelsize=9, left=True)
+                            ax_volume.xaxis.set_visible(False)
+                            ax_volume.set_ylabel('Volume',fontsize=9)
+                            ax_volume.grid(True, linestyle='solid', alpha=1)
+                            ax_volume.xaxis.set_visible(False)
 
-                        ax_volume.tick_params(axis='y', labelsize=9, left=True)
-                        ax_volume.xaxis.set_visible(False)
-                        ax_volume.set_ylabel('Volume',fontsize=9)
-                        ax_volume.grid(True, linestyle='solid', alpha=1)
-                        ax_volume.xaxis.set_visible(False)
+                            ax_rsi.tick_params(axis='y', labelsize=9, left=True)
+                            ax_rsi.set_ylim(0, 100)
+                            ax_rsi.set_ylabel('RSI',fontsize=9)
+                            ax_rsi.grid(True, linestyle='solid', alpha=1)
+                            ax_rsi.xaxis.set_visible(False)
 
-                        ax_rsi.tick_params(axis='y', labelsize=9, left=True)
-                        ax_rsi.set_ylim(0, 100)
-                        ax_rsi.set_ylabel('RSI',fontsize=9)
-                        ax_rsi.grid(True, linestyle='solid', alpha=1)
-                        ax_rsi.xaxis.set_visible(False)
+                            ax_macd.tick_params(axis='y', labelsize=9, left=True)
+                            ax_macd.xaxis.set_visible(False)
+                            ax_macd.set_ylabel('MACD',fontsize=9)
+                            ax_macd.grid(True, linestyle='solid', alpha=1)
+                            ax_macd.xaxis.set_visible(False)
+                            
+                            ax_stoch.tick_params(axis='y', labelsize=9, left=True)
+                            ax_stoch.tick_params(axis='x', labelsize=9)
+                            ax_stoch.set_ylabel('Stochastic',fontsize=9)
+                            ax_stoch.set_ylim(0, 100)
+                            ax_stoch.grid(True, linestyle='solid', alpha=1)
+                            
+                            df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = self.compute_macd(df)
+                            df['Stoch_K'], df['Stoch_D'] = self.compute_stochastic(df)
+                            df['RSI'] = self.compute_rsi(df)
+                            ma50 = df['Close'].rolling(50).mean()
+                            ma200 = df['Close'].rolling(200).mean()
 
-                        ax_macd.tick_params(axis='y', labelsize=9, left=True)
-                        ax_macd.xaxis.set_visible(False)
-                        ax_macd.set_ylabel('MACD',fontsize=9)
-                        ax_macd.grid(True, linestyle='solid', alpha=1)
-                        ax_macd.xaxis.set_visible(False)
-                        
-                        ax_stoch.tick_params(axis='y', labelsize=9, left=True)
-                        ax_stoch.tick_params(axis='x', labelsize=9)
-                        ax_stoch.set_ylabel('Stochastic',fontsize=9)
-                        ax_stoch.set_ylim(0, 100)
-                        ax_stoch.grid(True, linestyle='solid', alpha=1)
-                        
-                        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = self.compute_macd(df)
-                        df['Stoch_K'], df['Stoch_D'] = self.compute_stochastic(df)
-                        df['RSI'] = self.compute_rsi(df)
-                        ma50 = df['Close'].rolling(50).mean()
-                        ma200 = df['Close'].rolling(200).mean()
+                            apds = [
+                                mpf.make_addplot(ma50, ax=ax_price, color='orange', label='MA50'),
+                                mpf.make_addplot(ma200, ax=ax_price, color='blue', label='MA200'),
+                                mpf.make_addplot(df['RSI'], ax=ax_rsi, color='purple', ylim=(0,100)),
+                                mpf.make_addplot(df['MACD'], ax=ax_macd, color='blue'),
+                                mpf.make_addplot(df['MACD_Signal'], ax=ax_macd, color='orange'),
+                                mpf.make_addplot(df['MACD_Hist'], ax=ax_macd, type='bar', color='gray'),
+                                mpf.make_addplot(df['Stoch_K'], ax=ax_stoch, color='green'),
+                                mpf.make_addplot(df['Stoch_D'], ax=ax_stoch, color='red'),
+                                mpf.make_addplot(df['Volume'], ax=ax_volume, type='bar', color='grey'), #overlap volume on price
+                            ]
 
-                        
-                        apds = [
-                            mpf.make_addplot(ma50, ax=ax_price, color='orange', label='MA50'),
-                            mpf.make_addplot(ma200, ax=ax_price, color='blue', label='MA200'),
-                            mpf.make_addplot(df['RSI'], ax=ax_rsi, color='purple', ylim=(0,100)),
-                            mpf.make_addplot(df['MACD'], ax=ax_macd, color='blue'),
-                            mpf.make_addplot(df['MACD_Signal'], ax=ax_macd, color='orange'),
-                            mpf.make_addplot(df['MACD_Hist'], ax=ax_macd, type='bar', color='gray'),
-                            mpf.make_addplot(df['Stoch_K'], ax=ax_stoch, color='green'),
-                            mpf.make_addplot(df['Stoch_D'], ax=ax_stoch, color='red'),
-                            mpf.make_addplot(df['Volume'], ax=ax_volume, type='bar', color='grey'), #overlap volume on price
-                        ]
-                        #ax.grid(True)
-                        
-
-                        
-                        #ax.set_ylabel('Price')
-                        mpf.plot(
-                            df,
-                            ax=ax_price,
-                            style=my_style,
-                            addplot=apds,
-                            type='candle',
-                            volume=False,
-                            warn_too_much_data=10000
-                        )
-                       
-                    
+                            mpf.plot(
+                                df,
+                                ax=ax_price,
+                                style=my_style,
+                                addplot=apds,
+                                type='candle',
+                                volume=False,
+                                warn_too_much_data=10000
+                            )
+                        except Exception as e:
+                            print(f"Error downloading data for {ticker[0]}: {e}")
+                            return e
+            
             case "Bar (Gain/Loss)":
                     n_row = 1
                     n_col = 1
                     index=1
+                    val_up = 0
+                    val_down = 0
                     self.legend_handles = []  # reset
 
                     self._ensure_scrollable(1, 1, frm_h, frm_w)
@@ -3514,23 +3479,25 @@ class MpfCanvas(FigureCanvasQTAgg):
                         y_data.append(float(item[4])*float(item[3]))
 
 
-                    patch = [Patch(facecolor='darkred', edgecolor='black', label='Loss'), \
-                        Patch(facecolor='darkgreen', edgecolor='black', label='Gain'), \
-                        Patch(facecolor='gray', edgecolor='black', label='No Change')]
-                    for p in patch:
-                        self.legend_handles.append(p)
-                    
                     ax = self.fig.add_subplot(n_row,n_col,index)
+                    ax.grid(True)
+                    ax.set_xlabel('Stocks')
+                    ax.set_ylabel('$value of stock')
+                    ax.set_title('Stocks Ticker/Quantity')
+                    ax.tick_params(axis='x', rotation=90, labelsize=9)
+                   
                     
                   
                   
-                    ax.grid(True)
+                   
                     bars = ax.bar(x_data, y_data, width=0.7)
                     for i, ticker in enumerate(sorted_list):
                         if ticker[8] < 0.0:
                             bars[i].set_facecolor('darkred')
+                            val_down += 1
                         elif ticker[8] > 0.0:
                             bars[i].set_facecolor('darkgreen')
+                            val_up += 1
                         else:
                             bars[i].set_facecolor('gray')
                             
@@ -3539,11 +3506,12 @@ class MpfCanvas(FigureCanvasQTAgg):
                             bars[i].set_linestyle('solid')
                             bars[i].set_linewidth(2.5)
 
-
-                    ax.set_xlabel('Stocks')
-                    ax.set_ylabel('$value of stock')
-                    ax.set_title('Stocks Ticker/Quantity')
-                    ax.tick_params(axis='x', rotation=90, labelsize=9)
+                    patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - ({val_up}) Up'), \
+                            Patch(facecolor='darkred', edgecolor='black', label=f'Loss - ({val_down}) Down'), \
+                            Patch(facecolor='gray', edgecolor='black', label='No Change')]
+                    for p in patch:
+                        self.legend_handles.append(p)
+                    
                     self._add_legend(ax)
                     
             case "Bar (Sector Colors)":
@@ -3606,12 +3574,29 @@ class MpfCanvas(FigureCanvasQTAgg):
             case _:
                 pass
           
-        return
+        return err_msg
  
     
     def _add_legend(self, ax):
        ax.legend(handles=self.legend_handles, loc='best', frameon=True, fontsize=9)
 
+class PortfolioTableModel(QAbstractTableModel):
+    def __init__(self, data):
+        super().__init__()
+        self._data = data
+
+  
+  
+    def data(self, index, role):
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self._data[index.row()][index.column()]
+
+    def rowCount(self, index):
+        return len(self._data)
+
+    def columnCount(self, index):
+        return len(self._data[0]) if self._data else 0
+    
 class TableToolTip(QWidget):
     def __init__(self, obj ,parent=MainWindow):
         super().__init__(parent, Qt.WindowType.ToolTip)
