@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         self.plot_type = {0: "Bar (Gain/Loss)", 
                                   1: "Bar (Sector Colors)", 
                                   2: "Bar (Individual Stocks)"}
-        self.current_plot_type = self.plot_type[1]
+        self.current_plot_type = ""
 
         self.lstupdated_tblAssets = []
         self.setGeometry(300, 300, 1000, 1000)
@@ -1395,7 +1395,7 @@ class MainWindow(QMainWindow):
         self.ui.lstTerm.clear()
         self.ui.btnExecute.setEnabled(False)
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
-        self.setup_plot(self.ticker_lst)
+        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
        
 
 
@@ -1764,7 +1764,7 @@ class MainWindow(QMainWindow):
                 self.ui.cmbDollarShare.setVisible(False)
                 
                 
-                self.setup_plot(self.ticker_lst)  
+                self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)  
             case "sell_selected":
                 self.ui.stackPage.setCurrentIndex(2)
                 
@@ -1899,13 +1899,13 @@ class MainWindow(QMainWindow):
                     if self.ui.lstTerm.count() > 0:
                         self.ui.lstTerm.clear()
 
-                    self.setup_plot(tickersPerf)
+                    self.setup_plot(tickersPerf,plot_type=self.current_plot_type)
                    # self.updateStatusBar(tickersPerf)
                 except Exception as e:
                     if e.args[0] == "No stocks in account":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                         self.print_cur_protfolio(self.ticker_lst)
-                        self.setup_plot(self.ticker_lst)
+                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                         #self.updateStatusBar(self.ticker_lst)
                     
                     
@@ -2007,12 +2007,12 @@ class MainWindow(QMainWindow):
                 case "buy_selected_with_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
-                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"Buy Amount: {self.ui.edtBuyWithAmount.text()}\n" \
                             f"\nPreview:\n"
                 case "buy_lower_with_gains":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
-                            f"Sell Amount: {self.ui.edtBuyWithAmount.text()}\n" \
+                            f"Buy Amount: {self.ui.edtBuyWithAmount.text()}\n" \
                             f"\nPreview:\n"
                 case "allocate_reallocate_to_sectors":
                     pass
@@ -2062,10 +2062,10 @@ class MainWindow(QMainWindow):
             confirm = confirmMsgBox(msg,preview_sellbuy_list, self)
             button = confirm.exec() #show the popup box for the user to enter account number
 
-            if button != 1: #if user did NOT click yes then return else execute
-                self.ui.btnExecute.setText("Execute ...")
-                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-                return            
+        if button != 1: #if user did NOT click yes then return else execute
+            self.ui.btnExecute.setText("Execute ...")
+            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+            return            
         
         else: # no confirmation needed
 
