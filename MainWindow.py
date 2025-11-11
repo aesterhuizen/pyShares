@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         #connect selectAll button
         self.ui.btnSelectAll.clicked.connect(self.SelectAll_clicked)
         #tbl default sellection mode to multi selection
-        #self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)    
+        self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)    
         #connect signal/slot for ledit_Iteration
         self.ui.ledit_Iteration.textChanged.connect(self.ledit_Iteration_textChanged)
         
@@ -375,9 +375,9 @@ class MainWindow(QMainWindow):
         #setup list Term to always scroll to bottom when new item is added
         self.ui.lstTerm.model().rowsInserted.connect(lambda parent, first, last: QTimer.singleShot(0, self.ui.lstTerm.scrollToBottom))
         #create an update worker thread to update the asset list every 10 seconds
-        # self.update_thread = UpdateThread(self.updateLstAssets)
-        # self.update_thread.daemon = True
-        # self.update_thread.start()
+        self.update_thread = UpdateThread(self.updateLstAssets)
+        self.update_thread.daemon = True
+        self.update_thread.start()
 
         #Monitor to see if command thread is currently running and if it is not then change the button to green
         self.monitor_thread = UpdateThread(self.monitor_command_thread)
@@ -645,10 +645,10 @@ class MainWindow(QMainWindow):
             if not isinstance(child, QVBoxLayout):
                 self.ui.statusBar.removeWidget(child)
 
-        # lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
-        # lblStatusBar.setMinimumWidth(100)
-        # lblStatusBar.setObjectName("lblStatusBar")
-        # self.ui.statusBar.addWidget(lblStatusBar,1)
+        lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+        lblStatusBar.setMinimumWidth(100)
+        lblStatusBar.setObjectName("lblStatusBar")
+        self.ui.statusBar.addWidget(lblStatusBar,1)
 
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         lblStatusBar_pctT = QLabel(f"Total Return: ${frm_TotalGains}")
@@ -2127,50 +2127,44 @@ class MainWindow(QMainWindow):
             equity = float(last_price) * float(quantity)
             lst_elements_to_update.append([f"{item[9]} ({item[0]})", float(last_price), change, item[4], todays_return, total_return, equity, item[10],item[11]])
 
-        dataModel = PortfolioTableModel(lst_elements_to_update)
-        proxyModel = QSortFilterProxyModel()
+       
         
-        proxyModel.setSourceModel(dataModel)
-        proxyModel.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.ui.tableView.setModel(proxyModel)
-        self.ui.tableView.setSortingEnabled(True)
-        
-        # #update table
-        # for row in range(len(lst_elements_to_update)):
-        #     join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
+        #update table
+        for row in range(len(lst_elements_to_update)):
+            join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
             
-        #     for col in range(len(lst_elements_to_update[row])):
-        #         table_item = QTableWidgetItem()
+            for col in range(len(lst_elements_to_update[row])):
+                table_item = QTableWidgetItem()
                     
-        #         if col == 2 and lst_elements_to_update[row][col] > 0.0:
-        #             # found change item add up/down arrow depending on the value
-        #             table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-        #             table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
-        #             #table_item.setForeground(QColor("green"))
-        #         elif col ==2 and lst_elements_to_update[row][col] < 0.0:
-        #             table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-        #             table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
-        #             #table_item.setForeground(QColor("red"))
-        #         elif col == 2 and lst_elements_to_update[row][col] == 0.0:
-        #             table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-        #             table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
-        #             #table_item.setForeground(QColor("grey"))
-        #         else:
-        #             if col == 0:
-        #                 table_item.setText(lst_elements_to_update[row][col])
-        #             elif col == 7 or col == 8: #percentage column
-        #                 table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-        #             else:
-        #                 table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
+                if col == 2 and lst_elements_to_update[row][col] > 0.0:
+                    # found change item add up/down arrow depending on the value
+                    table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                    #table_item.setForeground(QColor("green"))
+                elif col ==2 and lst_elements_to_update[row][col] < 0.0:
+                    table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                    #table_item.setForeground(QColor("red"))
+                elif col == 2 and lst_elements_to_update[row][col] == 0.0:
+                    table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                    #table_item.setForeground(QColor("grey"))
+                else:
+                    if col == 0:
+                        table_item.setText(lst_elements_to_update[row][col])
+                    elif col == 7 or col == 8: #percentage column
+                        table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
+                    else:
+                        table_item.setText("{0:,.2f}".format(lst_elements_to_update[row][col]))   
                   
-        #         #set table properties
-        #         table_item.setForeground(QColor("white"))
-        #         table_item.setBackground(QColor("black"))
-        #         table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        #         table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
-        #         self.ui.tblAssets.setItem(row,col,table_item)
+                #set table properties
+                table_item.setForeground(QColor("white"))
+                table_item.setBackground(QColor("black"))
+                table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
+                self.ui.tblAssets.setItem(row,col,table_item)
             
-        #self.ui.tblAssets.resizeColumnsToContents()       
+        self.ui.tblAssets.resizeColumnsToContents()       
            
            
         plst = "\n".join(join_list)
@@ -2180,17 +2174,17 @@ class MainWindow(QMainWindow):
     
     def get_tickers_from_selected_lstAssets(self):
         stock_tickers_names = []
-        # sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        # selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
+        sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
+        selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
        
 
-        # if len(selected_tblRow) > 0:
-        #     #get stock tickers from selected items
-        #     for index, ticker in enumerate(selected_tblRow):
-        #         match = re.search(r"\((\w+\.?\w*)\)", ticker)
-        #         if match:
-        #             stock_tickers_names.append(match.group(1))
-        #     return stock_tickers_names
+        if len(selected_tblRow) > 0:
+            #get stock tickers from selected items
+            for index, ticker in enumerate(selected_tblRow):
+                match = re.search(r"\((\w+\.?\w*)\)", ticker)
+                if match:
+                    stock_tickers_names.append(match.group(1))
+            return stock_tickers_names
 
         return stock_tickers_names
     
