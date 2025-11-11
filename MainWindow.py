@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
 
         #add charts button
         button_chart_action = QAction(QIcon(self.icon_path +'/bar-chart.png'), "View Bar Chart (Sector Colors)", self)
-        button_chart_action.triggered.connect(self.cmbGraphType_clicked)
+        button_chart_action.triggered.connect(self.toggleChart_clicked)
         button_chart_action.setToolTip("Toggle Graph Type")
         button_chart_action = self.ui.toolBar.addAction(button_chart_action)
         
@@ -361,7 +361,7 @@ class MainWindow(QMainWindow):
         #connect clear selection button
         self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
-        #self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
+        self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
         
         #setup allocation page connections
         self.ui.edtAllocAmount.textChanged.connect(self.edtAllocAmount_changed)
@@ -388,7 +388,29 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
 
+    def toggleChart_clicked(self):
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        QApplication.setOverrideCursor(cursor)
+        
+        current_index = self.ui.cmbGraphType.currentIndex()
+        current_index += 1
 
+        if current_index // 3 == 1:
+            current_index = 0
+     
+        match current_index:
+            case 0:
+                self.showGainLossChart()
+            case 1:
+                self.showSectorChart()
+            case 2:
+                self.showIndividualChart()
+                
+        
+
+        QApplication.restoreOverrideCursor()
+        return
     def showGainLossChart(self):
         cursor = QCursor()
         cursor.setShape(cursor.shape().WaitCursor)
@@ -435,17 +457,9 @@ class MainWindow(QMainWindow):
         QApplication.setOverrideCursor(cursor)
         
         current_index = self.ui.cmbGraphType.currentIndex()
-        current_index += 1
-
-        if current_index // 3 == 1:
-            current_index = 0
-        
-            
-            
-        self.ui.cmbGraphType.setCurrentIndex(current_index)    
-        plot_type = self.plot_type[current_index]
+        self.current_plot_type = self.plot_type[current_index]
         self.clear_all_clicked()
-        self.setup_plot(self.ticker_lst, plot_type=plot_type)
+        self.setup_plot(self.ticker_lst, plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -1224,9 +1238,9 @@ class MainWindow(QMainWindow):
                 case "stock_info":
                     if self.ui.cmbGraphType.currentText() == "Bar (Individual Stocks)":
                         sub_ticker_lst = self.find_and_remove(self.ticker_lst,stock_names,1)
-                        self.setup_plot(self.ticker_lst,sub_ticker_lst)
+                        self.setup_plot(self.ticker_lst,sub_ticker_lst,plot_type=self.current_plot_type)
                     else:    
-                        self.setup_plot(self.ticker_lst)
+                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
 
                 case "sell_selected":
 
@@ -1241,7 +1255,7 @@ class MainWindow(QMainWindow):
                         self.ui.edtBuyWithAmount.setText(f"{priceTotal:,.2f}")
                     
                     self.highlight_stocks_in_table(stock_names)
-                    self.setup_plot(self.ticker_lst)
+                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                 case "sell_gains_except_x":
 
                         strjoinlst = ",".join(stock_names)
@@ -1263,7 +1277,7 @@ class MainWindow(QMainWindow):
                     strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
 
-                    self.setup_plot(self.ticker_lst)
+                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                 case "buy_lower_with_gains":
                     self.ui.edtRaiseAmount.setText(strjoinlst)
                 case "raise_x_sell_y_dollars":
@@ -2108,11 +2122,11 @@ class MainWindow(QMainWindow):
         
         
         sorted_by_Name = sorted(curlist, key=lambda x: x[9])  # Sort by the 10th element (index 9)
-        #self.ui.tblAssets.setColumnCount(9)
-        #self.ui.tblAssets.setRowCount(len(curlist))
+        self.ui.tblAssets.setColumnCount(9)
+        self.ui.tblAssets.setRowCount(len(curlist))
         
 
-        #self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio", "Div Yield"])
+        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio", "Div Yield"])
 
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
