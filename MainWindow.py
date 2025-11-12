@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         self.plot_type = {0: "Bar (Gain/Loss)", 
                                   1: "Bar (Sector Colors)", 
                                   2: "Bar (Individual Stocks)"}
-        self.current_plot_type = ""
+        self.current_plot_type = self.plot_type[0]
 
         self.lstupdated_tblAssets = []
         self.setGeometry(300, 300, 1000, 1000)
@@ -389,9 +389,7 @@ class MainWindow(QMainWindow):
         self.show()
 
     def toggleChart_clicked(self):
-        cursor = QCursor()
-        cursor.setShape(cursor.shape().WaitCursor)
-        QApplication.setOverrideCursor(cursor)
+        
         
         current_index = self.ui.cmbGraphType.currentIndex()
         current_index += 1
@@ -399,6 +397,7 @@ class MainWindow(QMainWindow):
         if current_index // 3 == 1:
             current_index = 0
      
+        self.clear_all_clicked()
         match current_index:
             case 0:
                 self.showGainLossChart()
@@ -406,10 +405,7 @@ class MainWindow(QMainWindow):
                 self.showSectorChart()
             case 2:
                 self.showIndividualChart()
-                
-        
-
-        QApplication.restoreOverrideCursor()
+      
         return
     def showGainLossChart(self):
         cursor = QCursor()
@@ -1236,11 +1232,8 @@ class MainWindow(QMainWindow):
         if len(stock_names) > 0:
             match self.ui.cmbAction.currentText():
                 case "stock_info":
-                    if self.ui.cmbGraphType.currentText() == "Bar (Individual Stocks)":
-                        sub_ticker_lst = self.find_and_remove(self.ticker_lst,stock_names,1)
-                        self.setup_plot(self.ticker_lst,sub_ticker_lst,plot_type=self.current_plot_type)
-                    else:    
-                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                    self.setup_plot(self.ticker_lst,stock_names,plot_type=self.current_plot_type)
+                    
 
                 case "sell_selected":
 
@@ -1610,15 +1603,14 @@ class MainWindow(QMainWindow):
         # else: #default
 
     def setup_plot(self,tickersPerf = [],sellected_tickets = [],plot_type = "Bar (Gain/Loss)"):
-        
-        
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
-        self.plot.fig.clear()  # Clear the figure to avoid overlapping plots
-        error_msg = self.plot.add_plot_to_figure(tickersPerf,self.get_tickers_from_selected_lstAssets(),plot_type, self.dict_sectors,frm_h,frm_w)
+        self.plot.figure.clf()  # Clear the existing figure
+        error_msg = self.plot.add_plot_to_figure(tickersPerf,sellected_tickets,plot_type, self.dict_sectors,frm_h,frm_w)
         if error_msg != "":
             self.ui.lstTerm.addItem(f"Error: {error_msg}")
+    
         self.plot.draw()
        
         return
@@ -3468,6 +3460,9 @@ class MpfCanvas(FigureCanvasQTAgg):
                             return e
             
             case "Bar (Gain/Loss)":
+              
+                    # create bar chart with gain/loss colors
+                    
                     n_row = 1
                     n_col = 1
                     index=1
@@ -3508,11 +3503,12 @@ class MpfCanvas(FigureCanvasQTAgg):
                             val_up += 1
                         else:
                             bars[i].set_facecolor('gray')
-                            
+
                         if ticker[0] in sel_ticker_lst:
                             bars[i].set_edgecolor('yellow')
                             bars[i].set_linestyle('solid')
-                            bars[i].set_linewidth(2.5)
+                            bars[i].set_linewidth(2.5)  
+                        
 
                     patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - ({val_up}) Up'), \
                             Patch(facecolor='darkred', edgecolor='black', label=f'Loss - ({val_down}) Down'), \
@@ -3521,64 +3517,84 @@ class MpfCanvas(FigureCanvasQTAgg):
                         self.legend_handles.append(p)
                     
                     self._add_legend(ax)
+              
+                       
                     
             case "Bar (Sector Colors)":
-                
-                n_row = 1
-                n_col = 1
-                index = 1
-                
-                self._ensure_scrollable(1,1,frm_h,frm_w)
-
-                sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-
-                x_data = []
-                y_data = []
-                sorted_list_stock_name = [item[0] for item in sorted_list]
-                #build bars according to sectors    
-                for sector, stocks_in_sector in sectorsDict.items():   
-                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
-                    for stock in lst_stock_in_sec:
-                        index = sorted_list_stock_name.index(stock)
-                        x_data.append(stock)
-                        y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
-
-
-                index=1
-                ax = self.fig.add_subplot(n_row,n_col,index)
-                
-              
-                bars = ax.bar(x_data, y_data, width=0.7)
-                
-                ax.grid(True)
-               
-                
-                bar_index = 0
-                sec_index = 1
-                colors = mcolors.CSS4_COLORS
-                names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
-                
-                
-                for sector, stocks_in_sector in sectorsDict.items():
+                if len(self.fig.axes) == 0:    
+                    n_row = 1
+                    n_col = 1
+                    index = 1
                     
-                    lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
-                    color_idx = sec_index
-                    color = names[color_idx % len(names)]
-                    patch = Patch(facecolor=color, edgecolor='black', label=sector)
-                    self.legend_handles.append(patch)       
-                    sec_index += 20
-                    for stock in lst_stock_in_sec:
-                        bars[bar_index].set_facecolor(color)
-                        bar_index += 1
-                        
+                    self._ensure_scrollable(1,1,frm_h,frm_w)
 
-                self._add_legend(ax)    
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+
+                    x_data = []
+                    y_data = []
+                    sorted_list_stock_name = [item[0] for item in sorted_list]
+                    #build bars according to sectors    
+                    for sector, stocks_in_sector in sectorsDict.items():   
+                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                        for stock in lst_stock_in_sec:
+                            index = sorted_list_stock_name.index(stock)
+                            x_data.append(stock)
+                            y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
+
+
+                    index=1
+                    ax = self.fig.add_subplot(n_row,n_col,index)
+                    
                 
-                ax.set_xlabel('Stocks')
-                ax.set_ylabel('$value of stock')
-                ax.set_title('Stocks Ticker/Quantity')
-                ax.tick_params(axis='x', rotation=90, labelsize=9)
-         
+                    bars = ax.bar(x_data, y_data, width=0.7)
+                    
+                    ax.grid(True)
+                
+                    
+                    bar_index = 0
+                    sec_index = 1
+                    colors = mcolors.CSS4_COLORS
+                    names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
+                    
+                    
+                    for sector, stocks_in_sector in sectorsDict.items():
+                        
+                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                        color_idx = sec_index
+                        color = names[color_idx % len(names)]
+                        patch = Patch(facecolor=color, edgecolor='black', label=sector)
+                        self.legend_handles.append(patch)       
+                        sec_index += 20
+                        for stock in lst_stock_in_sec:
+                            bars[bar_index].set_facecolor(color)
+                            if stock in sel_ticker_lst:
+                                if bars[bar_index].get_facecolor() == mcolors.to_rgba('yellow') or bars[bar_index].get_edgecolor() == mcolors.to_rgba('orange'):
+                                    bars[bar_index].set_edgecolor('blue')
+                                    bars[bar_index].set_linestyle('solid')
+                                    bars[bar_index].set_linewidth(2.5)
+                                else:    
+                                    bars[bar_index].set_edgecolor('yellow')
+                                    bars[bar_index].set_linestyle('solid')
+                                    bars[bar_index].set_linewidth(2.5)
+                            bar_index += 1
+                            
+
+                    self._add_legend(ax)    
+                    
+                    ax.set_xlabel('Stocks')
+                    ax.set_ylabel('$value of stock')
+                    ax.set_title('Stocks Ticker/Quantity')
+                    ax.tick_params(axis='x', rotation=90, labelsize=9)
+                elif len(self.fig.axes) > 0 and len(sel_ticker_lst) >= 1:
+                    #find the bars and color them yellow
+                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    ax = self.fig.axes[0]
+                    bars = ax.patches
+                    for i, sel_bar in enumerate(bars):
+                        if ticker[0] in sel_ticker_lst:
+                            bars[i].set_edgecolor('yellow')
+                            bars[i].set_linestyle('solid')
+                            bars[i].set_linewidth(2.5)         
             case _:
                 pass
           
