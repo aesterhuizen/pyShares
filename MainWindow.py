@@ -771,15 +771,13 @@ class MainWindow(QMainWindow):
             self.dict_sectors = {}
 
         #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
-        for item in self.fundamentals:
-            sector = item['sector']
-            symbol = item['symbol']
+        for symbol in self.portfolio:
+            sector = self.portfolio[symbol]['sector']
             pct_portfolio = (float(self.portfolio[symbol]['equity']) / self.portfolio_tvalue * 100) if self.portfolio_tvalue > 0 else 0
             if sector not in self.dict_sectors:
                 self.dict_sectors[sector] = [f'{symbol}:{pct_portfolio}']
             else:
                 self.dict_sectors[sector].append(f'{symbol}:{pct_portfolio}')
-
         #sort dictionary keys according to pct_portfolio
         self.dict_sectors = dict(sorted(self.dict_sectors.items(), key=lambda item: sum(float(x.split(':')[1]) for x in item[1]), reverse=True))
 
@@ -953,7 +951,7 @@ class MainWindow(QMainWindow):
         #item[8]=change in price since previous close
         #item[9]=stock_name
         #item[10]=% of portfolio
-        #item[11]=div yield
+        
         lst_assets = []
         lst_elements_to_update = []
         get_selected_tickers = []
@@ -998,7 +996,7 @@ class MainWindow(QMainWindow):
                     quantity = item[4]
                     change = float(last_price) - float(prev_close) 
                     equity = float(item[4]) * float(last_price)   
-                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10],item[11]])
+                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10]])
                     continue
                 else:
                     total_return = (float(last_price) - float(item[6])) * float(item[4])
@@ -1006,7 +1004,7 @@ class MainWindow(QMainWindow):
                     quantity = item[4]
                     change = float(last_price) - float(prev_close) 
                     equity = float(item[4]) * float(last_price)   
-                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10],item[11]])
+                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10]])
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -1875,6 +1873,7 @@ class MainWindow(QMainWindow):
                 self.ui.lblbuyWith.setVisible(False)
                 self.ui.edtBuyWith.setVisible(False)
                 self.ui.edtBuyWith.setText("")
+                self.ui.edtRaiseAmount.setReadOnly(False)
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)   
         #self.clear_all_clicked()
         return
@@ -2123,7 +2122,7 @@ class MainWindow(QMainWindow):
         #item[8]=change in price since previous close
         #item[9]=stock_name
         #item[10]=% of portfolio
-        #item[11]=div yield
+        
         join_list = []
         sorted_by_Name = []
         lst_elements_to_update = []
@@ -2131,11 +2130,11 @@ class MainWindow(QMainWindow):
         
         
         sorted_by_Name = sorted(curlist, key=lambda x: x[9])  # Sort by the 10th element (index 9)
-        self.ui.tblAssets.setColumnCount(9)
+        self.ui.tblAssets.setColumnCount(8)
         self.ui.tblAssets.setRowCount(len(curlist))
         
 
-        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio", "Div Yield"])
+        self.ui.tblAssets.setHorizontalHeaderLabels(["Ticker","Price","Change","Quantity","Today's Return","Total Return","Equity", "% of Portfolio"])
 
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
@@ -2148,7 +2147,7 @@ class MainWindow(QMainWindow):
             quantity = item[4]
             change = float(last_price) - float(prev_close)  
             equity = float(last_price) * float(quantity)
-            lst_elements_to_update.append([f"{item[9]} ({item[0]})", float(last_price), change, item[4], todays_return, total_return, equity, item[10],item[11]])
+            lst_elements_to_update.append([f"{item[9]} ({item[0]})", float(last_price), change, item[4], todays_return, total_return, equity, item[10]])
 
        
         
@@ -2228,6 +2227,15 @@ class MainWindow(QMainWindow):
          # Get your average buy price
         avg_buy_price = [float(item["average_buy_price"]) for item in positions]
 
+        #get stock names
+        stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
+        #get fundamentals
+        #self.fundamentals = r.get_fundamentals(tickers, info='sector')
+       
+       
+           
+        
+
         #build dictionary for holdings
         holdings = {}
         for i, sym in enumerate(tickers):
@@ -2240,17 +2248,20 @@ class MainWindow(QMainWindow):
                 "average_buy_price": float(avg_buy_price[i]),
                 "percentage": 0.0,  # filled after total equity known
                 "prev_close": float(previous_close[i]),
+                "sector":  r.get_fundamentals(sym, info='sector')[0],
+                "stock_name": stock_name[i]
+                
             }
 
         self.portfolio = holdings
         self.portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
 
 
-        #get fundamentals
-        self.fundamentals = r.get_fundamentals(tickers)
-        div_yield = [float(item.get("dividend_yield") or 0.0) for item in self.fundamentals]
+       
+
+        #div_yield = [float(item.get("dividend_yield") or 0.0) for item in self.fundamentals]
         #get stock names
-        stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
+        
         
         
         
@@ -2295,7 +2306,7 @@ class MainWindow(QMainWindow):
         #item[10] = % of portfolio
         #item[11] = dividend yield
         tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,
-                               avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio,div_yield) )
+                               avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio) )
         
         sorted_list = sorted(tickersPerf,key=lambda x: x[9],reverse=True)
 
@@ -3116,7 +3127,7 @@ class MainWindow(QMainWindow):
                 if raised_amount >= n_raise_amount or raise_amount_converged:
                     break    
 
-                if not (n_dollar_value_to_sell / float(item[3]) >= item[4]+0.1): #check if you have enough shares to sell
+                if not (n_dollar_value_to_sell / float(item[3]) >= item[4]+1): #check if you have enough shares to sell
                     quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
                     strquantity_to_sell = "{0:.2f}".format(quantity_to_sell) 
                 else:
@@ -3146,7 +3157,7 @@ class MainWindow(QMainWindow):
                                 
                 if not found:
                    #don't add to list when you do not have enough shares to sell
-                    if not ((n_dollar_value_to_sell / float(item[3])) >= item[4]+0.1):
+                    if not ((n_dollar_value_to_sell / float(item[3])) >= item[4]+1):
                         itm = [item[0],strquantity_to_sell,item[3]]
                         sell_list.append(itm)
                         raised_amount += quantity_to_sell*float(item[3])   
@@ -3242,7 +3253,7 @@ class MainWindow(QMainWindow):
                         time.sleep(0.5)
                         sell_info = r.get_stock_order_info(sell_info['id'])
                         #if not state infor is filled then wait till it is filled
-                        while 'state' not in sell_info and sell_info['state'] != 'filled':
+                        while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
                             time.sleep(0.5)
                             sell_info = r.get_stock_order_info(sell_info['id'])
 
@@ -3255,9 +3266,16 @@ class MainWindow(QMainWindow):
             if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                     fill_price = "{0:.2f}".format(float(sell_info['average_price']))
             else:
-                    fill_price = "0.00"
+                    if sell_info['state'] == 'quequed':
+                        fill_price = "queued"
+                    else:
+                        fill_price = "0.00"
                 
-            stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
+            if sell_info['state'] == 'filled':
+                stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
+            # elif sell_info['state'] == 'queued':
+            #     stock_symbols.append(f"{item[0]}:{item[1]}:queued-{sell_info['id']}")
+
             tot = float(item[1])*float(fill_price)
             tgains_actual += tot
             frm_tot = "{0:,.2f}".format(tot)
@@ -3516,11 +3534,11 @@ class MpfCanvas(FigureCanvasQTAgg):
                         if ticker[8] < 0.0:
                             bars[i].set_facecolor('darkred')
                             val_down += 1
-                            tot_down_amount += float(ticker[4])*float(ticker[3])
+                            tot_down_amount += (float(ticker[4])*float(ticker[3])) #- (float(ticker[8])*float(ticker[3]))
                         elif ticker[8] > 0.0:
                             bars[i].set_facecolor('darkgreen')
                             val_up += 1
-                            tot_up_amount += float(ticker[4])*float(ticker[3])
+                            tot_up_amount += (float(ticker[4])*float(ticker[3])) #- (float(ticker[8])*float(ticker[3]))
                         else:
                             bars[i].set_facecolor('gray')
 
