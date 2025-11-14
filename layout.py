@@ -320,6 +320,7 @@ class Ui_MainWindow(object):
         self.vertical_splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
         self.vertical_splitter.setObjectName("vertical_splitter")
         self.tblAssets = QtWidgets.QTableWidget(parent=self.vertical_splitter)
+        self.tblAssets.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tblAssets.setObjectName("tblAssets")
         self.tblAssets.setColumnCount(0)
         self.tblAssets.setRowCount(0)

@@ -91,8 +91,9 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()       
         self.tooltip = None
         
-        #shutdown flag
+        #shutdown flag, select all flag
         self._shutting_down = False
+        self._selectAll_in_progress = False
         # sequence runner
         self.op_queue = []
         self._seq_num_iter = 1
@@ -288,7 +289,7 @@ class MainWindow(QMainWindow):
                     
                     self.print_cur_protfolio(self.ticker_lst)
                     #get total gains for the day
-                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
+                    self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
                     #setup plot widget
                     self.setup_plot(self.ticker_lst)
             else: #user pressed cancel at credential dialog
@@ -960,13 +961,13 @@ class MainWindow(QMainWindow):
         
         # poll shutdown flag during what used to be a fixed 10-second sleep
         for _ in range(100):
-            if self._shutting_down:
+            if self._shutting_down or self._selectAll_in_progress:
                 return
             if self.command_thread is not None and self.command_thread.is_alive():
                 return
             time.sleep(0.1)
         # if there is stocks in list update it every 10 seconds if there is something to update
-        if self._shutting_down:
+        if self._shutting_down or self._selectAll_in_progress:
             return
         
         # if there is stocks in list update it every 10 seconds if there is something to update
@@ -1045,7 +1046,7 @@ class MainWindow(QMainWindow):
             
             self.lstupdated_tblAssets = lst_elements_to_update
             
-          
+        
             self.updateStatusBar(self.ticker_lst)
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
@@ -1142,7 +1143,8 @@ class MainWindow(QMainWindow):
                         self.ui.lstTerm.clear()
 
                     #get total gains for the day
-                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
+                    self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
+                    self.todayGains = sum(item[5] for item in self.ticker_lst if item[5] > 0.0)
                     #setup plot widget
                     self.setup_plot(self.ticker_lst)
                     #edit status bar
@@ -1191,7 +1193,7 @@ class MainWindow(QMainWindow):
                 percent = (float(dollar_value) / self.portfolio_tvalue) * 100
                 self.ui.edt_pct_of_portfolio.setText(f"{percent:.2f}%")
             self.ui.btnExecute.setEnabled(True)
-            self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+            self.ui.btnExecute.setStyleShetet("background-color: green; color: white;")
         else:
             self.ui.btnExecute.setEnabled(False)
             self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
@@ -1226,13 +1228,16 @@ class MainWindow(QMainWindow):
         #item[10] = % of portfolio
         #item[11] = div yield
 
-       
-               
-
-        if len(stock_names) > 0:
+        self.ui.edtBuyWithAmount.setReadOnly(True)
+        self.ui.edtAmountEst.setReadOnly(True)               
+        self.ui.edtLstStocksSellected.setReadOnly(True)
+        
+        if len(stock_names) >0:
             match self.ui.cmbAction.currentText():
                 case "stock_info":
-                    self.setup_plot(self.ticker_lst,stock_names,plot_type=self.current_plot_type)
+                    # ensure not too much data to plot
+                    if not len(stock_names) > 1:
+                        self.setup_plot(self.ticker_lst,stock_names,plot_type=self.current_plot_type)
                     
 
                 case "sell_selected":
@@ -1246,31 +1251,35 @@ class MainWindow(QMainWindow):
                     else:
                         priceTotal = self.find_total_equity_for_buysell_amount(stock_names,float(dollar_value_buy_sell))
                         self.ui.edtBuyWithAmount.setText(f"{priceTotal:,.2f}")
+                        
                     
-                    self.highlight_stocks_in_table(stock_names)
-                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                    #self.highlight_stocks_in_table(stock_names)
+                    if not len(stock_names) > 1:
+                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                 case "sell_gains_except_x":
 
                         strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
+                        
                         n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
-                        total_return = self.cal_today_total_gains(n_tickersPerf)[0]
-                        self.ui.edtAmountEst.setReadOnly(True)
+                        total_return = sum(item[1] for item in n_tickersPerf if item[1] > 0.0)
+                        
                         self.ui.edtAmountEst.setText(f"{total_return:,.2f}")
 
                 case "sell_todays_return_except_x":
                     
                         strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSellected.setText(strjoinlst)
+        
                         n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
-                        todays_return = self.cal_today_total_gains(n_tickersPerf)[1]
-                        self.ui.edtAmountEst.setReadOnly(True)
+                        todays_return = sum(item[5] for item in n_tickersPerf if item[5] > 0.0)
+                        
                         self.ui.edtAmountEst.setText(f"{todays_return:,.2f}")
                 case "buy_selected_with_x":
                     strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
-
-                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                    if not len(stock_names) > 1:
+                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                 case "buy_lower_with_gains":
                     self.ui.edtRaiseAmount.setText(strjoinlst)
                 case "raise_x_sell_y_dollars":
@@ -1295,14 +1304,21 @@ class MainWindow(QMainWindow):
             # self.clear_all_clicked()
             # self.setup_plot(self.ticker_lst)
             if self.ui.cmbAction.currentText() == "sell_gains_except_x":
-                total_return = self.cal_today_total_gains(self.ticker_lst)[0]
-                self.ui.edtBuyWithAmount.setText(f"{total_return:,.2f}")
+                
+                self.ui.edtBuyWithAmount.setText("0.0")
                 self.ui.edtRaiseAmount.setText("")
+
+                
+
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                todays_return = self.cal_today_total_gains(self.ticker_lst)[1]
-                self.ui.edtBuyWithAmount.setText(f"{todays_return:,.2f}")
+                
+                self.ui.edtBuyWithAmount.setText("0.0")
                 self.ui.edtRaiseAmount.setText("")
+
+
+
             elif self.ui.cmbAction.currentText() == "sell_selected":
+               
                 self.ui.edtRaiseAmount.setText("")
                 self.ui.edtBuyWithAmount.setText("0.00")
 
@@ -1376,6 +1392,7 @@ class MainWindow(QMainWindow):
         return
 
     def clear_all_clicked(self):
+        self._selectAll_in_progress = False
         self.ui.tblAssets.clearSelection()
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
@@ -2086,11 +2103,11 @@ class MainWindow(QMainWindow):
 
     def SelectAll_clicked(self):
         #select all items in the list
-        self.ui.tblAssets.selectAll()
         self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+        self.ui.tblAssets.selectAll()
         self.ui.tblAssets.setFocus()
         self.tblAsset_clicked()
-    
+        self._selectAll_in_progress = True
         return
     def print_cur_protfolio(self, curlist):
        
@@ -3521,11 +3538,12 @@ class MpfCanvas(FigureCanvasQTAgg):
                        
                     
             case "Bar (Sector Colors)":
-                if len(self.fig.axes) == 0:    
+                
                     n_row = 1
                     n_col = 1
                     index = 1
-                    
+                    count_total_pct = 0.0
+
                     self._ensure_scrollable(1,1,frm_h,frm_w)
 
                     sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
@@ -3560,9 +3578,12 @@ class MpfCanvas(FigureCanvasQTAgg):
                     for sector, stocks_in_sector in sectorsDict.items():
                         
                         lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                        lst_pct_in_sec = [float(stock.split(":")[1]) for stock in stocks_in_sector]
+                        count_total_pct = sum(lst_pct_in_sec)
+
                         color_idx = sec_index
                         color = names[color_idx % len(names)]
-                        patch = Patch(facecolor=color, edgecolor='black', label=sector)
+                        patch = Patch(facecolor=color, edgecolor='black', label=f'{sector} - ({count_total_pct:.2f}%)')
                         self.legend_handles.append(patch)       
                         sec_index += 20
                         for stock in lst_stock_in_sec:
@@ -3585,16 +3606,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                     ax.set_ylabel('$value of stock')
                     ax.set_title('Stocks Ticker/Quantity')
                     ax.tick_params(axis='x', rotation=90, labelsize=9)
-                elif len(self.fig.axes) > 0 and len(sel_ticker_lst) >= 1:
-                    #find the bars and color them yellow
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
-                    ax = self.fig.axes[0]
-                    bars = ax.patches
-                    for i, sel_bar in enumerate(bars):
-                        if ticker[0] in sel_ticker_lst:
-                            bars[i].set_edgecolor('yellow')
-                            bars[i].set_linestyle('solid')
-                            bars[i].set_linewidth(2.5)         
+              
             case _:
                 pass
           
