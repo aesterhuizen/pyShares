@@ -3486,7 +3486,8 @@ class MpfCanvas(FigureCanvasQTAgg):
                     val_up = 0
                     val_down = 0
                     self.legend_handles = []  # reset
-
+                    tot_up_amount = 0.0
+                    tot_down_amount = 0.0
                     self._ensure_scrollable(1, 1, frm_h, frm_w)
                     
 
@@ -3515,9 +3516,11 @@ class MpfCanvas(FigureCanvasQTAgg):
                         if ticker[8] < 0.0:
                             bars[i].set_facecolor('darkred')
                             val_down += 1
+                            tot_down_amount += float(ticker[4])*float(ticker[3])
                         elif ticker[8] > 0.0:
                             bars[i].set_facecolor('darkgreen')
                             val_up += 1
+                            tot_up_amount += float(ticker[4])*float(ticker[3])
                         else:
                             bars[i].set_facecolor('gray')
 
@@ -3527,8 +3530,8 @@ class MpfCanvas(FigureCanvasQTAgg):
                             bars[i].set_linewidth(2.5)  
                         
 
-                    patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - ({val_up}) Up'), \
-                            Patch(facecolor='darkred', edgecolor='black', label=f'Loss - ({val_down}) Down'), \
+                    patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - {val_up} Up 'f'(${tot_up_amount:,.2f})'), \
+                            Patch(facecolor='darkred', edgecolor='black', label=f'Loss - {val_down} Down 'f'$({tot_down_amount:,.2f})'), \
                             Patch(facecolor='gray', edgecolor='black', label='No Change')]
                     for p in patch:
                         self.legend_handles.append(p)
