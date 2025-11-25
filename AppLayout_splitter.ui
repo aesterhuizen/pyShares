@@ -74,7 +74,7 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>0</width>
+            <width>900</width>
             <height>0</height>
            </size>
           </property>
@@ -706,6 +706,22 @@
            <widget class="QPushButton" name="btnSelectAll">
             <property name="text">
              <string>Select All</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbltblAsset_sum">
+            <property name="minimumSize">
+             <size>
+              <width>70</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Equity: $0.00</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
             </property>
            </widget>
           </item>

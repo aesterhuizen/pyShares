@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
     QScrollArea, QSizePolicy
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
-from PyQt6.QtCore import QSize,Qt,QPoint, QTimer,QAbstractTableModel,QSortFilterProxyModel
+from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
 from layout import Ui_MainWindow
 
@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.38"
+        self.ver_string = "v1.0.39"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -74,7 +74,8 @@ class MainWindow(QMainWindow):
         self.plot_type = {0: "Bar (Gain/Loss)", 
                                   1: "Bar (Sector Colors)", 
                                   2: "Bar (Individual Stocks)"}
-        self.current_plot_type = self.plot_type[0]
+        self.current_plot_type = self.default_plot_type = self.plot_type[1]
+       
 
         self.lstupdated_tblAssets = []
         self.setGeometry(300, 300, 1000, 1000)
@@ -128,6 +129,9 @@ class MainWindow(QMainWindow):
         self.ui.cmbGraphType.addItem("Bar (Individual Stocks)")
         
         self.ui.cmbGraphType.activated.connect(self.cmbGraphType_clicked)
+        #sret default graph type to Sector colors
+        self.ui.cmbGraphType.setCurrentIndex(1)
+        self.ui.cmbGraphType.setCurrentText("Bar (Sector Colors)")
         #add combo box items to Dollar Share selector
         self.ui.cmbDollarShare.addItem("Buy in USD")
         self.ui.cmbDollarShare.addItem("Buy in Shares")
@@ -220,8 +224,7 @@ class MainWindow(QMainWindow):
                 self.print_cur_protfolio(self.ticker_lst)
                 #get total gains for the day
                 self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
-                #setup plot widget
-                self.setup_plot(self.ticker_lst)
+               
         else: #self.data_path is empty create path and file
             get_cred_file = msgBoxGetCredentialFile()
             button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -290,8 +293,7 @@ class MainWindow(QMainWindow):
                     self.print_cur_protfolio(self.ticker_lst)
                     #get total gains for the day
                     self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
-                    #setup plot widget
-                    self.setup_plot(self.ticker_lst)
+                   
             else: #user pressed cancel at credential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
 
@@ -386,6 +388,8 @@ class MainWindow(QMainWindow):
         self.monitor_thread.start()
 
         self.setupStatusbar()
+        #setup plot widget
+        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
         # show the Mainwindow
         self.show()
 
@@ -489,7 +493,7 @@ class MainWindow(QMainWindow):
             str_stock_names = ','.join([item[0] for item in lstShares])  
             stocks = [item[0] for item in lstShares]
             self.highlight_stocks_in_table(stocks)
-            self.setup_plot(self.ticker_lst)
+            self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
             total_amount = sum([float(item[1])*float(item[2]) for item in lstShares])
             cur_amount = self.ui.edtAmountEst.text()
             strip_dollarsign = cur_amount.replace('$','')
@@ -559,7 +563,7 @@ class MainWindow(QMainWindow):
         # Get the selected sector
         sectorFrom = self.ui.cmbFromSector.currentText()
         # Get the symbols in the selected sector
-        symbolsFromSector = self.get_symbols_in_sector(sectorFrom)
+        symbolsFromSector = self.get_symbols_pct_in_sector(sectorFrom)
 
       
         return symbolsFromSector
@@ -568,7 +572,7 @@ class MainWindow(QMainWindow):
         # Get the selected sector
         sectorTo = self.ui.cmbToSector.currentText()
         # Get the symbols in the selected sector
-        symbolsToSector = self.get_symbols_in_sector(sectorTo)
+        symbolsToSector = self.get_symbols_pct_in_sector(sectorTo)
 
       
         return symbolsToSector
@@ -594,11 +598,12 @@ class MainWindow(QMainWindow):
 
         return lst_stockReduce
 
-    def get_symbols_in_sector(self, name):
+    def get_symbols_pct_in_sector(self, name):
         # Get the list of stocks in sector
-        lst_stocks_in_sector = self.dict_sectors[name]
+        lst_stocks_pct_in_sector = self.dict_sectors[name]
         
-        return lst_stocks_in_sector
+        
+        return lst_stocks_pct_in_sector
 
     def monitor_command_thread(self):
         while not self._shutting_down:
@@ -625,15 +630,17 @@ class MainWindow(QMainWindow):
                         self.clear_all_clicked()
                     else:
                         self.showTableTooltip(obj)
-                        lst_stocks = self.get_symbols_in_sector(obj.objectName())
+                        lst_stocks = self.get_symbols_pct_in_sector(obj.objectName())
+                        symbols = [stock.split(':')[0] for stock in lst_stocks]
                         self.highlight_stocks_in_table(lst_stocks)
                         self.ui.tblAssets.repaint()
-                        
+                        self.setup_plot(self.ticker_lst,sellected_tickets=symbols,plot_type=self.current_plot_type)
+
                         if not self.ui.cmbAction.currentText() == "buy_selected_with_x":
                             self.ui.cmbAction.setCurrentIndex(4)
                         
                         self.ui.edtRaiseAmount.setText(','.join([item.split(':')[0] for item in lst_stocks]))
-                        self.setup_plot(self.ticker_lst)
+                        
 
             
             QApplication.restoreOverrideCursor()
@@ -1026,6 +1033,7 @@ class MainWindow(QMainWindow):
                         
                     else:
                         if col == 0:
+                            table_item.setCheckState(Qt.CheckState.Unchecked)
                             table_item.setText(lst_elements_to_update[row][col])
                         elif col == 7 or col == 8: #percentage column
                             table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
@@ -1144,7 +1152,7 @@ class MainWindow(QMainWindow):
                     self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
                     self.todayGains = sum(item[5] for item in self.ticker_lst if item[5] > 0.0)
                     #setup plot widget
-                    self.setup_plot(self.ticker_lst)
+                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
                     #edit status bar
             
                 frm_TotalGains = "{0:,.2f}".format(self.totalGains)
@@ -1225,12 +1233,20 @@ class MainWindow(QMainWindow):
         #item[9] = stock name
         #item[10] = % of portfolio
         #item[11] = div yield
+        
+        
+     
 
         self.ui.edtBuyWithAmount.setReadOnly(True)
         self.ui.edtAmountEst.setReadOnly(True)               
         self.ui.edtLstStocksSellected.setReadOnly(True)
         
         if len(stock_names) >0:
+            total_equity = 0.0
+            total_equity = sum(float(self.portfolio[sym]['equity']) for sym in stock_names if sym in self.portfolio)
+            self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
+           
+
             match self.ui.cmbAction.currentText():
                 case "stock_info":
                     # ensure not too much data to plot
@@ -1298,7 +1314,7 @@ class MainWindow(QMainWindow):
                     self.ui.lblBuyWithAmount.setVisible(False)
                     self.ui.edtBuyWithAmount.setVisible(False)
         else:   #len(selected_tickers) == 0 #default
-
+            self.ui.lbltblAsset_sum.setText(f"Equity: $0.00")
             # self.clear_all_clicked()
             # self.setup_plot(self.ticker_lst)
             if self.ui.cmbAction.currentText() == "sell_gains_except_x":
@@ -1401,6 +1417,7 @@ class MainWindow(QMainWindow):
         self.ui.edtFileBrowse.setText("")
         self.ui.edtAmountEst.setText("")
         self.ui.lstTerm.clear()
+        self.ui.lbltblAsset_sum.setText("Equity: $0.00")
         self.ui.btnExecute.setEnabled(False)
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
         self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
@@ -1617,7 +1634,7 @@ class MainWindow(QMainWindow):
         #   
         # else: #default
 
-    def setup_plot(self,tickersPerf = [],sellected_tickets = [],plot_type = "Bar (Gain/Loss)"):
+    def setup_plot(self,tickersPerf = [],sellected_tickets = [],plot_type = "Bar (Sector Colors)"):
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
@@ -1979,7 +1996,7 @@ class MainWindow(QMainWindow):
             else:
                 buying_with_amount = raise_amount
 
-        elif self.ui.cmbAction.currentText() == self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
+        elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
             raise_amount = self.ui.edtBuyWithAmount.text()
             dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
             buying_with_amount = "Not Used"
@@ -2157,7 +2174,7 @@ class MainWindow(QMainWindow):
             
             for col in range(len(lst_elements_to_update[row])):
                 table_item = QTableWidgetItem()
-                    
+
                 if col == 2 and lst_elements_to_update[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
                     table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
@@ -2197,9 +2214,10 @@ class MainWindow(QMainWindow):
     def get_tickers_from_selected_lstAssets(self):
         stock_tickers_names = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        selected_tblRow = [sel_items[i:i+9][0] for i in range(0,len(sel_items),9)]
-       
-
+        selected_tblRow = [sel_items[i:i+8][0] for i in range(0,len(sel_items),8)]
+        
+        
+        
         if len(selected_tblRow) > 0:
             #get stock tickers from selected items
             for index, ticker in enumerate(selected_tblRow):
@@ -2849,10 +2867,15 @@ class MainWindow(QMainWindow):
                     if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                         fill_price = "{0:.2f}".format(float(sell_info['average_price']))
                     else:
-                        fill_price = "0.00"
-                        
-                    #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
+                        if sell_info['state'] == 'queued':
+                            fill_price = "queued"
+                        else:
+                            fill_price = "0.00"
+                
+                    if sell_info['state'] == 'filled':
+                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                    elif sell_info['state'] == 'queued':
+                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
                     tot = float(dollar_value_to_sell)
                     tgains_actual += tot
 
@@ -3273,8 +3296,8 @@ class MainWindow(QMainWindow):
                 
             if sell_info['state'] == 'filled':
                 stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
-            # elif sell_info['state'] == 'queued':
-            #     stock_symbols.append(f"{item[0]}:{item[1]}:queued-{sell_info['id']}")
+            elif sell_info['state'] == 'queued':
+                stock_symbols.append(f"{item[0]}:{item[1]}:queued-{sell_info['id']}")
 
             tot = float(item[1])*float(fill_price)
             tgains_actual += tot
@@ -3357,7 +3380,7 @@ class MpfCanvas(FigureCanvasQTAgg):
             self.setMinimumSize(int(width_px), int(height_px))
    
 
-    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar (Gain/Loss)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
+    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar (Sector Colors)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
         #Item[0] =  tickers
         #Item[1]= Total_return
         #Item[2] = stock_quantity_to_sell/buy
@@ -3418,12 +3441,12 @@ class MpfCanvas(FigureCanvasQTAgg):
                     self._ensure_scrollable(n_row, n_col, frm_h, frm_w)
                     outer_grid = self.fig.add_gridspec(n_row, n_col, hspace=0.08, wspace=0.2)
 
-                    sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
+                    #sorted_name_list = sorted(ticker_lst,key=lambda x: x[9])
                     
                     #plot each selected stock in a subplot
-                    for index, ticker in enumerate(sorted_name_list):
+                    for index, ticker in enumerate(sel_ticker_lst):
                         try:
-                            df = yf.download(ticker[0], period='1y', interval='1d', progress=False)
+                            df = yf.download(ticker, period='1y', interval='1d', progress=False)
                             df.columns = ['Close', 'High', 'Low', 'Open', 'Volume']
 
                             row, col = divmod(index, n_col)
@@ -3433,7 +3456,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                             ax_rsi = self.fig.add_subplot(subgrid[2], sharex=ax_price)
                             ax_macd = self.fig.add_subplot(subgrid[3], sharex=ax_price)
                             ax_stoch = self.fig.add_subplot(subgrid[4], sharex=ax_price)
-                            ax_price.set_title(ticker[0], fontsize=9)
+                            ax_price.set_title(ticker, fontsize=9)
                             ax_price.tick_params(axis='y', labelsize=9, left=True)
                             ax_price.set_ylabel('Price',fontsize=9)
                             ax_price.grid(True, linestyle='solid',alpha=1)
@@ -3637,22 +3660,6 @@ class MpfCanvas(FigureCanvasQTAgg):
     def _add_legend(self, ax):
        ax.legend(handles=self.legend_handles, loc='best', frameon=True, fontsize=9)
 
-class PortfolioTableModel(QAbstractTableModel):
-    def __init__(self, data):
-        super().__init__()
-        self._data = data
-
-  
-  
-    def data(self, index, role):
-        if role == Qt.ItemDataRole.DisplayRole:
-            return self._data[index.row()][index.column()]
-
-    def rowCount(self, index):
-        return len(self._data)
-
-    def columnCount(self, index):
-        return len(self._data[0]) if self._data else 0
     
 class TableToolTip(QWidget):
     def __init__(self, obj ,parent=MainWindow):
@@ -3695,12 +3702,8 @@ class TableToolTip(QWidget):
 
         
         #load sector data
-        if obj.objectName() == "btn_5pct":
-            lst_stocks_in_sector = self.parent().get_symbols_in_5pct_sector()
-            self.createTable_reduce(lst_stocks_in_sector)
-        else:
-            lst_stocks_in_sector = self.parent().get_symbols_in_sector(obj.objectName())
-            self.createTable(lst_stocks_in_sector)
+        lst_stocks_in_sector = self.parent().get_symbols_pct_in_sector(obj.objectName())
+        self.createTable(lst_stocks_in_sector)
 
         layout.addWidget(self.sectorlabel_pct)
         layout.addWidget(self.table)
