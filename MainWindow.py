@@ -499,7 +499,7 @@ class MainWindow(QMainWindow):
         return
     def btnBrowseReInvest_clicked(self):
         options = QFileDialog.Option.DontUseNativeDialog
-        
+        lst_shares = []
         ReInverst_amount = 0.0
         total_amount = 0.0
         file_name, _ = QFileDialog.getOpenFileName(None, "Open File", f"{self.data_path}", "CSV Files (*.csv);;Text Files (*.txt);;All Files (*)", options=options)
@@ -514,7 +514,7 @@ class MainWindow(QMainWindow):
                     for line in lines:
                         line = line.strip()
                         share_name,share_quantity,share_price = line.split(':')
-                        self.lstShares_in_file.append((share_name,share_quantity,share_price))   
+                        lst_shares.append((share_name,share_quantity,share_price))   
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: File not in correct format")
                 self.ui.edtFileBrowse_buyLower.setText("")
@@ -523,7 +523,8 @@ class MainWindow(QMainWindow):
                 self.ui.edtStocksInFile_BuyLower.setText("")
                 self.ui.edtAmountEst.setText("")
                 return
-            
+            #sort the list of shares Alphabetically
+            self.lstShares_in_file = sorted(lst_shares, key=lambda x: x[0])
             str_stock_names = ','.join([item[0] for item in self.lstShares_in_file])  
             self.ui.edtStocksInFile_BuyLower.setText(str_stock_names)
 
@@ -2543,14 +2544,14 @@ class MainWindow(QMainWindow):
             #Item 0 =  stock ticker
             #Item 1 = quantity sold of stock
             #Item 2 = price stock sold for
-        divider_pct = float(dollar_value_to_sell) / 100.0   
+        
         method_name = self.ui.cmbAction.currentText()
-
+        invest_amount = buying_with_amount / len(lst)
        
         for stock in lst:
             stock_name,quantity,price_sold = stock[0],stock[1],stock[2]
             
-            invest_amount = (float(quantity)*float(price_sold) ) * divider_pct
+            
             
             stock_market_prices = r.stocks.get_latest_price(stock_name)
             market_price_of_stock = float(stock_market_prices[0])
