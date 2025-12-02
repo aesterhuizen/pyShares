@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
                 self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
                 
                 try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                    self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
                      
                 except Exception as e:
                     if e.args[0]:
@@ -253,7 +253,7 @@ class MainWindow(QMainWindow):
                 #try and see if we are already logged in, if not login
                
                 try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                    self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -284,7 +284,7 @@ class MainWindow(QMainWindow):
                     self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
                     
                     try:
-                        self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                        self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
                         
                     except Exception as e:
                         if e.args[0] == "Invalid account number":
@@ -1075,9 +1075,9 @@ class MainWindow(QMainWindow):
             
             # update the table if there is a change in the number of stocks
 
-            #self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
-            #sorted_by_Name = sorted(self.ticker_lst, key=lambda x: x[9])  # Sort by the 10th element (index 9)
-            #get_selected_tickers = self.get_tickers_from_selected_lstAssets()
+            
+           
+            
           
             for idx,item in enumerate(self.ticker_lst):
                 if self._shutting_down:
@@ -2241,12 +2241,12 @@ class MainWindow(QMainWindow):
         #item[10]=% of portfolio
         
         join_list = []
-        sorted_by_Name = []
+        
         lst_elements_to_update = []
         #set header
         
         
-        sorted_by_Name = sorted(curlist, key=lambda x: x[9])  # Sort by the 10th element (index 9)
+        
         self.ui.tblAssets.setColumnCount(8)
         self.ui.tblAssets.setRowCount(len(curlist))
         
@@ -2256,7 +2256,7 @@ class MainWindow(QMainWindow):
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
 
-        for item in sorted_by_Name:
+        for item in self.ticker_lst:
             last_price = r.get_quotes(item[0], "last_trade_price")[0]
             prev_close = r.get_quotes(item[0], "previous_close")[0]
             total_return = (float(last_price) - float(item[6])) * float(item[4])
