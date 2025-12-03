@@ -364,7 +364,7 @@
               </widget>
              </widget>
              <widget class="QWidget" name="BuySellExceptPage">
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>9</x>
@@ -608,82 +608,75 @@
               <widget class="QWidget" name="">
                <property name="geometry">
                 <rect>
-                 <x>20</x>
+                 <x>9</x>
                  <y>10</y>
-                 <width>444</width>
-                 <height>82</height>
+                 <width>579</width>
+                 <height>54</height>
                 </rect>
                </property>
                <layout class="QGridLayout" name="gridLayout_6">
-                <item row="2" column="3">
-                 <widget class="QLineEdit" name="edtReInvestValue"/>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_8">
+                  <property name="text">
+                   <string>Reinvest:</string>
+                  </property>
+                 </widget>
                 </item>
-                <item row="1" column="2">
+                <item row="0" column="1" colspan="2">
+                 <widget class="QComboBox" name="cmbReInvest"/>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QLabel" name="label_5">
+                  <property name="text">
+                   <string>of Amount (USD):</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="4" colspan="3">
+                 <widget class="QLineEdit" name="edtReinvestAmount_buyLower"/>
+                </item>
+                <item row="0" column="7" colspan="2">
+                 <widget class="QLabel" name="label_7">
+                  <property name="text">
+                   <string>in selected stocks:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="9">
+                 <widget class="QLineEdit" name="edtStocksInFile_BuyLower"/>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="QLabel" name="lblbuylower">
+                  <property name="text">
+                   <string>Or Stocks in file:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="2" colspan="3">
+                 <widget class="QLineEdit" name="edtFileBrowse_buyLower"/>
+                </item>
+                <item row="1" column="5">
                  <widget class="QPushButton" name="btnBrowseReInvest">
                   <property name="text">
                    <string>Browse ...</string>
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="0">
-                 <widget class="QLabel" name="label_7">
-                  <property name="text">
-                   <string>Stocks in File:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="2">
-                 <widget class="QLabel" name="label_8">
-                  <property name="text">
-                   <string>Reinvest</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="2">
+                <item row="1" column="6" colspan="2">
                  <widget class="QLabel" name="label_6">
                   <property name="text">
                    <string>Reinvest Value:</string>
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="1">
-                 <widget class="QLineEdit" name="edtStocksInFile_BuyLower"/>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QLineEdit" name="edtFileBrowse_buyLower"/>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QLabel" name="lblbuylower">
-                  <property name="text">
-                   <string>Select Stocks in file:</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QLabel" name="label_5">
-                  <property name="text">
-                   <string>Amount (est.) (USD):</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="3">
-                 <widget class="QComboBox" name="cmbReInvest"/>
-                </item>
-                <item row="2" column="1">
-                 <widget class="QLineEdit" name="edtAmountEst_buyLower"/>
-                </item>
-                <item row="0" column="4">
-                 <widget class="QLabel" name="label_9">
-                  <property name="text">
-                   <string>of gain</string>
-                  </property>
-                 </widget>
+                <item row="1" column="8" colspan="2">
+                 <widget class="QLineEdit" name="edtReInvestValue"/>
                 </item>
                </layout>
               </widget>
              </widget>
              <widget class="QWidget" name="StockGraphInfoPage">
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>10</x>
