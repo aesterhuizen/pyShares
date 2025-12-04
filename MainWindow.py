@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.41"
+        self.ver_string = "v1.0.42"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         #item[9] = stock name
         self.totalGains = 0.0
         self.todayGains = 0.0
-       
+        self.selected_stocks = []
         
         self.current_account_num = ""
         self.account_info = ''
@@ -687,6 +687,7 @@ class MainWindow(QMainWindow):
             index = self.ui.tblAssets.findItems(symbol, Qt.MatchFlag.MatchContains)
             if index:
                 self.ui.tblAssets.selectRow(index[0].row())
+                
         return
 
     def get_symbols_From_sectors(self) -> list[str]:
@@ -762,15 +763,15 @@ class MainWindow(QMainWindow):
                         self.showTableTooltip(obj)
                         lst_stocks = self.get_symbols_pct_in_sector(obj.objectName())
                         symbols = [stock.split(':')[0] for stock in lst_stocks]
+                        symbols_label = ','.join(symbols)
                         self.highlight_stocks_in_table(lst_stocks)
-                        self.ui.tblAssets.repaint()
+                        self.selected_stocks = self.find_and_remove(self.ticker_lst, symbols,1)
                         self.setup_plot(self.ticker_lst,sellected_tickets=symbols,plot_type=self.current_plot_type)
-
-                        if not self.ui.cmbAction.currentText() == "buy_selected_with_x":
-                            self.ui.cmbAction.setCurrentIndex(4)
-                        
-                        self.ui.edtRaiseAmount.setText(','.join([item.split(':')[0] for item in lst_stocks]))
-                        
+                        self.ui.edtLstStocksSellected.setText(symbols_label) 
+                        self.ui.edtRaiseAmount.setText(symbols_label)
+                        self.updateStatusBar(self.selected_stocks)
+                        self.ui.tblAssets.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+                        self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
             
             QApplication.restoreOverrideCursor()
@@ -811,10 +812,7 @@ class MainWindow(QMainWindow):
         lblStatusBar_pctToday.setMinimumWidth(150)
         self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
 
-        # button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), "5% Increase/Reduce", self)
-        # button.setObjectName("btn_5pct")
-        # button.installEventFilter(self) #listen to mouse movement events for the buttons
-        # self.ui.statusBar.addWidget(button, 1)
+        
             
         tbl_Index = QTableWidget()
        
@@ -989,21 +987,37 @@ class MainWindow(QMainWindow):
             self.ui.lstTerm.addItem(frm_date + " - " + n)
         
 
-    def updateStatusBar(self,temp_lst):
+    def updateStatusBar(self, selected_stocks):
+        
+        #Item[0] =  tickers
+        #Item[1]= Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3]= last price
+        #item[4]= your quantities
+        #item[5]=today's return
        
-        self.totalGains = sum(item[1] for item in self.ticker_lst)
-        self.todayGains = sum(item[5] for item in self.ticker_lst) 
+       
+        # if tblAssets has stocks sellected then only calculate gains for those stocks
+        if len(selected_stocks) > 0:
+            self.totalGains = sum(item[1] for item in self.selected_stocks)
+            self.todayGains = sum(item[5] for item in self.selected_stocks)
+
+        else:
+            self.totalGains = sum(item[1] for item in self.ticker_lst)
+            self.todayGains = sum(item[5] for item in self.ticker_lst)
+
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
-
-        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
-
         lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
         lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
         lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
         lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
-        
+
+     
+
+        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
+        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+
         
         #setup the status table widget
         tbl_Index = self.ui.statusBar.findChild(QTableWidget, "tbl_Index")
@@ -1348,7 +1362,7 @@ class MainWindow(QMainWindow):
         priceTotal = 0.0
 
         stock_names = self.get_tickers_from_selected_lstAssets()
-        
+        self.selected_stocks = self.find_and_remove(self.ticker_lst,stock_names,1)
        
          #Item[0] =  tickers
         #Item[1]= Total_return
@@ -1373,6 +1387,7 @@ class MainWindow(QMainWindow):
         self.ui.edtLstStocksSellected.setReadOnly(True)
         
         if len(stock_names) >0: 
+            
             total_equity = 0.0
             total_equity = sum(float(self.portfolio[sym]['equity']) for sym in stock_names if sym in self.portfolio)
             self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
@@ -1451,11 +1466,12 @@ class MainWindow(QMainWindow):
         else:   #len(selected_tickers) == 0 #default
             self.ui.edtStocksInFile_BuyLower.setText("")
             self.ui.lbltblAsset_sum.setText(f"Equity: $0.00")
-            
+            self.selected_stocks = []            
             self.ui.edtBuyWithAmount.setText("0.0")
             self.ui.edtRaiseAmount.setText("")
 
-            
+        
+        self.updateStatusBar(self.selected_stocks)
         return
 
                 
@@ -1528,7 +1544,7 @@ class MainWindow(QMainWindow):
 
     def clear_all_clicked(self):
         self._selectAll_in_progress = False
-         
+        
         self.ui.edtReinvestAmount_buyLower.setEnabled(True)
         self.ui.edtStocksInFile_BuyLower.setEnabled(True)
         self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
@@ -1544,7 +1560,20 @@ class MainWindow(QMainWindow):
         self.ui.edtReinvestAmount_buyLower.setText("")
         #---------------------------------
         
+        #tooltip is open so close it
+        if self.tooltip is not None and self.tooltip.isVisible():
+            self.tooltip.close()
+            self.tooltip = None
+            self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+
+        if self.ui.cmbAction.currentText() == "stock_info": 
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        else:
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+
+        
         self.ui.tblAssets.clearSelection()
+        self.selected_stocks = [] 
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
         self.ui.edtBuyWithAmount.setText("")
@@ -1558,8 +1587,9 @@ class MainWindow(QMainWindow):
         self.ui.btnExecute.setEnabled(False)
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
         self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
-       
-
+        self.selected_stocks = []
+        self.updateStatusBar(self.selected_stocks)
+        
 
     def closeMenu_clicked(self):
        
@@ -1911,8 +1941,7 @@ class MainWindow(QMainWindow):
         self.ui.edtBuyWith.setVisible(False)
         self.ui.cmbDollarShare.setVisible(False)
         self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        if len(self.ui.tblAssets.selectedItems()) > 0:
-            self.ui.tblAssets.clearSelection()
+       
         
         match perform_action:
             case "stock_info":
@@ -1950,7 +1979,7 @@ class MainWindow(QMainWindow):
                 self.ui.lblDollarValueToSell.setVisible(True)
                 self.ui.edtDollarValueToSell.setVisible(True)
             
-                self.ui.edtRaiseAmount.setText("")
+                
                 self.ui.lblbuyWith.setVisible(False)
                 self.ui.edtBuyWith.setVisible(False)
                 self.ui.edtBuyWith.setText("")   
@@ -2360,18 +2389,18 @@ class MainWindow(QMainWindow):
     def get_tickers_from_selected_lstAssets(self):
         stock_tickers_names = []
         sel_items = [item.text() for item in self.ui.tblAssets.selectedItems()]
-        selected_tblRow = [sel_items[i:i+8][0] for i in range(0,len(sel_items),8)]
+        selected_col_zero = [sel_items[i:i+8][0] for i in range(0,len(sel_items),8)]
         
         
-        
-        if len(selected_tblRow) > 0:
+        if len(selected_col_zero) > 0:
             #get stock tickers from selected items
-            for index, ticker in enumerate(selected_tblRow):
+            for index, ticker in enumerate(selected_col_zero):
                 match = re.search(r"\((\w+\.?\w*)\)", ticker)
                 if match:
                     stock_tickers_names.append(match.group(1))
             return stock_tickers_names
 
+        
         return stock_tickers_names
     
     def get_stocks_from_portfolio(self, acc_num):
@@ -2460,7 +2489,7 @@ class MainWindow(QMainWindow):
         tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,
                                avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio) )
         
-        sorted_list = sorted(tickersPerf,key=lambda x: x[9],reverse=True)
+        sorted_list = sorted(tickersPerf,key=lambda x: x[9])
 
         return sorted_list
 
@@ -2488,7 +2517,7 @@ class MainWindow(QMainWindow):
     def find_and_remove(self, tickers, in_exList,include_flag = 1):
         
         if include_flag == 0:
-        # Create a new list excluding the items not in in_exList
+        # Create a new list including the items not in in_exList
             updated_tickers = [ticker for ticker in tickers if ticker[0] not in in_exList]
         elif include_flag == 1:
         # Create a new list including only the items in in_exList
