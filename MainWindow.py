@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.40"
+        self.ver_string = "v1.0.41"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -60,6 +60,18 @@ class MainWindow(QMainWindow):
         self.command_thread = None
         self.monitor_thread = None
 
+        #Item[0] =  tickers
+        #Item[1]= Total_return
+        #Item[2] = stock_quantity_to_sell/buy
+        #Item[3]= last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= average buy price
+        #item[7]=%change in price
+        #item[8]=change in price since previous close
+        #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
+        #updated_items = update_current_assets()
+        #item[9] = stock name
         self.totalGains = 0.0
         self.todayGains = 0.0
        
@@ -214,7 +226,7 @@ class MainWindow(QMainWindow):
                 self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
                 
                 try:
-                    self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
+                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
                      
                 except Exception as e:
                     if e.args[0]:
@@ -224,8 +236,8 @@ class MainWindow(QMainWindow):
             
                 self.print_cur_protfolio(self.ticker_lst)
                 #get total gains for the day
-                self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
-               
+                self.totalGains = sum(item[1] for item in self.ticker_lst)
+                self.todayGains = sum(item[5] for item in self.ticker_lst)               
         else: #self.data_path is empty create path and file
             get_cred_file = msgBoxGetCredentialFile()
             button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -253,7 +265,7 @@ class MainWindow(QMainWindow):
                 #try and see if we are already logged in, if not login
                
                 try:
-                    self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
+                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -284,7 +296,7 @@ class MainWindow(QMainWindow):
                     self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
                     
                     try:
-                        self.ticker_lst = sorted(self.get_stocks_from_portfolio(self.current_account_num), key=lambda x: x[9])  # Sort by the 10th element (index 9)
+                        self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
                         
                     except Exception as e:
                         if e.args[0] == "Invalid account number":
@@ -293,7 +305,8 @@ class MainWindow(QMainWindow):
                     
                     self.print_cur_protfolio(self.ticker_lst)
                     #get total gains for the day
-                    self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
+                    self.totalGains = sum(item[1] for item in self.ticker_lst)
+                    self.todayGains = sum(item[5] for item in self.ticker_lst)   
                    
             else: #user pressed cancel at credential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
@@ -978,7 +991,8 @@ class MainWindow(QMainWindow):
 
     def updateStatusBar(self,temp_lst):
        
-        self.totalGains,self.todayGains = self.cal_today_total_gains(temp_lst)
+        self.totalGains = sum(item[1] for item in self.ticker_lst)
+        self.todayGains = sum(item[5] for item in self.ticker_lst) 
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
 
@@ -1069,7 +1083,6 @@ class MainWindow(QMainWindow):
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history <- removed
         #item[6]= average buy price
         #item[7]=%change in price
         #item[8]=change in price since previous close
@@ -2406,18 +2419,6 @@ class MainWindow(QMainWindow):
 
         self.portfolio = holdings
         self.portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
-
-
-       
-
-        #div_yield = [float(item.get("dividend_yield") or 0.0) for item in self.fundamentals]
-        #get stock names
-        
-        
-        
-        
-        
-
         
         if len(tickers) != len (previous_close):
             tickers.pop()
@@ -2441,7 +2442,7 @@ class MainWindow(QMainWindow):
         # Calculate stock quantities to sell to get total returns
         stock_quantity_to_sell = [total_return[i] / float(lastPrice[i]) for i in range(len(tickers))]   
         # build tuple to iterate through and sell stocks
-        #history_week = r.get_stock_historicals(tickers, interval='hour', span='week', bounds='regular', info=None)
+       
 
         #Item 0 =  tickers
         #Item 1 = Total_return
@@ -3531,7 +3532,6 @@ class MpfCanvas(FigureCanvasQTAgg):
         #Item[3]= last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[5]= 1 year history
         #item[6]= average buy price
         #item[7]=%change in price
         #item[8]=change in price since previous close
@@ -3671,8 +3671,8 @@ class MpfCanvas(FigureCanvasQTAgg):
                     val_up = 0
                     val_down = 0
                     self.legend_handles = []  # reset
-                    tot_up_amount = 0.0
-                    tot_down_amount = 0.0
+                    tot_up_change = 0.0
+                    tot_down_change = 0.0
                     self._ensure_scrollable(1, 1, frm_h, frm_w)
                     
 
@@ -3701,11 +3701,11 @@ class MpfCanvas(FigureCanvasQTAgg):
                         if ticker[8] < 0.0:
                             bars[i].set_facecolor('darkred')
                             val_down += 1
-                            tot_down_amount += (float(ticker[4])*float(ticker[3])) #- (float(ticker[8])*float(ticker[3]))
+                            tot_down_change += ticker[5] #- total today down return
                         elif ticker[8] > 0.0:
                             bars[i].set_facecolor('darkgreen')
                             val_up += 1
-                            tot_up_amount += (float(ticker[4])*float(ticker[3])) #- (float(ticker[8])*float(ticker[3]))
+                            tot_up_change += ticker[5] #- total today up return
                         else:
                             bars[i].set_facecolor('gray')
 
@@ -3715,8 +3715,8 @@ class MpfCanvas(FigureCanvasQTAgg):
                             bars[i].set_linewidth(2.5)  
                         
 
-                    patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - {val_up} Up 'f'(${tot_up_amount:,.2f})'), \
-                            Patch(facecolor='darkred', edgecolor='black', label=f'Loss - {val_down} Down 'f'$({tot_down_amount:,.2f})'), \
+                    patch = [Patch(facecolor='darkgreen', edgecolor='black', label=f'Gain - {val_up} Up {tot_up_change:+.2f}'), \
+                            Patch(facecolor='darkred', edgecolor='black', label=f'Loss - {val_down} Down {tot_down_change:-.2f}'), \
                             Patch(facecolor='gray', edgecolor='black', label='No Change')]
                     for p in patch:
                         self.legend_handles.append(p)
