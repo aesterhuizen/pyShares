@@ -770,6 +770,9 @@ class MainWindow(QMainWindow):
                         self.ui.edtLstStocksSellected.setText(symbols_label) 
                         self.ui.edtRaiseAmount.setText(symbols_label)
                         self.updateStatusBar(self.selected_stocks)
+                        total_equity = 0.0
+                        total_equity = sum(float(self.portfolio[sym]['equity']) for sym in symbols if sym in self.portfolio)
+                        self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
                         self.ui.tblAssets.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
                         self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
@@ -1571,7 +1574,7 @@ class MainWindow(QMainWindow):
         else:
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
 
-        
+        self.ui.lbltblAsset_sum.setText(f"Equity: $0.00")
         self.ui.tblAssets.clearSelection()
         self.selected_stocks = [] 
         self.ui.edtRaiseAmount.setText("")
