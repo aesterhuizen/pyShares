@@ -480,7 +480,7 @@ class MainWindow(QMainWindow):
         self.current_plot_type = self.plot_type[current_index]
         self.clear_all_clicked()
         self.setup_plot(self.ticker_lst, plot_type=self.current_plot_type)
-
+        self.updateStatusBar(self.selected_stocks)
         QApplication.restoreOverrideCursor()
         return
     def edtFileBrowse_buyLower_changed(self):
@@ -990,7 +990,7 @@ class MainWindow(QMainWindow):
             self.ui.lstTerm.addItem(frm_date + " - " + n)
         
 
-    def updateStatusBar(self, selected_stocks):
+    def updateStatusBar(self, selected_stocks=[]):
         
         #Item[0] =  tickers
         #Item[1]= Total_return
