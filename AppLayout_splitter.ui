@@ -257,7 +257,7 @@
               </size>
              </property>
              <property name="currentIndex">
-              <number>3</number>
+              <number>1</number>
              </property>
              <widget class="QWidget" name="AllocationPage">
               <widget class="QWidget" name="layoutWidget">
@@ -375,17 +375,17 @@
                </property>
                <layout class="QGridLayout" name="gridLayout_7">
                 <item row="0" column="0">
-                 <widget class="QLabel" name="label_2">
+                 <widget class="QLabel" name="lblSellAssetExSel">
                   <property name="text">
                    <string>Sell Asset Except sellected:</string>
                   </property>
                  </widget>
                 </item>
                 <item row="0" column="1">
-                 <widget class="QLineEdit" name="edtLstStocksSellected"/>
+                 <widget class="QLineEdit" name="edtLstStocksSelected"/>
                 </item>
                 <item row="1" column="0">
-                 <widget class="QLabel" name="label">
+                 <widget class="QLabel" name="lblExceptStocks_in_file">
                   <property name="text">
                    <string>Except stocks in file:</string>
                   </property>
@@ -605,7 +605,7 @@
               </layout>
              </widget>
              <widget class="QWidget" name="buyLowerPage">
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>9</x>

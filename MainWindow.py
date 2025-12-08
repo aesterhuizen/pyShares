@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.42"
+        self.ver_string = "v1.0.43"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -74,12 +74,12 @@ class MainWindow(QMainWindow):
         #item[9] = stock name
         self.totalGains = 0.0
         self.todayGains = 0.0
-        self.selected_stocks = []
+        self.selected_stocks = {}
         
         self.current_account_num = ""
         self.account_info = ''
         #main list of tickers and performance metrics
-        self.ticker_lst = []
+
         self.fundamentals = []
         self.dict_sectors = {}
         self.portfolio  = {}
@@ -136,6 +136,8 @@ class MainWindow(QMainWindow):
         self.ui.cmbAction.addItem("reinvest_with_gains")
         self.ui.cmbAction.addItem("allocate_reallocate_to_sectors")
         self.ui.cmbAction.addItem("raise_x_sell_y_dollars_except_z")
+        self.ui.cmbAction.addItem("sell_selected_total_return")
+        self.ui.cmbAction.addItem("sell_selected_todays_return")
         #add items to cmbGraphType
         self.ui.cmbGraphType.addItem("Bar (Gain/Loss)")
         self.ui.cmbGraphType.addItem("Bar (Sector Colors)")
@@ -226,7 +228,7 @@ class MainWindow(QMainWindow):
                 self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
                 
                 try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
+                    self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)
                      
                 except Exception as e:
                     if e.args[0]:
@@ -234,10 +236,10 @@ class MainWindow(QMainWindow):
                         
                         
             
-                self.print_cur_protfolio(self.ticker_lst)
+                self.print_cur_protfolio(self.portfolio)
                 #get total gains for the day
-                self.totalGains = sum(item[1] for item in self.ticker_lst)
-                self.todayGains = sum(item[5] for item in self.ticker_lst)               
+                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)               
         else: #self.data_path is empty create path and file
             get_cred_file = msgBoxGetCredentialFile()
             button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -265,7 +267,7 @@ class MainWindow(QMainWindow):
                 #try and see if we are already logged in, if not login
                
                 try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
+                    self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
                 except Exception as e:
                     if e.args[0] == "Invalid account number":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -296,17 +298,17 @@ class MainWindow(QMainWindow):
                     self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]       
                     
                     try:
-                        self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
+                        self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)  # Sort by the 10th element (index 9)
                         
                     except Exception as e:
                         if e.args[0] == "Invalid account number":
                             self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                             return
                     
-                    self.print_cur_protfolio(self.ticker_lst)
+                    self.print_cur_protfolio(self.portfolio)
                     #get total gains for the day
-                    self.totalGains = sum(item[1] for item in self.ticker_lst)
-                    self.todayGains = sum(item[5] for item in self.ticker_lst)   
+                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
                    
             else: #user pressed cancel at credential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
@@ -408,7 +410,7 @@ class MainWindow(QMainWindow):
 
         self.setupStatusbar()
         #setup plot widget
-        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
         # show the Mainwindow
         self.show()
 
@@ -440,7 +442,7 @@ class MainWindow(QMainWindow):
         self.ui.cmbGraphType.setCurrentIndex(0)
         self.ui.cmbGraphType.setCurrentText("Bar (Gain/Loss)")
 
-        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
     
@@ -452,7 +454,7 @@ class MainWindow(QMainWindow):
         self.current_plot_type = self.plot_type[1]
         self.ui.cmbGraphType.setCurrentIndex(1)
         self.ui.cmbGraphType.setCurrentText("Bar (Sector Colors)")
-        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -464,7 +466,7 @@ class MainWindow(QMainWindow):
         self.current_plot_type = self.plot_type[2]
         self.ui.cmbGraphType.setCurrentIndex(2)
         self.ui.cmbGraphType.setCurrentText("Bar (Individual Stocks)")
-        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
 
         QApplication.restoreOverrideCursor()
         return
@@ -479,7 +481,7 @@ class MainWindow(QMainWindow):
         current_index = self.ui.cmbGraphType.currentIndex()
         self.current_plot_type = self.plot_type[current_index]
         self.clear_all_clicked()
-        self.setup_plot(self.ticker_lst, plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio, plot_type=self.current_plot_type)
         self.updateStatusBar(self.selected_stocks)
         QApplication.restoreOverrideCursor()
         return
@@ -566,7 +568,7 @@ class MainWindow(QMainWindow):
 
             stocks = [item[0] for item in self.lstShares_in_file]
             self.highlight_stocks_in_table(stocks)
-            self.setup_plot(self.ticker_lst,sellected_tickets=stocks,plot_type=self.current_plot_type)
+            self.setup_plot(self.portfolio,sellected_tickets=stocks,plot_type=self.current_plot_type)
             total_amount = sum([float(item[1])*float(item[2]) for item in self.lstShares_in_file])
             self.ui.edtReinvestAmount_buyLower.setText(f"${total_amount:,.2f}")
             cmb_amount = self.ui.cmbReInvest.currentText().replace('%','')
@@ -602,8 +604,8 @@ class MainWindow(QMainWindow):
 
         if os.path.isfile(file_name):
             self.ui.edtFileBrowse.setText(file_name)
-            self.ui.edtLstStocksSellected.setReadOnly(True)
-            self.ui.edtLstStocksSellected.setStyleSheet("background-color: lightgrey;")
+            self.ui.edtLstStocksSelected.setReadOnly(True)
+            self.ui.edtLstStocksSelected.setStyleSheet("background-color: lightgrey;")
             try:
                 with open(file_name,"r") as open_file:
                     lines = open_file.readlines()
@@ -614,16 +616,16 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: File not in correct format")
                 self.ui.edtFileBrowse.setText("")
-                self.ui.edtLstStocksSellected.setReadOnly(False)
-                self.ui.edtLstStocksSellected.setStyleSheet("background-color: white;")
-                self.ui.edtLstStocksSellected.setText("")
+                self.ui.edtLstStocksSelected.setReadOnly(False)
+                self.ui.edtLstStocksSelected.setStyleSheet("background-color: white;")
+                self.ui.edtLstStocksSelected.setText("")
                 self.ui.edtAmountEst.setText("")
                 return
             
             str_stock_names = ','.join([item[0] for item in lstShares])  
             stocks = [item[0] for item in lstShares]
             self.highlight_stocks_in_table(stocks)
-            self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+            self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
             total_amount = sum([float(item[1])*float(item[2]) for item in lstShares])
             cur_amount = self.ui.edtAmountEst.text()
             strip_dollarsign = cur_amount.replace('$','')
@@ -631,27 +633,29 @@ class MainWindow(QMainWindow):
             
             if self.ui.cmbAction.currentText() == "sell_gains_except_x" :
                 #new list with stocks excluded
-                lst_share_name = self.find_and_remove(self.ticker_lst, stocks,0)
-                total_amount, _ = self.cal_today_total_gains(lst_share_name)
+                lst_share_name = self.find_and_remove(self.portfolio, stocks,0)
+                # FIX ME total_amount = sum(item for item in lst_share_name)
                 
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                lst_share_name = self.find_and_remove(self.ticker_lst, stocks,0)
-                _,total_amount = self.cal_today_total_gains(lst_share_name)
+                lst_share_name = self.find_and_remove(self.portfolio, stocks,0)
+                # FIX ME total_amount = sum(item for item in lst_share_name)
 
             self.ui.edtAmountEst.setText(f"${total_amount:,.2f}")
-            self.ui.edtLstStocksSellected.setText(str_stock_names)
+            self.ui.edtLstStocksSelected.setText(str_stock_names)
             self.ui.btnExecute.setEnabled(True)
             self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green             
         else:
             self.ui.edtFileBrowse.setText("")
-            self.ui.edtLstStocksSellected.setReadOnly(False)
-            self.ui.edtLstStocksSellected.setStyleSheet("background-color: white;")
-            self.ui.edtLstStocksSellected.setText("")
+            self.ui.edtLstStocksSelected.setReadOnly(False)
+            self.ui.edtLstStocksSelected.setStyleSheet("background-color: white;")
+            self.ui.edtLstStocksSelected.setText("")
             self.ui.edtAmountEst.setText("")
             
 
         
         return
+    
+
     def cmbToSector_clicked(self):
         tot_pct = 0.0
         lst_to_sector = self.get_symbols_To_sectors()
@@ -765,9 +769,9 @@ class MainWindow(QMainWindow):
                         symbols = [stock.split(':')[0] for stock in lst_stocks]
                         symbols_label = ','.join(symbols)
                         self.highlight_stocks_in_table(lst_stocks)
-                        self.selected_stocks = self.find_and_remove(self.ticker_lst, symbols,1)
-                        self.setup_plot(self.ticker_lst,sellected_tickets=symbols,plot_type=self.current_plot_type)
-                        self.ui.edtLstStocksSellected.setText(symbols_label) 
+                        self.selected_stocks = self.find_and_remove(self.portfolio, symbols,1)
+                        self.setup_plot(self.portfolio,sellected_tickets=symbols,plot_type=self.current_plot_type)
+                        self.ui.edtLstStocksSelected.setText(symbols_label) 
                         self.ui.edtRaiseAmount.setText(symbols_label)
                         self.updateStatusBar(self.selected_stocks)
                         total_equity = 0.0
@@ -990,7 +994,7 @@ class MainWindow(QMainWindow):
             self.ui.lstTerm.addItem(frm_date + " - " + n)
         
 
-    def updateStatusBar(self, selected_stocks=[]):
+    def updateStatusBar(self, selected_stocks={}):
         
         #Item[0] =  tickers
         #Item[1]= Total_return
@@ -1002,12 +1006,12 @@ class MainWindow(QMainWindow):
        
         # if tblAssets has stocks sellected then only calculate gains for those stocks
         if len(selected_stocks) > 0:
-            self.totalGains = sum(item[1] for item in self.selected_stocks)
-            self.todayGains = sum(item[5] for item in self.selected_stocks)
+            self.totalGains = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            self.todayGains = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
 
         else:
-            self.totalGains = sum(item[1] for item in self.ticker_lst)
-            self.todayGains = sum(item[5] for item in self.ticker_lst)
+            self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+            self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
 
         frm_TotalGains = "{0:,.2f}".format(self.totalGains)
         frm_TodayGains = "{0:,.2f}".format(self.todayGains)
@@ -1125,41 +1129,29 @@ class MainWindow(QMainWindow):
             return
         
         # if there is stocks in list update it every 10 seconds if there is something to update
-        if len(self.ticker_lst) != 0: 
+        if len(self.portfolio) != 0: 
             
-            # update the table if there is a change in the number of stocks
+            self.portfolio = self.get_stocks_from_portfolio(acc_num=self.current_account_num)
 
             
            
             
           
-            for idx,item in enumerate(self.ticker_lst):
+            for idx,sym in enumerate(self.portfolio):
                 if self._shutting_down:
                     return
-                last_price = r.get_quotes(item[0], "last_trade_price")[0]
-                #only update self.ticker_lst item[3]
-                ticker_entry = list(self.ticker_lst[idx])
-                ticker_entry[3] = str(last_price) if last_price is not None else '0'
-                self.ticker_lst[idx] = ticker_entry
-                prev_close = r.get_quotes(item[0], "previous_close")[0]
-                if last_price is None or prev_close is None:
-                    self.ui.lstTerm.addItem(f"Error: Could not retrieve price for {item[0]}")
-                    last_price = 0.0
-                    prev_close = 0.0
-                    total_return = 0.0
-                    todays_return = 0.0
-                    quantity = item[4]
-                    change = float(last_price) - float(prev_close) 
-                    equity = float(item[4]) * float(last_price)   
-                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10]])
-                    continue
-                else:
-                    total_return = (float(last_price) - float(item[6])) * float(item[4])
-                    todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
-                    quantity = item[4]
-                    change = float(last_price) - float(prev_close) 
-                    equity = float(item[4]) * float(last_price)   
-                    lst_elements_to_update.append([f"{item[9]} ({item[0]})",float(last_price),change,item[4],todays_return,total_return,equity,item[10]])
+                
+                lst_elements_to_update.append([self.portfolio[sym]['stock_name'], \
+                                                   self.portfolio[sym]['price'], \
+                                                   self.portfolio[sym]['change'], \
+                                                   self.portfolio[sym]['quantity'], \
+                                                   self.portfolio[sym]['todays_return'], \
+                                                   self.portfolio[sym]['total_return'], \
+                                                   self.portfolio[sym]['equity'], \
+                                                   self.portfolio[sym]['percentage']]
+                    )
+
+            #update portfolio if anything changes
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -1201,7 +1193,7 @@ class MainWindow(QMainWindow):
             #self.lstupdated_tblAssets = lst_elements_to_update
             
         
-            self.updateStatusBar(self.ticker_lst)
+            self.updateStatusBar(self.selected_stocks)
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
@@ -1300,7 +1292,7 @@ class MainWindow(QMainWindow):
                     self.totalGains = sum(item[1] for item in self.ticker_lst if item[1] > 0.0)
                     self.todayGains = sum(item[5] for item in self.ticker_lst if item[5] > 0.0)
                     #setup plot widget
-                    self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                    self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
                     #edit status bar
             
                 frm_TotalGains = "{0:,.2f}".format(self.totalGains)
@@ -1365,7 +1357,7 @@ class MainWindow(QMainWindow):
         priceTotal = 0.0
 
         stock_names = self.get_tickers_from_selected_lstAssets()
-        self.selected_stocks = self.find_and_remove(self.ticker_lst,stock_names,1)
+        self.selected_stocks = self.find_and_remove(self.portfolio,stock_names,1)
        
          #Item[0] =  tickers
         #Item[1]= Total_return
@@ -1387,12 +1379,12 @@ class MainWindow(QMainWindow):
 
         self.ui.edtBuyWithAmount.setReadOnly(True)
         self.ui.edtAmountEst.setReadOnly(True)               
-        self.ui.edtLstStocksSellected.setReadOnly(True)
+        self.ui.edtLstStocksSelected.setReadOnly(True)
         
         if len(stock_names) >0: 
             
             total_equity = 0.0
-            total_equity = sum(float(self.portfolio[sym]['equity']) for sym in stock_names if sym in self.portfolio)
+            total_equity = sum(self.selected_stocks[sym]['equity'] for sym in self.selected_stocks)
             self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
            
 
@@ -1400,7 +1392,7 @@ class MainWindow(QMainWindow):
                 case "stock_info":
                     # ensure not too much data to plot
                     if not len(stock_names) > 1:
-                        self.setup_plot(self.ticker_lst,stock_names,plot_type=self.current_plot_type)
+                        self.setup_plot(self.portfolio,stock_names,plot_type=self.current_plot_type)
                     
 
                 case "sell_selected":
@@ -1418,13 +1410,13 @@ class MainWindow(QMainWindow):
                     
                     #self.highlight_stocks_in_table(stock_names)
                     if not len(stock_names) > 1:
-                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
                 case "sell_gains_except_x":
 
                         strjoinlst = ",".join(stock_names)
-                        self.ui.edtLstStocksSellected.setText(strjoinlst)
+                        self.ui.edtLstStocksSelected.setText(strjoinlst)
                         
-                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
+                        n_tickersPerf = self.find_and_remove(self.portfolio,stock_names,0)
                         total_return = sum(item[1] for item in n_tickersPerf if item[1] > 0.0)
                         
                         self.ui.edtAmountEst.setText(f"{total_return:,.2f}")
@@ -1432,9 +1424,9 @@ class MainWindow(QMainWindow):
                 case "sell_todays_return_except_x":
                     
                         strjoinlst = ",".join(stock_names)
-                        self.ui.edtLstStocksSellected.setText(strjoinlst)
+                        self.ui.edtLstStocksSelected.setText(strjoinlst)
         
-                        n_tickersPerf = self.find_and_remove(self.ticker_lst,stock_names,0)
+                        n_tickersPerf = self.find_and_remove(self.portfolio,stock_names,0)
                         todays_return = sum(item[5] for item in n_tickersPerf if item[5] > 0.0)
                         
                         self.ui.edtAmountEst.setText(f"{todays_return:,.2f}")
@@ -1442,7 +1434,7 @@ class MainWindow(QMainWindow):
                     strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
                     if not len(stock_names) > 1:
-                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+                        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
                 case "reinvest_with_gains":
                     if os.path.isfile(self.ui.edtFileBrowse_buyLower.text()):
                         pass
@@ -1490,7 +1482,7 @@ class MainWindow(QMainWindow):
         if re.match(r'^\d+$',self.ui.edtDollarValueToSell.text()):
             self.ui.btnExecute.setEnabled(True)
             lstShares = self.ui.edtRaiseAmount.text().split(',')
-            ticker_copy_include_list = self.find_and_remove(self.ticker_lst,lstShares,1)
+            ticker_copy_include_list = self.find_and_remove(self.portfolio,lstShares,1)
             #user entered new symbols that are not in the list
             if ticker_copy_include_list is None or len(ticker_copy_include_list) == 0:
                 last_price = r.get_quotes(lstShares, "last_trade_price")
@@ -1580,16 +1572,16 @@ class MainWindow(QMainWindow):
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
         self.ui.edtBuyWithAmount.setText("")
-        self.ui.edtLstStocksSellected.setText("")
-        self.ui.edtLstStocksSellected.setReadOnly(False)
-        self.ui.edtLstStocksSellected.setStyleSheet("background-color: white;")
+        self.ui.edtLstStocksSelected.setText("")
+        self.ui.edtLstStocksSelected.setReadOnly(False)
+        self.ui.edtLstStocksSelected.setStyleSheet("background-color: white;")
         self.ui.edtFileBrowse.setText("")
         self.ui.edtAmountEst.setText("")
         self.ui.lstTerm.clear()
         self.ui.lbltblAsset_sum.setText("Equity: $0.00")
         self.ui.btnExecute.setEnabled(False)
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
-        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
+        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
         self.selected_stocks = []
         self.updateStatusBar(self.selected_stocks)
         
@@ -1653,7 +1645,7 @@ class MainWindow(QMainWindow):
         
         if re.match(r'^[0-9]+$',text) and text != "":
             iteration = int(text)
-            self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
+          
             match self.ui.cmbAction.currentText():
                 case "sell_gains":
                     new_total_return = self.totalGains * iteration
@@ -1807,7 +1799,7 @@ class MainWindow(QMainWindow):
         #   
         # else: #default
 
-    def setup_plot(self,tickersPerf = [],sellected_tickets = [],plot_type = "Bar (Sector Colors)"):
+    def setup_plot(self,tickersPerf = {},sellected_tickets = [],plot_type = "Bar (Sector Colors)"):
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
@@ -1899,6 +1891,10 @@ class MainWindow(QMainWindow):
                 case "raise_x_sell_y_dollars_except_z":
                     self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,lst)
 
+                case "sell_selected_total_gains":
+                    self.Execute_operation("sell_selected_total_return",num_iter,lst)
+                case "sell_selected_todays_return":
+                    self.Execute_operation("sell_selected_todays_return",num_iter,lst)
                 case _:
                     self.Execute_operation(None) #default
 
@@ -1932,6 +1928,11 @@ class MainWindow(QMainWindow):
         perform_action = self.ui.cmbAction.currentText()
         #clear all fields and reset to default
         
+        #page 1 - sell except x ------------------------------------
+        self.ui.lblExceptStocks_in_file.setVisible(True)
+        self.ui.edtFileBrowse.setVisible(True)
+        self.ui.btnBrowse.setVisible(True)
+        #------------------------------------------------------------
         self.ui.edtRaiseAmount.setVisible(False)
         self.ui.lblRaiseAmount.setVisible(False)
         self.ui.edtRaiseAmount.setEnabled(True)
@@ -1961,7 +1962,7 @@ class MainWindow(QMainWindow):
                 self.ui.cmbDollarShare.setVisible(False)
                 
                 
-                self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)  
+                self.setup_plot(self.portfolio,plot_type=self.current_plot_type)  
             case "sell_selected":
                 self.ui.stackPage.setCurrentIndex(2)
                 
@@ -1991,7 +1992,7 @@ class MainWindow(QMainWindow):
                
             case "sell_gains_except_x":
                 self.ui.stackPage.setCurrentIndex(1)
-                total_return,_ = self.cal_today_total_gains(self.ticker_lst)
+                total_return = sum(item[1] for item in self.ticker_lst)
 
                 self.ui.edtAmountEst.setText(f"${total_return:,.2f}")          
                 self.ui.edtAmountEst.isEnabled = False
@@ -2003,7 +2004,7 @@ class MainWindow(QMainWindow):
                
             case "sell_todays_return_except_x":
                 self.ui.stackPage.setCurrentIndex(1)
-                _,todays_stockReturn = self.cal_today_total_gains(self.ticker_lst)
+                todays_stockReturn = sum(item[5] for item in self.ticker_lst)
                 self.ui.edtAmountEst.setText(f"${todays_stockReturn:,.2f}")
                 self.ui.edtAmountEst.isEnabled = False
                 self.ui.edtAmountEst.setForegroundRole(QPalette.ColorRole.Shadow)
@@ -2011,7 +2012,37 @@ class MainWindow(QMainWindow):
                 self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
                 self.ui.btnExecute.setEnabled(True)
-                
+            case "sell_selected_total_gains":
+                self.ui.stackPage.setCurrentIndex(1)
+                if self.ui.tblAssets.selectedItems():
+                    self.ui.lblExceptStocks_in_file.setVisible(False)
+                    self.ui.edtFileBrowse.setVisible(False)
+                    self.ui.btnBrowse.setVisible(False)
+                    self.ui.lblSellAssetExSel.setText("Sell Selected Asset(s):")
+                    if self.totalGains <= 0.0:
+                        self.ui.edtAmountEst.setText('gains is less then 0.00')
+                        self.ui.btnExecute.setEnabled(False)
+                        self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
+                    else:
+                        self.ui.btnExecute.setEnabled(True)
+                        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                        self.ui.edtAmountEst.setText(f'${self.todayGains:,.2f}')                
+                    self.ui.edtAmountEst.setText(f'{self.totalGains:,.2f}')                
+            case "sell_selected_todays_return":
+                self.ui.stackPage.setCurrentIndex(1)
+                if self.ui.tblAssets.selectedItems():
+                    self.ui.lblExceptStocks_in_file.setVisible(False)
+                    self.ui.edtFileBrowse.setVisible(False)
+                    self.ui.btnBrowse.setVisible(False)
+                    self.ui.lblSellAssetExSel.setText("Sell Selected Asset(s):")
+                    if self.todayGains <= 0.0:
+                        self.ui.edtAmountEst.setText('gains is less then 0.00')
+                        self.ui.btnExecute.setEnabled(False)
+                        self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
+                    else:
+                        self.ui.btnExecute.setEnabled(True)
+                        self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                        self.ui.edtAmountEst.setText(f'${self.todayGains:,.2f}')                
             case "buy_selected_with_x":
                 self.ui.stackPage.setCurrentIndex(2)
                 self.ui.lblRaiseAmount.setText("Buy Selected Asset:")
@@ -2081,23 +2112,22 @@ class MainWindow(QMainWindow):
                 #get tickers in portfolio
                 try:
                     
-                    self.ticker_lst = self.get_stocks_from_portfolio(accountNum)
-                    self.print_cur_protfolio(self.ticker_lst)
-                    self.totalGains,self.todayGains = self.cal_today_total_gains(self.ticker_lst)
+                    self.portfolio = self.get_stocks_from_portfolio(accountNum)
+                    self.print_cur_protfolio(self.portfolio)
                     self.setupStatusbar()
-                    tickersPerf = self.ticker_lst
+                    
                     
                     if self.ui.lstTerm.count() > 0:
                         self.ui.lstTerm.clear()
 
-                    self.setup_plot(tickersPerf,plot_type=self.current_plot_type)
-                   # self.updateStatusBar(tickersPerf)
+                    self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+                  
                 except Exception as e:
                     if e.args[0] == "No stocks in account":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        self.print_cur_protfolio(self.ticker_lst)
-                        self.setup_plot(self.ticker_lst,plot_type=self.current_plot_type)
-                        #self.updateStatusBar(self.ticker_lst)
+                        self.print_cur_protfolio(self.portfolio)
+                        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+               
                     
                     
                
@@ -2155,32 +2185,43 @@ class MainWindow(QMainWindow):
         if lst is None:
             lst = ["Don't Care"]
         
-        if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
-            raise_amount = self.ui.edtAllocAmount.text()
-            dollar_value_to_sell = 100.0
-            if self.raised_amount != "":
-                buying_with_amount = self.raised_amount
-            else:
-                buying_with_amount = raise_amount
+        match self.ui.cmbAction.currentText():
+            case "allocate_reallocate_to_sectors":
+                raise_amount = self.ui.edtAllocAmount.text()
+                dollar_value_to_sell = 100.0
+                if self.raised_amount != "":
+                    buying_with_amount = self.raised_amount
+                else:
+                    buying_with_amount = raise_amount
 
-        elif self.ui.cmbAction.currentText() == "raise_x_sell_y_dollars_except_z":
-            raise_amount = self.ui.edtBuyWithAmount.text()
-            dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
-            buying_with_amount = "Not Used"
-        elif self.ui.cmbAction.currentText() == "reinvest_with_gains":
-            buying_with_amount = float(self.ui.edtReInvestValue.text().replace("$","").replace(",",""))
+            case "raise_x_sell_y_dollars_except_z":
+                raise_amount = self.ui.edtBuyWithAmount.text()
+                dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
+                buying_with_amount = "Not Used"
+            case "reinvest_with_gains":
+                buying_with_amount = float(self.ui.edtReInvestValue.text().replace("$","").replace(",",""))
             
-            dollar_value_to_sell = self.ui.cmbReInvest.currentText().replace("%","")
-            raise_amount = "Not Used"
-        else:
-            raise_amount = self.ui.edtRaiseAmount.text()
-            if  raise_amount == "":
+                dollar_value_to_sell = self.ui.cmbReInvest.currentText().replace("%","")
                 raise_amount = "Not Used"
-            dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
-            if dollar_value_to_sell == "":
-                dollar_value_to_sell = "Not Used"
-            buying_with_amount = self.ui.edtBuyWith.text()
-            
+            case "sell_selected_total_gains":
+                dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
+                raise_amount = "Not Used"
+                buying_with_amount = "Not Used"
+
+            case "sell_selected_todays_return":
+                dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
+                raise_amount = "Not Used"
+                buying_with_amount = "Not Used"
+            case _:
+                raise_amount = self.ui.edtRaiseAmount.text()
+                if  raise_amount == "":
+                    raise_amount = "Not Used"
+                dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
+                if dollar_value_to_sell == "":
+                    dollar_value_to_sell = "Not Used"
+                buying_with_amount = self.ui.edtBuyWith.text()
+                if buying_with_amount == "":
+                    buying_with_amount = "Not Used"
 
         if ask_confirm:
             match method_name:
@@ -2195,12 +2236,33 @@ class MainWindow(QMainWindow):
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
                             f"\nPreview:"
-                    
+                    sell_list = self.sell_gains_except_x_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
+                    preview_sellbuy_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list]
+                    lst = sell_list
                 case "sell_todays_return_except_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
                             f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
                             f"\nPreview:"
+                    sell_list = self.sell_todays_return_except_x_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
+                    preview_sellbuy_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list]
+                    lst = sell_list
+                case "sell_selected_total_gains":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
+                            f"\nPreview:"
+                    sell_list = self.sell_selected_todays_total_return_prev(num_iter,lst,dollar_value_to_sell)
+                    preview_sellbuy_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list]
+                    lst = sell_list
+                case "sell_selected_todays_return":
+                    msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
+                            f"Except: {lst}\n" \
+                            f"Sell Amount: {self.ui.edtAmountEst.text()}\n" \
+                            f"\nPreview:"
+                    sell_list = self.sell_selected_todays_total_return_prev(num_iter,lst,dollar_value_to_sell)
+                    preview_sellbuy_list = [f"{item[0]}: sell {item[1]} shares" for item in sell_list]
+                    lst = sell_list
                 case "buy_selected_with_x":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Except: {lst}\n" \
@@ -2311,7 +2373,6 @@ class MainWindow(QMainWindow):
         #Item 3 = last price
         #item[4]= your quantities
         #item[5]=today's return
-        #item[6]= 1 year history <- removed
         #item[6]= average buy price
         #item[7]=%change in price
         #item[8]=change in price since previous close
@@ -2334,15 +2395,16 @@ class MainWindow(QMainWindow):
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
 
-        for item in self.ticker_lst:
-            last_price = r.get_quotes(item[0], "last_trade_price")[0]
-            prev_close = r.get_quotes(item[0], "previous_close")[0]
-            total_return = (float(last_price) - float(item[6])) * float(item[4])
-            todays_return = (float(last_price) - float(prev_close)) * float(item[4]) 
-            quantity = item[4]
-            change = float(last_price) - float(prev_close)  
-            equity = float(last_price) * float(quantity)
-            lst_elements_to_update.append([f"{item[9]} ({item[0]})", float(last_price), change, item[4], todays_return, total_return, equity, item[10]])
+        for item in self.portfolio:
+            lst_elements_to_update.append(  [self.portfolio[item]['stock_name'], \
+                                            self.portfolio[item]['price'], \
+                                            self.portfolio[item]['change'], \
+                                            self.portfolio[item]['quantity'], \
+                                            self.portfolio[item]['todays_return'], \
+                                            self.portfolio[item]['total_return'], \
+                                            self.portfolio[item]['equity'], \
+                                            self.portfolio[item]['percentage']]
+            )
 
        
         
@@ -2408,7 +2470,11 @@ class MainWindow(QMainWindow):
     
     def get_stocks_from_portfolio(self, acc_num):
         
+        
         positions = r.get_open_stock_positions(acc_num)
+        
+        
+
         if len(positions) == 0:
             raise Exception("No stocks in account")
         
@@ -2425,40 +2491,8 @@ class MainWindow(QMainWindow):
 
         #get stock names
         stock_name = [r.get_name_by_url(item["instrument"]) for item in positions]
-        #get fundamentals
-        #self.fundamentals = r.get_fundamentals(tickers, info='sector')
-       
-       
-           
+        sector = [r.get_fundamentals(ticker, info='sector')[0] for ticker in tickers]
         
-
-        #build dictionary for holdings
-        holdings = {}
-        for i, sym in enumerate(tickers):
-            qty = float(positions[i]["quantity"])
-            equity = float(lastPrice[i]) * qty
-            holdings[sym] = {
-                "price": float(lastPrice[i]),
-                "quantity": qty,
-                "equity": equity,
-                "average_buy_price": float(avg_buy_price[i]),
-                "percentage": 0.0,  # filled after total equity known
-                "prev_close": float(previous_close[i]),
-                "sector":  r.get_fundamentals(sym, info='sector')[0],
-                "stock_name": stock_name[i]
-                
-            }
-
-        self.portfolio = holdings
-        self.portfolio_tvalue = sum((float(self.portfolio[item]['equity']) for item in self.portfolio))
-        
-        if len(tickers) != len (previous_close):
-            tickers.pop()
-            stock_name.pop()
-            positions.pop()
-
-        #calculate % of each stock in your portfolio
-        lst_pct_of_portfolio = [(float(self.portfolio[item]["equity"]) / self.portfolio_tvalue * 100) for item in self.portfolio]
         
         pct_change = [(float(lastPrice[i]) - float(previous_close[i]))/float(previous_close[i])*100  for i in range(len(tickers))]
         change = [float(lastPrice[i]) - float(previous_close[i]) for i in range(len(tickers))]
@@ -2471,62 +2505,57 @@ class MainWindow(QMainWindow):
         #calc Todays return
         todays_return = [(float(lastPrice[i]) - float(previous_close[i]))*quantities[i] for i in range(len(tickers))]
 
-        # Calculate stock quantities to sell to get total returns
-        stock_quantity_to_sell = [total_return[i] / float(lastPrice[i]) for i in range(len(tickers))]   
-        # build tuple to iterate through and sell stocks
-       
 
-        #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= 1 year history <-- removed
-        #item[6]= average buy price
-        #item[7]=%change in price
-        #item[8]=change in price since previous close
-        #item[9] = stock name
-        #item[10] = % of portfolio
-        #item[11] = dividend yield
-        tickersPerf = list(zip(tickers,total_return,stock_quantity_to_sell,lastPrice,quantities,todays_return,
-                               avg_buy_price,pct_change,change,stock_name,lst_pct_of_portfolio) )
-        
-        sorted_list = sorted(tickersPerf,key=lambda x: x[9])
-
-        return sorted_list
-
-    #calculate total gains and today's gains
-    def cal_today_total_gains(self, list_p) -> tuple[float,float]:
-        
-        grand_total_gains = 0.0
-        todays_gains = 0.0
-            #Item 0 =  tickers
-        #Item 1 = Total_return
-        #Item 2 = stock_quantity_to_sell/buy
-        #Item 3 = last price
-        #item[4]= your quantities
-        #item[5]=today's return
-
-        for i in list_p:
+        #build dictionary for holdings
+        holdings = {}
+        for i, sym in enumerate(tickers):
+            qty = float(positions[i]["quantity"])
+            equity = float(lastPrice[i]) * qty
+            holdings[sym] = {
+                "price": float(lastPrice[i]),
+                "change": float(lastPrice[i]) - float(previous_close[i]),
+                "quantity": qty,
+                "equity": equity,
+                "todays_return": (float(lastPrice[i]) - float(previous_close[i]))*qty,
+                "total_return": (float(lastPrice[i]) - avg_buy_price[i])*qty,
+                "average_buy_price": float(avg_buy_price[i]),
+                "percentage": 0.0,  # filled after total equity known
+                "prev_close": float(previous_close[i]),
+                "sector":  sector[i],
+                "stock_name": f"{stock_name[i]} ({sym})"
                 
-            if (float(i[1]) > 0.0): 
-                grand_total_gains += i[1]
-            if (float(i[5] > 0.0)):
-                todays_gains += i[5]
-                
-        return  grand_total_gains,todays_gains
-        
-    def find_and_remove(self, tickers, in_exList,include_flag = 1):
-        
-        if include_flag == 0:
-        # Create a new list including the items not in in_exList
-            updated_tickers = [ticker for ticker in tickers if ticker[0] not in in_exList]
-        elif include_flag == 1:
-        # Create a new list including only the items in in_exList
-            updated_tickers = [ticker for ticker in tickers if ticker[0] in in_exList]
+            }
 
-        return updated_tickers
+
+        self.portfolio_tvalue = sum((float(holdings[item]['equity']) for item in holdings))
+        lst_pct_of_portfolio = [(float(holdings[item]["equity"]) / self.portfolio_tvalue * 100) for item in holdings]
+        #calculate % of each stock in your portfolio
+        for key in self.portfolio:
+            sym = key
+            self.portfolio[sym]["percentage"] = (float(self.portfolio[key]["equity"]) / self.portfolio_tvalue * 100)
+        
+        
+        if len(tickers) != len (previous_close):
+            tickers.pop()
+            stock_name.pop()
+            positions.pop()
+
+        sorted_holdings = dict(sorted(holdings.items(), key=lambda kv: kv[0]))
+        return sorted_holdings
+
+   
+        
+    def find_and_remove(self, tickers, in_exList, include_flag=1):
+        
+        if include_flag == 1:
+            updated_dict = {k: v for k, v in self.portfolio.items() if k in in_exList}
+        elif include_flag == 0:
+            updated_dict = {k: v for k, v in self.portfolio.items() if k not in in_exList}
+            
+        
+            
+
+        return updated_dict
 
     def check_and_read_conditions_met(self):
         cond_check = False
@@ -2565,15 +2594,36 @@ class MainWindow(QMainWindow):
                 else:
                     check_two = True
             case "sell_todays_return_except_x" | "sell_gains_except_x": 
-                lst = self.ui.edtLstStocksSellected.text().split(",")
-                check_two = True
+                lst = self.ui.edtLstStocksSelected.text().split(",")
+                if lst:
+                    check_two = True
+                else:
+                    msg = QMessageBox.warning(self,"Selection","No stocks selected from the asset list.",QMessageBox.StandardButton.Ok)
+                    if msg == QMessageBox.StandardButton.Ok:
+                        lst = ['err']
+                
             case "raise_x_sell_y_dollars_except_z":
                 lst = self.ui.edtRaiseAmount.text().split(",")
             case "reinvest_with_gains":
                 lst = [item for item in self.ui.edtStocksInFile_BuyLower.text().split(",")]
+                if lst:
+                    check_two = True
+                else:
+                    msg = QMessageBox.warning(self,"Selection","No stocks selected from the asset list.",QMessageBox.StandardButton.Ok)
+                    if msg == QMessageBox.StandardButton.Ok:
+                        lst = ['err']
                 
                 check_two = True
-    
+            case "sell_selected_total_gains" | "sell_selected_todays_return":
+                lst = self.ui.edtLstStocksSelected.text().split(",")
+                if lst:
+                    check_two = True
+                else:
+                    msg = QMessageBox.warning(self,"Selection","No stocks selected from the asset list.",QMessageBox.StandardButton.Ok)
+                    if msg == QMessageBox.StandardButton.Ok:
+                        lst = ['err']
+                        
+
         if check_one and check_two:
             return txtIter,lst
         else:
@@ -2754,9 +2804,9 @@ class MainWindow(QMainWindow):
                         if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
                             quantity_to_buy = dollar_value_to_buy
                         elif self.ui.cmbDollarShare.currentText() == "Buy in USD":
-                            quantity_to_buy = dollar_value_to_buy / float(item[3])     
+                            quantity_to_buy = dollar_value_to_buy / self.portfolio[item]['price']     
                     
-                        tot = quantity_to_buy*float(item[3])
+                        tot = quantity_to_buy*self.portfolio[item]['price']
                         frm_tot = "{0:.2f}".format(tot)
                         strquantity_to_buy = "{0:.2f}".format(quantity_to_buy)
                     
@@ -2803,11 +2853,11 @@ class MainWindow(QMainWindow):
         gtotal = 0.0
         quantity_to_buy = 0.0
         #format list to buy, get stocks from portfolio and remove stocks not in the list and sort the list
-        tickersPerf = self.get_stocks_from_portfolio(acc_num)
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        self.portfolio = self.get_stocks_from_portfolio(acc_num)
+        n_tickersPerf = self.find_and_remove(self.portfolio, lst,1)
         
       
-        sorted_lst = sorted(n_tickersPerf,key=lambda x: x[0])
+        
         if n_tickersPerf is None or len(n_tickersPerf) == 0:
             self.lstTerm_update_progress_fn(f"Buy new list of stocks:")
             buy_list = self.new_lstShares
@@ -2822,7 +2872,7 @@ class MainWindow(QMainWindow):
                             break
                     
 
-                        for item in sorted_lst:
+                        for item in self.portfolio:
                                 #Item 0 =  tickers
                                 #Item 1 = Total_return
                                 #Item 2 = stock_quantity_to_sell/buy
@@ -2836,9 +2886,9 @@ class MainWindow(QMainWindow):
                             if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
                                 quantity_to_buy = dollar_value_to_buy
                             elif self.ui.cmbDollarShare.currentText() == "Buy in USD":
-                                quantity_to_buy = dollar_value_to_buy / float(item[3])     
+                                quantity_to_buy = dollar_value_to_buy / self.portfolio[item]['price']     
                         
-                            tot = quantity_to_buy*float(item[3])
+                            tot = quantity_to_buy*self.portfolio[item]['price']
                             frm_tot = "{0:.2f}".format(tot)
                             strquantity_to_buy = "{0:.2f}".format(quantity_to_buy)
                         
@@ -2855,11 +2905,11 @@ class MainWindow(QMainWindow):
                                     found = False
                                             
                             if not found:
-                                itm = [item[0],float(strquantity_to_buy),item[3]]
+                                itm = [item,float(strquantity_to_buy),self.portfolio[item]['price']]
                                 buy_list.append(itm)
                                 buying_power -= tot 
             elif buying_power == 0.0: # user did not enter a buying power amount so buy all stocks in the list once
-                for item in sorted_lst:
+                for item in self.portfolio:
                     if self.command_thread.stop_event.is_set():
                         print("stop event")
                         self.lstTerm_update_progress_fn("Operation Cancelled!")
@@ -2867,13 +2917,13 @@ class MainWindow(QMainWindow):
                     if self.ui.cmbDollarShare.currentText() == "Buy in Shares":
                         quantity_to_buy = dollar_value_to_buy
                     elif self.ui.cmbDollarShare.currentText() == "Buy in USD":
-                        quantity_to_buy = dollar_value_to_buy / float(item[3])     
+                        quantity_to_buy = dollar_value_to_buy / self.portfolio[item]['price']    
                     
-                    tot = quantity_to_buy*float(item[3])
+                    tot = quantity_to_buy*self.portfolio[item]['price']
                     frm_tot = "{0:.2f}".format(tot)
                     strquantity_to_buy = "{0:.2f}".format(quantity_to_buy)
                     
-                    itm = [item[0],float(strquantity_to_buy),item[3]]
+                    itm = [item,float(strquantity_to_buy),self.portfolio[item]['price']]
                     buy_list.append(itm)
 
     
@@ -2986,13 +3036,13 @@ class MainWindow(QMainWindow):
         frm_tot = "0.0"
         fill_price = "0.0"
         method_name = self.ui.cmbAction.currentText()
-        tickersPerf = self.get_stocks_from_portfolio(acc_num)
+        self.portfolio = self.get_stocks_from_portfolio(acc_num)
         frm_quantity_dollar_amount = "{0:.2f}".format(float(dollar_value_to_sell))  
         #new list with selected tickers only      
-        n_tickersPerf = self.find_and_remove(tickersPerf, lst,1)
+        n_tickersPerf = self.find_and_remove(self.portfolio, lst,1)
 
-        for index, item in enumerate(n_tickersPerf):
-                    est_price = item[3]
+        for item in n_tickersPerf:
+                    est_price = self.portfolio[item]['price']
                     Total_quantity = float(dollar_value_to_sell) / float(est_price)
                     priceTotal += float(est_price) * Total_quantity
 
@@ -3018,7 +3068,7 @@ class MainWindow(QMainWindow):
                     self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
                 
-                shares_to_sell = float(dollar_value_to_sell)/float(item[3])
+                shares_to_sell = float(dollar_value_to_sell)/self.portfolio[item]['price']
                 frm_shares_to_sell = "{0:.2f}".format(shares_to_sell)
                 #if share quantity > shares to sell then sell shares_to_sell
                 if float(item[4]) - shares_to_sell >= 0.1:
@@ -3069,7 +3119,38 @@ class MainWindow(QMainWindow):
         return
     
 
+#----------------------------------------------------------------------------------------------------------------------------------
+# sell_gains_x exclude a list of stocks
+# -------------------------------------------------------------------------------------------------------------------------------------        
+    def sell_gains_except_x_prev(self,n,lst,raise_amount,dollar_value_to_sell,buying_with):
+     #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+        fill_price = "0.0"
+        frm_tot = "0.0"
+        tot_gains = 0.0
+        tot_tgains = 0.0
+        sell_list = []
+        sell_info = {} 
+        stock_symbols = []
+        tgains_actual = 0.0
                 
+                #exclude the tickets in excludeList
+        
+        
+                    
+        
+
+        return sell_list
+    
+
 #----------------------------------------------------------------------------------------------------------------------------------
 # sell_gains_x exclude a list of stocks
 # -------------------------------------------------------------------------------------------------------------------------------------        
@@ -3173,8 +3254,208 @@ class MainWindow(QMainWindow):
         self.print_terminal_to_file()
 
         return
+
+    def sell_selected_todays_total_return_prev(self,n,lst,raise_amount,dollar_value_to_sell,buying_with):
+        sell_list = []
+        
+        for symbol in lst:
+            last_price = r.stocks.get_latest_price(symbol)[0]
+            quantity_to_sell = float(dollar_value_to_sell) / float(last_price)
+            sell_list.append( [symbol,quantity_to_sell] )
+            self.update_portfolio(symbol=symbol,key='price',data=last_price)
+            
+         
+        return sell_list
     
 
+    def sell_selected_total_return(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+        
+        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${dollar_value_to_sell*int(n):,.2f}") 
+
+
+        
+        for index in range(int(n)):
+            if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
+                break
+            
+            self.lstTerm_update_progress_fn(f"Iteration{index+1}")
+            
+            stock_symbols = []
+            #sell stocks if quantity_to_sell > 0 
+            for item in lst:
+              
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
+                    break
+                
+                last_price = float(r.stocks.get_latest_price(item)[0])
+                shares_to_sell = float(dollar_value_to_sell)/last_price
+                self.update_portfolio(symbol=item,key='price',data=last_price)
+                
+                frm_shares_to_sell = "{0:.2f}".format(shares_to_sell)
+                #if share quantity > shares to sell then sell shares_to_sell
+                if self.portfolio[item]["quantity"] - shares_to_sell >= 0.1:
+                    if os.environ['debug'] == '0':
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity=frm_shares_to_sell,timeInForce='gfd',account_number=acc_num)
+                            time.sleep(0.5)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+                            #if not state infor is filled then wait till it is filled
+                            while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
+                                time.sleep(0.5)
+                                sell_info = r.get_stock_order_info(sell_info['id'])
+
+                           
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                    self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                            
+                           
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
+                    
+                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
+                    else:
+                        if sell_info['state'] == 'queued':
+                            fill_price = "queued"
+                        else:
+                            fill_price = "0.00"
+                
+                    if sell_info['state'] == 'filled':
+                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                    elif sell_info['state'] == 'queued':
+                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
+                    tot = float(dollar_value_to_sell)
+                    tgains_actual += tot
+
+                    self.lstTerm_update_progress_fn(f"${frm_shares_to_sell} of {item[0]} shares sold at market price - ${fill_price} - Total: {shares_to_sell:,.2f} shares")
+        
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
+            
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
+        
+        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
+        self.print_terminal_to_file()
+    
+        return
+    
+    def sell_selected_todays_return(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+        
+        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${dollar_value_to_sell*int(n):,.2f}") 
+
+
+        
+        for index in range(int(n)):
+            if self.command_thread.stop_event.is_set():
+                print("stop event")
+                self.lstTerm_update_progress_fn("Operation Cancelled!")
+                break
+            
+            self.lstTerm_update_progress_fn(f"Iteration{index+1}")
+            
+            stock_symbols = []
+            #sell stocks if quantity_to_sell > 0 
+            for item in lst:
+              
+                time.sleep(5)
+                if self.command_thread.stop_event.is_set():
+                    print("stop event")
+                    self.lstTerm_update_progress_fn("Operation Cancelled!")
+                    break
+                
+                last_price = float(r.stocks.get_latest_price(item)[0])
+                shares_to_sell = float(dollar_value_to_sell)/last_price
+                self.update_portfolio(symbol=item,key='price',data=last_price)
+                
+                frm_shares_to_sell = "{0:.2f}".format(shares_to_sell)
+                #if share quantity > shares to sell then sell shares_to_sell
+                if self.portfolio[item]["quantity"] - shares_to_sell >= 0.1:
+                    if os.environ['debug'] == '0':
+                        try:
+                            sell_info = r.order_sell_market(symbol=item[0],quantity=frm_shares_to_sell,timeInForce='gfd',account_number=acc_num)
+                            time.sleep(0.5)
+                            sell_info = r.get_stock_order_info(sell_info['id'])
+                            #if not state infor is filled then wait till it is filled
+                            while 'state' not in sell_info and sell_info['state'] != 'filled' and sell_info['state'] != 'queued':
+                                time.sleep(0.5)
+                                sell_info = r.get_stock_order_info(sell_info['id'])
+
+                           
+                            if 'detail' in sell_info and sell_info['detail'] is not None:
+                                    self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
+                            
+                           
+                        except Exception as e:
+                            self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
+                            return
+                    
+                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
+                    else:
+                        if sell_info['state'] == 'queued':
+                            fill_price = "queued"
+                        else:
+                            fill_price = "0.00"
+                
+                    if sell_info['state'] == 'filled':
+                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                    elif sell_info['state'] == 'queued':
+                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
+                    tot = float(dollar_value_to_sell)
+                    tgains_actual += tot
+
+                    self.lstTerm_update_progress_fn(f"${frm_shares_to_sell} of {item[0]} shares sold at market price - ${fill_price} - Total: {shares_to_sell:,.2f} shares")
+        
+        if len(stock_symbols) > 0:
+            self.write_to_file(stock_symbols)
+            
+        fmt_tgains_actual = "{0:,.2f}".format(tgains_actual*int(n))
+        
+        self.lstTerm_update_progress_fn(f"Operation Done! - Total=${fmt_tgains_actual}")
+        self.print_terminal_to_file()
+    
+        return
+#----------------------------------------------------------------------------------------------------------------------------------
+# sell__todays_return preview
+# -------------------------------------------------------------------------------------------------------------------------------------        
+    def sell_todays_return_except_x_prev(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
+         #Item 0 =  tickers
+        #Item 1 = Total_return
+        #Item 2 = stock_quantity_to_sell/buy
+        #Item 3 = last price
+        #item[4]= your quantities
+        #item[5]=today's return
+        #item[6]= 1 year history
+        #item[7]= average buy price
+        #item[8]=%change in price
+        #item[9]=change in price since previous close
+
+
+        fill_price = "0.0"
+        frm_tot = "0.0"
+        stock_symbols = []
+        tgains_actual = 0.0 
+        sell_info = {}
+        sell_list = []
+        tickersPerf = self.get_stocks_from_portfolio(acc_num)
+        n_tickersPerf = self.find_and_remove(tickersPerf, lst,0)
+        
+        
+        
+
+        
+
+        
+        
+        stock_symbols = []
+         
+        return sell_list
             
 #----------------------------------------------------------------------------------------------------------------------------------
 # sell__todays_return
@@ -3227,7 +3508,7 @@ class MainWindow(QMainWindow):
                     self.lstTerm_update_progress_fn("Operation Cancelled!")
                     break
                 #cal how much to sell for today's gains
-                amount_to_sell = float(item[5]) / float(item[3])
+                amount_to_sell = float(item[5]) / self.portfolio[item]['price']
                 frm_amount_to_sell = "{0:.2f}".format(amount_to_sell)
 
             # stock_quantity_to_sell and (your quantity > stock_quantity_to_sell) and todays_return >= 0 and stock quantity is not <= 1
@@ -3327,8 +3608,8 @@ class MainWindow(QMainWindow):
                 if raised_amount >= n_raise_amount or raise_amount_converged:
                     break    
 
-                if not (n_dollar_value_to_sell / float(item[3]) >= item[4]+1): #check if you have enough shares to sell
-                    quantity_to_sell = n_dollar_value_to_sell / float(item[3])     
+                if not (n_dollar_value_to_sell / self.portfolio[item]['price']) >= item[4]+1: #check if you have enough shares to sell
+                    quantity_to_sell = n_dollar_value_to_sell / self.portfolio[item]['price']     
                     strquantity_to_sell = "{0:.2f}".format(quantity_to_sell) 
                 else:
                     quantity_to_sell = 0.0    
@@ -3344,7 +3625,7 @@ class MainWindow(QMainWindow):
                         total_new_quantity = float(exist_quantity) + quantity_to_sell
                         if not (total_new_quantity >= item[4] + 0.1):
                             sell_list[i][1] = "{0:.2f}".format(total_new_quantity)
-                            raised_amount += quantity_to_sell*float(item[3])
+                            raised_amount += quantity_to_sell*self.portfolio[item]['price']
                             raised_amount_lst.append(raised_amount)
                             #look at 2 previous amounts if they are the same then break
                             if len(raised_amount_lst) > 2:
@@ -3357,10 +3638,10 @@ class MainWindow(QMainWindow):
                                 
                 if not found:
                    #don't add to list when you do not have enough shares to sell
-                    if not ((n_dollar_value_to_sell / float(item[3])) >= item[4]+1):
+                    if not ((n_dollar_value_to_sell / self.portfolio[item]['price'])) >= item[4]+1:
                         itm = [item[0],strquantity_to_sell,item[3]]
                         sell_list.append(itm)
-                        raised_amount += quantity_to_sell*float(item[3])   
+                        raised_amount += quantity_to_sell*self.portfolio[item]['price']  
                         raised_amount_lst.append(raised_amount)
 
       
@@ -3557,7 +3838,7 @@ class MpfCanvas(FigureCanvasQTAgg):
             self.setMinimumSize(int(width_px), int(height_px))
    
 
-    def add_plot_to_figure(self,ticker_lst,sel_ticker_lst=[],action_selection="Bar (Sector Colors)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
+    def add_plot_to_figure(self,ticker_dict,sel_ticker_lst=[],action_selection="Bar (Sector Colors)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
         #Item[0] =  tickers
         #Item[1]= Total_return
         #Item[2] = stock_quantity_to_sell/buy
@@ -3598,7 +3879,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                         n_row = 1
 
                     elif len(sel_ticker_lst) > 1:
-                        n_col = len(ticker_lst)
+                        n_col = len(ticker_dict)
                         n_row = 1
 
 
@@ -3708,13 +3989,13 @@ class MpfCanvas(FigureCanvasQTAgg):
                     self._ensure_scrollable(1, 1, frm_h, frm_w)
                     
 
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    sorted_dict = sorted(ticker_dict,key=lambda x: ticker_dict[x]['price']*ticker_dict[x]['quantity'],reverse=True)
 
                     x_data = []
                     y_data = []
-                    for item in sorted_list:
-                        x_data.append(item[0])
-                        y_data.append(float(item[4])*float(item[3]))
+                    for item in sorted_dict:
+                        x_data.append(item)
+                        y_data.append(float(ticker_dict[item]['price'])*float(ticker_dict[item]['quantity']))
 
 
                     ax = self.fig.add_subplot(n_row,n_col,index)
@@ -3729,7 +4010,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                   
                    
                     bars = ax.bar(x_data, y_data, width=0.7)
-                    for i, ticker in enumerate(sorted_list):
+                    for i, ticker in enumerate(sorted_dict):
                         if ticker[8] < 0.0:
                             bars[i].set_facecolor('darkred')
                             val_down += 1
@@ -3766,18 +4047,17 @@ class MpfCanvas(FigureCanvasQTAgg):
 
                     self._ensure_scrollable(1,1,frm_h,frm_w)
 
-                    sorted_list = sorted(ticker_lst,key=lambda x: float(x[4])*float(x[3]),reverse=True)
+                    sorted_dict = dict(sorted(ticker_dict.items(), key=lambda x: x[1]['price']*x[1]['quantity'],reverse=True))
 
                     x_data = []
                     y_data = []
-                    sorted_list_stock_name = [item[0] for item in sorted_list]
+                    sorted_list_stock_name = [item for item in sorted_dict]
                     #build bars according to sectors    
                     for sector, stocks_in_sector in sectorsDict.items():   
                         lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
                         for stock in lst_stock_in_sec:
-                            index = sorted_list_stock_name.index(stock)
                             x_data.append(stock)
-                            y_data.append(float(sorted_list[index][4])*float(sorted_list[index][3]))
+                            y_data.append(float(sorted_dict[stock]['price'])*float(sorted_dict[stock]['quantity']))
 
 
                     index=1
