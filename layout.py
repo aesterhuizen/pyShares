@@ -365,7 +365,8 @@ class Ui_MainWindow(object):
         self.btnSelectAll.setObjectName("btnSelectAll")
         self.horizontalLayout.addWidget(self.btnSelectAll)
         self.lbltblAsset_sum = QtWidgets.QLabel(parent=self.frame_left)
-        self.lbltblAsset_sum.setMinimumSize(QtCore.QSize(70, 0))
+        self.lbltblAsset_sum.setMinimumSize(QtCore.QSize(80, 0))
+        self.lbltblAsset_sum.setText("")
         self.lbltblAsset_sum.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.lbltblAsset_sum.setObjectName("lbltblAsset_sum")
         self.horizontalLayout.addWidget(self.lbltblAsset_sum)
@@ -454,7 +455,7 @@ class Ui_MainWindow(object):
         self.menuBar.addAction(self.menuView.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.stackPage.setCurrentIndex(1)
+        self.stackPage.setCurrentIndex(4)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -488,7 +489,6 @@ class Ui_MainWindow(object):
         self.btnExecute.setText(_translate("MainWindow", "Execute ..."))
         self.btnClearAll.setText(_translate("MainWindow", "Clear All"))
         self.btnSelectAll.setText(_translate("MainWindow", "Select All"))
-        self.lbltblAsset_sum.setText(_translate("MainWindow", "Equity: $0.00"))
         self.menuFile.setTitle(_translate("MainWindow", "&File"))
         self.menuView.setTitle(_translate("MainWindow", "View"))
         self.menuPlots.setTitle(_translate("MainWindow", "Plots"))

@@ -257,7 +257,7 @@
               </size>
              </property>
              <property name="currentIndex">
-              <number>1</number>
+              <number>4</number>
              </property>
              <widget class="QWidget" name="AllocationPage">
               <widget class="QWidget" name="layoutWidget">
@@ -749,12 +749,12 @@
            <widget class="QLabel" name="lbltblAsset_sum">
             <property name="minimumSize">
              <size>
-              <width>70</width>
+              <width>80</width>
               <height>0</height>
              </size>
             </property>
             <property name="text">
-             <string>Equity: $0.00</string>
+             <string/>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
