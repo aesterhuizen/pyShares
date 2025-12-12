@@ -2752,16 +2752,17 @@ class MainWindow(QMainWindow):
                         self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                         continue
 
-                time.sleep(2)
-                if 'price' in buy_info and buy_info['price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    fill_price = "{0:.2f}".format(float(buy_info['price']))
-                else:
-                    fill_price = "0.00"
-                
+                    
+                    if 'price' in buy_info and buy_info['price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(float(buy_info['price']))
+                    else:
+                        fill_price = "0.00"
+                    
                     #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                 stock_symbols.append(f"{stock_name}:{frm_per_quantity}:{fill_price}")
                 self.lstTerm_update_progress_fn(f"{frm_per_quantity} shares of {stock_name} bought at {fill_price}" )
                 spent += float(quantity)*float(fill_price)        
+                time.sleep(2)
 
         if len(stock_symbols) > 0:
             self.write_to_file(stock_symbols)
@@ -2934,10 +2935,10 @@ class MainWindow(QMainWindow):
                             continue
                 
                
-                if 'price' in buy_info and buy_info['price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                    fill_price = "{0:.2f}".format(float(buy_info['price']))
-                else:
-                    fill_price = "0.00"
+                    if 'price' in buy_info and buy_info['price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                        fill_price = "{0:.2f}".format(float(buy_info['price']))
+                    else:
+                        fill_price = "0.00"
                     
                 stock_symbols.append(f'{item[0]}:{item[1]}:{fill_price}')
                 total = float(item[1])*float(fill_price)
@@ -3067,18 +3068,18 @@ class MainWindow(QMainWindow):
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             return
                     
-                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
-                    else:
-                        if sell_info['state'] == 'queued':
-                            fill_price = "queued"
+                        if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                            fill_price = "{0:.2f}".format(float(sell_info['average_price']))
                         else:
-                            fill_price = "0.00"
-                
-                    if sell_info['state'] == 'filled':
-                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
-                    elif sell_info['state'] == 'queued':
-                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
+                            if sell_info['state'] == 'queued':
+                                fill_price = "queued"
+                            else:
+                                fill_price = "0.00"
+                    
+                        if sell_info['state'] == 'filled':
+                            stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                        elif sell_info['state'] == 'queued':
+                            stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
                     tot = float(dollar_value_to_sell)
                     tgains_actual += tot
 
@@ -3315,18 +3316,18 @@ class MainWindow(QMainWindow):
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             return
                     
-                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
-                    else:
-                        if sell_info['state'] == 'queued':
-                            fill_price = "queued"
+                        if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                            fill_price = "{0:.2f}".format(float(sell_info['average_price']))
                         else:
-                            fill_price = "0.00"
-                
-                    if sell_info['state'] == 'filled':
-                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
-                    elif sell_info['state'] == 'queued':
-                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
+                            if sell_info['state'] == 'queued':
+                                fill_price = "queued"
+                            else:
+                                fill_price = "0.00"
+                    
+                        if sell_info['state'] == 'filled':
+                            stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                        elif sell_info['state'] == 'queued':
+                            stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
                     tot = float(dollar_value_to_sell)
                     tgains_actual += tot
 
@@ -3395,18 +3396,18 @@ class MainWindow(QMainWindow):
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
                             return
                     
-                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
-                    else:
-                        if sell_info['state'] == 'queued':
-                            fill_price = "queued"
+                        if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                            fill_price = "{0:.2f}".format(float(sell_info['average_price']))
                         else:
-                            fill_price = "0.00"
-                
-                    if sell_info['state'] == 'filled':
-                        stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
-                    elif sell_info['state'] == 'queued':
-                        stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
+                            if sell_info['state'] == 'queued':
+                                fill_price = "queued"
+                            else:
+                                fill_price = "0.00"
+                    
+                        if sell_info['state'] == 'filled':
+                            stock_symbols.append(f'{item[0]}:{frm_shares_to_sell}:{fill_price}')
+                        elif sell_info['state'] == 'queued':
+                            stock_symbols.append(f"{item[0]}:{frm_shares_to_sell}:queued-{sell_info['id']}")
                     tot = float(dollar_value_to_sell)
                     tgains_actual += tot
 
@@ -3527,10 +3528,10 @@ class MainWindow(QMainWindow):
                    
                     
 
-                    if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
-                        fill_price = "{0:.2f}".format(float(sell_info['average_price']))
-                    else:
-                        fill_price = "0.00"
+                        if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
+                            fill_price = "{0:.2f}".format(float(sell_info['average_price']))
+                        else:
+                            fill_price = "0.00"
                     #Item 0 =  tickers     #Item 1 = stock_quantity_to_sell  #Item 2 = last price
                     stock_symbols.append(f"{item[0]}:{frm_amount_to_sell}:{fill_price}")
                     tot = amount_to_sell*float(fill_price)
