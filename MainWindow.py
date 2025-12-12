@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.0.43"
+        self.ver_string = "v1.1.0"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
