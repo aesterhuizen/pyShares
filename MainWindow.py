@@ -2167,29 +2167,29 @@ class MainWindow(QMainWindow):
             case "raise_x_sell_y_dollars_except_z":
                 raise_amount = self.ui.edtBuyWithAmount.text()
                 dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
-                buying_with_amount = "Not Used"
+                buying_with_amount = ""
             case "reinvest_with_gains":
                 buying_with_amount = float(self.ui.edtReInvestValue.text().replace("$","").replace(",",""))
             
                 dollar_value_to_sell = self.ui.cmbReInvest.currentText().replace("%","")
-                raise_amount = "Not Used"
+                raise_amount = ""
             case "sell_selected_total_return":
                 dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
-                raise_amount = "Not Used"
-                buying_with_amount = "Not Used"
+                raise_amount = ""
+                buying_with_amount = ""
 
             case "sell_selected_todays_return":
                 dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
-                raise_amount = "Not Used"
-                buying_with_amount = "Not Used"
+                raise_amount = ""
+                buying_with_amount = ""
             case "sell_total_return_except_x":
                 dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
-                raise_amount = "Not Used"
-                buying_with_amount = "Not Used"
+                raise_amount = ""
+                buying_with_amount = ""
             case "sell_todays_return_except_x":
                 dollar_value_to_sell = self.ui.edtAmountEst.text().replace("$","").replace(",","")
-                raise_amount = "Not Used"
-                buying_with_amount = "Not Used"
+                raise_amount = ""
+                buying_with_amount = ""
             case "buy_selected_with_x":
                 raise_amount = self.ui.edtRaiseAmount.text()
                 dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
@@ -2197,13 +2197,13 @@ class MainWindow(QMainWindow):
             case _:
                 raise_amount = self.ui.edtRaiseAmount.text()
                 if  raise_amount == "":
-                    raise_amount = "Not Used"
+                    raise_amount = ""
                 dollar_value_to_sell = self.ui.edtDollarValueToSell.text()
                 if dollar_value_to_sell == "":
-                    dollar_value_to_sell = "Not Used"
+                    dollar_value_to_sell = ""
                 buying_with_amount = self.ui.edtBuyWith.text()
                 if buying_with_amount == "":
-                    buying_with_amount = "Not Used"
+                    buying_with_amount = ""
 
         if ask_confirm:
             match method_name:
@@ -2777,15 +2777,10 @@ class MainWindow(QMainWindow):
 # "Buy {dollar_value_to_buy} dollars of each stock in your portfolio until you cannot buy anymore with x ${with_buying_power}
 # -------------------------------------------------------------------------------------------------------------------------------------
     def buy_selected_with_x_prev(self,n,lst,raise_amount,dollar_value_to_sell,buying_with):
-        if buying_with == 'Not Used':
-            buying_power = 0.0
-        else:
-            buying_power = float(buying_with)
+        
+        buying_power = float(buying_with) if buying_with !='' else 0.0
 
-        if dollar_value_to_sell == "Not Used":
-            dollar_value_to_sell = 0.0
-        else:
-            dollar_value_to_buy = float(dollar_value_to_sell)
+        dollar_value_to_buy = float(dollar_value_to_sell) if dollar_value_to_sell !='' else 0.0
         stock_symbols = []
         method_name = self.ui.cmbAction.currentText()
         
@@ -2880,10 +2875,10 @@ class MainWindow(QMainWindow):
         frm_total = "0.0"
         fill_price = "0.0"
         buy_info = {}
-        if buying_with != 'Not Used':
-            buying_power = float(buying_with)
-        else:
-            buying_power = 0.0
+        
+        
+        buying_power = float(buying_with) if buying_with !='' else 0.0
+        
 
         dollar_value_to_buy = float(dollar_value_to_sell)
         stock_symbols = []
