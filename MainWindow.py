@@ -2209,7 +2209,7 @@ class MainWindow(QMainWindow):
             match method_name:
                 case "sell_selected":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
-                            f"Selected: {lst}\n" \
+                            f"Selected Stocks: {lst}\n" \
                             f"Sell Amount: ${float(self.ui.edtBuyWithAmount.text()):,.2f}\n" \
                             f"\nPreview:"
                     sell_list = self.sell_selected_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
@@ -2236,7 +2236,7 @@ class MainWindow(QMainWindow):
                 case "sell_selected_total_return":
                     amount = float(self.ui.edtAmountEst.text().replace("$","").replace(",",""))
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
-                            f"Except: {lst}\n" \
+                            f"Selected Stocks: {lst}\n" \
                             f"Sell Amount: ${amount:,.2f}\n" \
                             f"\nPreview:"
                     sell_list = self.sell_selected_total_return_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
@@ -2245,7 +2245,7 @@ class MainWindow(QMainWindow):
                 case "sell_selected_todays_return":
                     amount = float(self.ui.edtAmountEst.text().replace("$","").replace(",",""))
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
-                            f"Except: {lst}\n" \
+                            f"Selected Stock: {lst}\n" \
                             f"Sell Amount: ${amount:,.2f}\n" \
                             f"\nPreview:"
                     sell_list = self.sell_selected_todays_return_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
@@ -2263,7 +2263,7 @@ class MainWindow(QMainWindow):
                     buy_list,spent = self.reinvest_with_gains_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
                     name_lst = self.ui.edtStocksInFile_Reinvest.text()
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
-                            f"Selected: {name_lst}\n" \
+                            f"Selected Stocks: {name_lst}\n" \
                             f"Reinvest: ${buying_with_amount} in each selected stock\n" \
                             f"Money spent: ${spent:,.2f}\n" \
                             f"\nPreview:\n"
@@ -3268,8 +3268,8 @@ class MainWindow(QMainWindow):
         #item[1] = stock_quantity_to_sell
         #item[2] = last price
         stock_symbols = []
-
-        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.totalGains*int(n):,.2f}") 
+        tgains_actual = 0.0
+        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_total_return*int(n):,.2f}") 
 
 
         
@@ -3346,7 +3346,9 @@ class MainWindow(QMainWindow):
     
     def sell_selected_todays_return(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
         
-        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.todayGains*int(n):,.2f}") 
+        tgains_actual = 0.0
+
+        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_today_return*int(n):,.2f}") 
 
 
         
