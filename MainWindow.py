@@ -2705,7 +2705,7 @@ class MainWindow(QMainWindow):
 
 
 #----------------------------------------------------------------------------------------------------------------------------------
-# reinvest_with_gains SOMETHING WRONG COMMENTED CODE CAUSE PROGRAM NOT TO RUN "FIX ME"
+# reinvest_with_gains 
 # # -------------------------------------------------------------------------------------------------------------------------------------   
     def reinvest_with_gains(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount):
         total_gains = 0.0
@@ -2904,7 +2904,7 @@ class MainWindow(QMainWindow):
                 # Item[0] = stock_name
                 # Item[1] = quantity to buy (shares)
                 # Item[2] = last price
-                frm_quantity = f'{item[1]:.2f}'
+                frm_quantity = f'{float(item[1]):.2f}'
 
                 
                 #if user click cancel then cancel operation
