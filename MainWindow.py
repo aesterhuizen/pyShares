@@ -3265,7 +3265,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
         tgains_actual = 0.0
         fill_price = "0.0"
-        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_total_return*int(n):,.2f}") 
+        self.lstTerm_update_progress_fn(f"Sell Selected: {[item[0] for item in lst]} Total gains = ${self.cur_total_return*int(n):,.2f}") 
 
 
         
@@ -3344,8 +3344,7 @@ class MainWindow(QMainWindow):
         
         tgains_actual = 0.0
         fill_price = "0.0"
-        self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_today_return*int(n):,.2f}") 
-
+        self.lstTerm_update_progress_fn(f"Sell Selected: {[item[0] for item in lst]} Total gains = ${self.cur_today_return*int(n):,.2f}") 
 
         
         for index in range(int(n)):
@@ -3474,7 +3473,7 @@ class MainWindow(QMainWindow):
         tgains = sum(float(dollar_value_to_sell)*item[2] for item in lst)
         fmt_tgains = "{0:,.2f}".format(tgains*int(n))     
 
-        self.lstTerm_update_progress_fn(f"Sell Todays Return: Total gains = ${fmt_tgains}, Except: {lst}")
+        self.lstTerm_update_progress_fn(f"Sell Todays Return: Total gains = ${fmt_tgains}, Except: {[item[0] for item in lst]}")
 
         
         for index in range(int(n)):
