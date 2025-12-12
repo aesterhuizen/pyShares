@@ -2210,7 +2210,7 @@ class MainWindow(QMainWindow):
                 case "sell_selected":
                     msg =   f"Are you sure you want to execute operation '{self.ui.cmbAction.currentText()}'\n" \
                             f"Selected: {lst}\n" \
-                            f"Sell Amount: ${self.ui.edtBuyWithAmount.text():,.2f}\n" \
+                            f"Sell Amount: ${float(self.ui.edtBuyWithAmount.text()):,.2f}\n" \
                             f"\nPreview:"
                     sell_list = self.sell_selected_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
                     preview_sellbuy_list = [f"{item[0]}: sell {item[1]:.2f} shares" for item in sell_list]
