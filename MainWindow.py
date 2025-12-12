@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import threading
 import sys,traceback # type: ignore
 import time
 import pyotp
@@ -97,9 +98,10 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()       
         self.tooltip = None
         
-        #shutdown flag, select all flag
+        #flags for sequence runner and update threads
         self._shutting_down = False
         self._selectAll_in_progress = False
+        
         # sequence runner
         self.op_queue = []
         self._seq_num_iter = 1
@@ -774,11 +776,11 @@ class MainWindow(QMainWindow):
         while not self._shutting_down:
             time.sleep(0.1)
             if self.command_thread is not None and not self.command_thread.is_alive():
-                # update UI on the main thread
-               
-                self.ui.btnExecute.setText("Execute ..."),
-                self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
-                self.ui.btnExecute.setEnabled(True)
+                    self.ui.btnExecute.setText("Execute ...")
+                    self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
+                    self.ui.btnExecute.setEnabled(True)
+           
+                
                 
         
 
@@ -2344,7 +2346,7 @@ class MainWindow(QMainWindow):
         self.command_thread = CommandThread(fn,num_iter,self.current_account_num,lst,raise_amount,dollar_value_to_sell,buying_with_amount) # Any other args, kwargs are passed to the run function
         # start thread
         self.command_thread.start()
-
+        
         if self.ui.cmbAction.currentText() == "allocate_reallocate_to_sectors":
             next_oper_lst = buy_list if ask_confirm==True else []
        
@@ -2671,6 +2673,7 @@ class MainWindow(QMainWindow):
         stock_symbols = []
         stocks = []
         buy_list = []
+        market_price_of_stock = 0.0
         #1 - open last stock_sell_gains.csv file
         #2 - iterate thru stocks and reinvest all stocks with current price with  gains from that stock.
         #3 - 
@@ -2980,16 +2983,16 @@ class MainWindow(QMainWindow):
 # sell__selected_prev Preview function, function to get latest prices and send list of stocks to buy/sell to actual working function.
 # ---------------------------------------------------------------------------------------------------------------------------------    
     def sell_selected_prev(self,n,lst,raise_amount,dollar_value_to_sell,buying_with):
-        
+        stock_market_prices = 0.0
         sell_lst = []
         for item in lst:
             stock_market_prices = r.stocks.get_latest_price(item[0])[0]
-            market_price_of_stock = float(stock_market_prices)
-            if market_price_of_stock is None:
+            if stock_market_prices is None:
                 next
             else:
-                quantity_to_sell = float(dollar_value_to_sell) / market_price_of_stock
-                sell_lst.append( [item,quantity_to_sell,market_price_of_stock] )
+                price = float(stock_market_prices)
+                quantity_to_sell = float(dollar_value_to_sell) / price
+                sell_lst.append( [item,quantity_to_sell,price] )
 
 
         return sell_lst
