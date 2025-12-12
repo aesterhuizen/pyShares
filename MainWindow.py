@@ -3269,6 +3269,7 @@ class MainWindow(QMainWindow):
         #item[2] = last price
         stock_symbols = []
         tgains_actual = 0.0
+        fill_price = "0.0"
         self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_total_return*int(n):,.2f}") 
 
 
@@ -3347,7 +3348,7 @@ class MainWindow(QMainWindow):
     def sell_selected_todays_return(self,n,acc_num,lst,raise_amount,dollar_value_to_sell,buying_with):
         
         tgains_actual = 0.0
-
+        fill_price = "0.0"
         self.lstTerm_update_progress_fn(f"Sell Selected: {lst} Total gains = ${self.cur_today_return*int(n):,.2f}") 
 
 
