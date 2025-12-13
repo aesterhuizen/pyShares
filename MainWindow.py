@@ -2696,7 +2696,7 @@ class MainWindow(QMainWindow):
         
 
         for stock in lst:
-            stock_market_prices = r.stocks.get_latest_price(stock)[0]
+            stock_market_prices = self.portfolio[stock]['price']
             
             if stock_market_prices is None:
                 next
@@ -3241,7 +3241,7 @@ class MainWindow(QMainWindow):
         sell_list = []
         
         for item in lst:
-            last_price = self.portfolio[item[0]]['price']
+            last_price = self.portfolio[item]['price']
             if last_price is None:
                 next
             else:    
@@ -3260,7 +3260,7 @@ class MainWindow(QMainWindow):
         sell_list = []
         
         for item in lst:
-            last_price = self.portfolio[item[0]]['price']
+            last_price = self.portfolio[item]['price']
             if last_price is None:
                 next
             else:
