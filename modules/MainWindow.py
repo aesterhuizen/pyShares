@@ -9,14 +9,12 @@ import robin_stocks.robinhood as r
 
 import matplotlib.colors as mcolors
 import matplotlib
-import pandas as pd
 import mplfinance as mpf
 import yfinance as yf
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
 from matplotlib.patches import Patch
-import matplotlib.gridspec as gridspec
+
 
 matplotlib.use('QtAgg')
 
@@ -33,10 +31,10 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
 from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
-from layout import Ui_MainWindow
+from modules.layout import Ui_MainWindow
 
-from PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts,confirmMsgBox
-from WorkerThread import CommandThread, UpdateThread
+from modules.PopupWindows import msgBoxGetCredentialFile, msgBoxGetAccounts,confirmMsgBox
+from modules.WorkerThread import CommandThread, UpdateThread
 
 class MainWindow(QMainWindow):
 
@@ -49,7 +47,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.2"
+        self.ver_string = "v1.1.3"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -112,6 +110,7 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
         self.ui.splt_horizontal.setSizes([10, 550])
         self.ui.vertical_splitter.setSizes([450, 50])
+        #setup graph plot ---------------------------------
         self.plot = MpfCanvas(self,8,4)
         self.plot_scroll = QScrollArea(self)
         self.plot_scroll.setWidgetResizable(True)
@@ -119,8 +118,9 @@ class MainWindow(QMainWindow):
         self.ui.grdGraph.addWidget(self.plot_scroll)
         self.ui.grdGraph.setContentsMargins(0, 0, 0, 0)
         self.ui.grdGraph.setSpacing(0)
-        
-
+        #--------------------------------------------------
+      
+        #-------------------------------------------------------------
         #add combo box items to the action combobox
         self.ui.cmbAction.addItem("stock_info")
         self.ui.cmbAction.addItem("sell_selected")
@@ -410,9 +410,13 @@ class MainWindow(QMainWindow):
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
 
-        
+        # setup status bar and sector buttons---------------------------------
         self.setupStatusbar()
-    
+        #---------------------------------------------------------------
+        #setup sector analytics tab------------------------------------
+        self.setup_sector_analytics()
+        #--------------------------------------------------------------
+
        
         
         #setup plot widget
@@ -941,7 +945,49 @@ class MainWindow(QMainWindow):
 
         return
 
+    def setup_sector_analytics(self):
+        
+        row = 0
+        self.ui.tblSectorAnalytics.setColumnCount(4)
+        self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Today's Return","Total Return","Equity"])
+        self.ui.tblSectorAnalytics.setRowCount(len(self.dict_sectors))
+        
+        for sector,stocks_pct_in_sector in self.dict_sectors.items():
+            symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
+            total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
+            todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
+            total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
+             
+            for col in range(4):
+                row_item = QTableWidgetItem()
+                    #set table properties
+                row_item.setForeground(QColor("white"))
+                row_item.setBackground(QColor("black"))
+                row_item.setFlags(row_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                row_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
+                
+                if col == 0:
+                    row_item.setText(sector)
+                elif col == 1:
+                    row_item.setText(f"{todays_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 2:
+                    row_item.setText(f"{total_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 3:
+                    row_item.setText(f"{total_equity:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     
+                self.ui.tblSectorAnalytics.setItem(row,col,row_item)
+            row +=1    
+         
+        self.ui.tblSectorAnalytics.resizeColumnsToContents() 
+           
+        return
+          
+                
+           
+          
     def setupSectorButtons(self):
 
         tot_pct = 0.0   
@@ -1229,7 +1275,7 @@ class MainWindow(QMainWindow):
                     table_item.setForeground(QColor("white"))
                     table_item.setBackground(QColor("black"))
                     table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                    table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
+                    table_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
                     self.ui.tblAssets.setItem(row,col,table_item)
                 
 
@@ -1239,6 +1285,8 @@ class MainWindow(QMainWindow):
             
         
             self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
+            self.update_sectorAnalytics()
+            
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
@@ -1246,7 +1294,42 @@ class MainWindow(QMainWindow):
         
         return
         
-
+    def update_sectorAnalytics(self):
+        row = 0
+        
+        
+        for sector,stocks_pct_in_sector in self.dict_sectors.items():
+            symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
+            total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
+            todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
+            total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
+             
+            for col in range(4):
+                row_item = QTableWidgetItem()
+                    #set table properties
+                row_item.setForeground(QColor("white"))
+                row_item.setBackground(QColor("black"))
+                row_item.setFlags(row_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                row_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
+                
+                if col == 0:
+                    row_item.setText(sector)
+                elif col == 1:
+                    row_item.setText(f"{todays_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 2:
+                    row_item.setText(f"{total_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 3:
+                    row_item.setText(f"{total_equity:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                self.ui.tblSectorAnalytics.setItem(row,col,row_item)
+            row +=1    
+         
+        self.ui.tblSectorAnalytics.resizeColumnsToContents() 
+           
+        return
     def Show_msgCredentials(self):
         get_cred_file = msgBoxGetCredentialFile()
         button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -2437,7 +2520,7 @@ class MainWindow(QMainWindow):
                 table_item.setForeground(QColor("white"))
                 table_item.setBackground(QColor("black"))
                 table_item.setFlags(table_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                table_item.setFont(QFont("Arial",12,QFont.Weight.Bold))
+                table_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
                 self.ui.tblAssets.setItem(row,col,table_item)
             
         self.ui.tblAssets.resizeColumnsToContents()       
@@ -2464,6 +2547,10 @@ class MainWindow(QMainWindow):
 
         
         return stock_tickers_names
+    
+    def get_portfolio_dict(self):
+        return self.portfolio
+     
     def update_stocks_dict(self):
         
         portfolio_copy = self.portfolio.copy()
@@ -4098,7 +4185,7 @@ class MpfCanvas(FigureCanvasQTAgg):
                     ax.set_ylabel('$value of stock')
                     ax.set_title('Stocks Ticker/Quantity')
                     ax.tick_params(axis='x', rotation=90, labelsize=9)
-              
+           
             case _:
                 pass
           
@@ -4151,14 +4238,15 @@ class TableToolTip(QWidget):
         
         #load sector data
         lst_stocks_in_sector = self.parent().get_symbols_pct_in_sector(obj.objectName())
-        self.createTable(lst_stocks_in_sector)
+        portfolio = self.parent().get_portfolio_dict()
+        self.createTable(lst_stocks_in_sector,portfolio)
 
         layout.addWidget(self.sectorlabel_pct)
         layout.addWidget(self.table)
         self.setLayout(layout)
         self.adjustSize()
 
-    def createTable(self,lst_stocks):
+    def createTable(self,lst_stocks,portfolio):
         
         tot_pct = 0.0
         
@@ -4173,16 +4261,17 @@ class TableToolTip(QWidget):
         for item in lst_stocks:
                 pct = item.split(":")[1]
                 tot_pct += float(pct)
+                ticker = item.split(":")[0]
                 #get the stock name
-                stock_name = r.get_name_by_symbol(item.split(":")[0])
+                stock_name = portfolio[ticker]["stock_name"]
                 #get the last price
-                val = r.get_quotes(f'{item.split(":")[0]}',"last_trade_price")[0]
+                val = portfolio[ticker]["price"]    
                 #get the previous close
-                prev_close = r.get_quotes(f'{item.split(":")[0]}',"previous_close")[0]
+                prev_close = portfolio[ticker]["prev_close"]
                 #calculate the gains
                 if val is not None and prev_close is not None:
                     Gains = float(val) - float(prev_close) 
-                    lst_vals.append([f'{stock_name} ({item.split(":")[0]})', float(val),float(Gains), float(item.split(":")[1])])
+                    lst_vals.append([f'{stock_name}', float(val),float(Gains), float(pct)])
                 else:
                     lst_vals.append([f'{stock_name} ({item.split(":")[0]})', 0.0,0.0, 0.0])
                     #add the stock to the list
