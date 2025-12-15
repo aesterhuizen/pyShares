@@ -12,3 +12,4 @@ env_path.txt
 *.ipynb
 *.spec
 AppLayout_splitter_dev.ui
+profile_results
