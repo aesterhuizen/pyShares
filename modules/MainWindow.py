@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.3"
+        self.ver_string = "v1.1.4"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -694,14 +694,17 @@ class MainWindow(QMainWindow):
 
     def cmbToSector_clicked(self):
         tot_pct = 0.0
-        lst_to_sector = self.get_symbols_To_sectors()
-        for item in lst_to_sector:
-                pct = item.split(":")[1]
-                tot_pct += float(pct)
+        if self.ui.cmbToSector.currentText() == "None":
+            self.ui.lblToSector_pct.setText("sell only")
+        else:
+            lst_to_sector = self.get_symbols_To_sectors()
+            for item in lst_to_sector:
+                    pct = item.split(":")[1]
+                    tot_pct += float(pct)
 
-        self.ui.lblToSector_pct.setText(f'{tot_pct:.2f}% of Portfolio')
-        # highlist the lst_to_sector stocks in the asset table
-        self.highlight_stocks_in_table(lst_to_sector)
+            self.ui.lblToSector_pct.setText(f'{tot_pct:.2f}% of Portfolio')
+            # highlist the lst_to_sector stocks in the asset table
+            self.highlight_stocks_in_table(lst_to_sector)
         return
     
     def cmbFromSector_clicked(self):
@@ -948,17 +951,18 @@ class MainWindow(QMainWindow):
     def setup_sector_analytics(self):
         
         row = 0
-        self.ui.tblSectorAnalytics.setColumnCount(4)
-        self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Today's Return","Total Return","Equity"])
+        self.ui.tblSectorAnalytics.setColumnCount(5)
+        self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Total Return","Today's Return","Equity","Percent of Portfolio(%)"])
         self.ui.tblSectorAnalytics.setRowCount(len(self.dict_sectors))
         
         for sector,stocks_pct_in_sector in self.dict_sectors.items():
             symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
+            pct_of_portfolio = sum(float(x.split(':')[1]) for x in stocks_pct_in_sector)    # sum of all pct of portfolio for the sector
             total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
             todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
             total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
-             
-            for col in range(4):
+            percent_of_portfolio = "{0:.2f}".format(pct_of_portfolio) 
+            for col in range(5):
                 row_item = QTableWidgetItem()
                     #set table properties
                 row_item.setForeground(QColor("white"))
@@ -969,15 +973,17 @@ class MainWindow(QMainWindow):
                 if col == 0:
                     row_item.setText(sector)
                 elif col == 1:
-                    row_item.setText(f"{todays_return:,.2f}")
+                    row_item.setText(f"{total_return:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 elif col == 2:
-                    row_item.setText(f"{total_return:,.2f}")
+                    row_item.setText(f"{todays_return:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 elif col == 3:
                     row_item.setText(f"{total_equity:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                    
+                elif col == 4:
+                    row_item.setText(percent_of_portfolio)
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.ui.tblSectorAnalytics.setItem(row,col,row_item)
             row +=1    
          
@@ -1019,13 +1025,17 @@ class MainWindow(QMainWindow):
             button.installEventFilter(self) #listen to mouse movement events for the buttons
             self.ui.statusBar.addWidget(button, 1)
             #load sectors into comboSectors in stackpage
-            self.ui.cmbFromSector.addItem(sector)
-            self.ui.cmbToSector.addItem(sector)
+            if not (sector == ''):
+                self.ui.cmbFromSector.addItem(sector)
+                self.ui.cmbToSector.addItem(sector)
+        #add none option for to sector if user want to only sell from one sector
+        self.ui.cmbToSector.addItem("None")
 
         #set the from and to sector to the first item in the list
         self.ui.cmbFromSector.setCurrentIndex(0)
         self.ui.cmbToSector.setCurrentIndex(0)
 
+        #---setup allocated page combo boxes
         from_sector_symbols = self.get_symbols_From_sectors()
         for item in from_sector_symbols:
             pct = item.split(":")[1]
@@ -1300,10 +1310,11 @@ class MainWindow(QMainWindow):
         
         for sector,stocks_pct_in_sector in self.dict_sectors.items():
             symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
+            pct_of_portfolio = sum(float(pct.split(':')[1]) for pct in stocks_pct_in_sector)
             total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
             todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
             total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
-             
+            percent_of_portfolio = "{0:.2f}".format(pct_of_portfolio) 
             for col in range(4):
                 row_item = QTableWidgetItem()
                     #set table properties
@@ -1315,15 +1326,18 @@ class MainWindow(QMainWindow):
                 if col == 0:
                     row_item.setText(sector)
                 elif col == 1:
-                    row_item.setText(f"{todays_return:,.2f}")
+                    row_item.setText(f"{total_return:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 elif col == 2:
-                    row_item.setText(f"{total_return:,.2f}")
+                    row_item.setText(f"{todays_return:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 elif col == 3:
                     row_item.setText(f"{total_equity:,.2f}")
                     row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                    
+                elif col == 4:
+                    row_item.setText(percent_of_portfolio) 
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                                              
                 self.ui.tblSectorAnalytics.setItem(row,col,row_item)
             row +=1    
          
@@ -1954,6 +1968,8 @@ class MainWindow(QMainWindow):
             self.Cancel_operation()
         elif self.ui.btnExecute.text() == "Execute ...":    
             
+            next_opr_lst = []
+            self._seq_num_iter = 0
             num_iter,lst = self.check_and_read_conditions_met()
 
             if lst == ['err']:
@@ -1977,18 +1993,27 @@ class MainWindow(QMainWindow):
                     self.Execute_operation("reinvest_with_gains",num_iter,lst)
 
                 case "allocate_reallocate_to_sectors":
-                    self.symbols_from = [item.split(":")[0] for item in self.alloc_from]
-                    self.symbols_to = [item.split(":")[0] for item in self.alloc_to]
-
-                    next_opr_lst = self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,self.symbols_from)
-                    #user press cancel on the first operation
-                    if next_opr_lst[0] == 'user_cancel':
-                        return
-                    # Queue the second op to run after the first finishes (no extra confirm)
-                    self.op_queue = [("buy_selected_with_x", next_opr_lst)]
-                    self._seq_num_iter = num_iter
-                    self.seq_timer.start()             
                     
+                    if self.ui.cmbToSector.currentText() == "None":
+                        self.symbols_to = []
+                        next_opr_lst = self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,self.symbols_from)
+                    else:                        
+                        self.symbols_to = [item.split(":")[0] for item in self.alloc_to]
+                        self.symbols_from = [item.split(":")[0] for item in self.alloc_from]
+                        next_opr_lst = self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,self.symbols_from)
+                    
+                    if len(next_opr_lst) > 0:
+                            #user press cancel on the first operation
+                            if next_opr_lst[0] == "user_cancel":
+                                return
+                            else:
+                                # Queue the second op to run after the first finishes (no extra confirm)
+                                self.op_queue = [("buy_selected_with_x", next_opr_lst)]
+                                self._seq_num_iter = num_iter
+                                self.seq_timer.start()             
+                    
+                    
+                        
 
                 case "raise_x_sell_y_dollars_except_z":
                     self.Execute_operation("raise_x_sell_y_dollars_except_z",num_iter,lst)
@@ -2346,7 +2371,7 @@ class MainWindow(QMainWindow):
                             f"Selected Stocks: {lst}\n" \
                             f"Buy Amount: {self.ui.edtBuyWithAmount.text()}\n" \
                             f"\nPreview:\n"
-                    sell_list = self.buy_selected_with_x_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount                         )
+                    sell_list = self.buy_selected_with_x_prev(num_iter,lst,raise_amount,dollar_value_to_sell,buying_with_amount)
                     preview_sellbuy_list = [f"{item[0]}: sell {item[1]:.2f} shares" for item in sell_list]
                     lst = sell_list
                 case "reinvest_with_gains":
@@ -2693,9 +2718,16 @@ class MainWindow(QMainWindow):
                 check_two = True
             case "allocate_reallocate_to_sectors":
                 self.alloc_from = self.get_symbols_From_sectors()
-                self.alloc_to = self.get_symbols_To_sectors()
+                if self.ui.cmbToSector.currentText() == "None":
+                    self.alloc_to = []
+                    check_two = True
+                else:
+                    self.alloc_to = self.get_symbols_To_sectors()
+                    check_two = True
                 
-                if len(self.alloc_from) == 0 or len(self.alloc_to) == 0:
+                   
+                    
+                if len(self.alloc_from) == 0 or (len(self.alloc_to) == 0 and self.ui.cmbToSector.currentText() != "None"):
                     msg = QMessageBox.warning(self,"Selection","There are no stocks in the selected sector.",QMessageBox.StandardButton.Ok)
                     if msg == QMessageBox.StandardButton.Ok:
                         lst = ['err']
@@ -2705,8 +2737,8 @@ class MainWindow(QMainWindow):
                     if msg == QMessageBox.StandardButton.Ok:
                         lst = ['err']   
                         return False,lst
-                else:
-                    check_two = True
+                
+                    
             case "sell_todays_return_except_x" | "sell_total_return_except_x": 
                 lst = self.ui.edtLstStocksSelected.text().split(",")
                 if lst:
@@ -2991,7 +3023,7 @@ class MainWindow(QMainWindow):
         quantity_to_buy = 0.0
         #this is a sequence operation if true, this lst contain the information of what to buy and how much
         if (buying_power and dollar_value_to_buy) == 0.0:
-            self.lstTerm_update_progress_fn(f"Buying {[item[0] for item in lst]} with ${sum(item[1]*item[2] for item in lst)}." )    
+            self.lstTerm_update_progress_fn(f"Buying {[item[0] for item in lst]} with ${sum(item[1]*item[2] for item in lst):.2f}." )    
         else:
             self.lstTerm_update_progress_fn(f"Buying ${dollar_value_to_buy:.2f} of each stock in {[item[0] for item in lst]}." )
         #place buy orders
@@ -3273,7 +3305,7 @@ class MainWindow(QMainWindow):
                     break
                 
 
-                frm_quantity = "{0:,.2f}".format(item[1])
+                frm_quantity = "{0:.2f}".format(item[1])
                 # make sure you have enough shares to sell and have 0.1 left over
                 if self.portfolio[item[0]]["quantity"] - item[1] >= 0.1:
                     if os.environ['debug'] == '0':
@@ -3804,10 +3836,10 @@ class MainWindow(QMainWindow):
            
             frm_quantity_to_sell = float(item[1])
             frm_quantity_to_sell += 0.02
-           
+            str_quantity_to_sell = "{0:.2f}".format(frm_quantity_to_sell)
             if os.environ['debug'] == '0':
                 try:
-                    sell_info = r.order_sell_market(symbol=item[0],quantity=item[1],timeInForce='gfd',account_number=acc_num)
+                    sell_info = r.order_sell_market(symbol=item[0],quantity=str_quantity_to_sell,timeInForce='gfd',account_number=acc_num)
 
                     time.sleep(0.5)
                     sell_info = r.get_stock_order_info(sell_info['id'])
