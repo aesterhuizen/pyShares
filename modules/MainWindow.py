@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLab
     QScrollArea, QSizePolicy
                             
 from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
+
 from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
 
 from modules.layout import Ui_MainWindow
@@ -47,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.4"
+        self.ver_string = "v1.1.5"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
         self.update_thread = None
         self.command_thread = None
         self.monitor_thread = None
+        self.refreh_thread = None
 
         #total and today gains of portfolio
         self.totalGains = 0.0
@@ -340,6 +342,13 @@ class MainWindow(QMainWindow):
         button_chart_action.setToolTip("Toggle Graph Type")
         button_chart_action = self.ui.toolBar.addAction(button_chart_action)
         
+        #add refresh button
+        button_refresh_action = QAction(QIcon(self.icon_path +'/refresh.png'), "Refresh Data", self)
+        button_refresh_action.triggered.connect(self.refreshData_clicked)
+        button_refresh_action.setToolTip("Refresh Data")
+        button_refresh_action = self.ui.toolBar.addAction(button_refresh_action)
+        
+
         # set tooltip for edtBuyWith textbox
         self.ui.edtBuyWith.setToolTip("Optional, If entered will iterate through selected list and buy stocks until the (buy with) amount is reached\nIf left blank then will only buy amount as indicated in (Buy in USD) or (Buy in Shares)")
         #connect edtBuyWith textbox 
@@ -424,16 +433,52 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
     
+    def refreshData_clicked(self):
+        #spawn refresh thread
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        refresh_thread = CommandThread(self.refresh_thread)
+        refresh_thread.start()
+        QApplication.restoreOverrideCursor()
+
+        
+        
+        
+        return
+    def refresh_thread(self):
+        try:
+            self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)
+             
+        except Exception as e:
+            if e.args[0]:
+                self.ui.lstTerm.addItem(f"Error!: {e.args[0]}")
+                
+        # self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+        # self.update_sectorAnalytics()
+        # self.updateLstAssets()
+        # self.updateStatusBar(self.selected_stocks)
+
+        return
+    
     def toggleChart_clicked(self):
-        
-        
+        # spawn toggleChart thread
+        cursor = QCursor()
+        cursor.setShape(cursor.shape().WaitCursor)
+        toggle_chart_thread = CommandThread(self.toggleChartType)
+        toggle_chart_thread.start()
+        QApplication.restoreOverrideCursor()
+     
+      
+        return
+    
+    def toggleChartType(self):
         current_index = self.ui.cmbGraphType.currentIndex()
         current_index += 1
 
         if current_index // 3 == 1:
             current_index = 0
      
-        self.clear_all_clicked()
+        
         match current_index:
             case 0:
                 self.showGainLossChart()
@@ -441,7 +486,6 @@ class MainWindow(QMainWindow):
                 self.showSectorChart()
             case 2:
                 self.showIndividualChart()
-      
         return
     def showGainLossChart(self):
         cursor = QCursor()

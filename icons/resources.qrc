@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/res">
+    <file>bar-chart.png</file>
+    <file>Credentials.png</file>
+    <file>down.png</file>
+    <file>equal.png</file>
+    <file>exit.png</file>
+    <file>refresh.png</file>
+    <file>up.png</file>
+  </qresource>
+</RCC>

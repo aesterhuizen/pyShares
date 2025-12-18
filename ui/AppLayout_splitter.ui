@@ -403,7 +403,7 @@
               </widget>
              </widget>
              <widget class="QWidget" name="ActionsPage">
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>9</x>
@@ -498,7 +498,7 @@
                 </item>
                </layout>
               </widget>
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>10</x>
@@ -546,7 +546,7 @@
                 </item>
                </layout>
               </widget>
-              <widget class="QWidget" name="">
+              <widget class="QWidget" name="layoutWidget">
                <property name="geometry">
                 <rect>
                  <x>10</x>
@@ -621,7 +621,7 @@
                  <x>9</x>
                  <y>20</y>
                  <width>579</width>
-                 <height>50</height>
+                 <height>54</height>
                 </rect>
                </property>
                <layout class="QGridLayout" name="gridLayout_6">
@@ -945,8 +945,13 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="action_Exit"/>
   </widget>
   <action name="action_Exit">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/exit.png</normaloff>:/res/exit.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;Exit</string>
    </property>
@@ -978,6 +983,8 @@
    </property>
   </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="../icons/resources.qrc"/>
+ </resources>
  <connections/>
 </ui>
