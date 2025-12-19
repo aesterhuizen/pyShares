@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.6"
+        self.ver_string = "v1.1.7"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -180,11 +180,19 @@ class MainWindow(QMainWindow):
         else:
             self.base_path = os.path.abspath(".")
 
-        #set the program paths
-        self.icon_path = os.path.join(self.base_path,"icons")
+        #set the program paths        
         self.data_path = os.path.join(os.environ['LOCALAPPDATA'], "pyShares")
         self.env_file = os.path.join(self.data_path,"env_path.txt")
-      
+
+        iconUP = QIcon()
+        iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
+        iconDOWN = QIcon()
+        iconDOWN.addFile(u":/res/down.png", QSize(), QIcon.Normal, QIcon.Off)
+        iconEqual = QIcon()
+        iconEqual.addFile(u":/res/equal.png", QSize(), QIcon.Normal, QIcon.Off)
+        #set icons
+        self.icon_dict = { "icoUp": iconUP, "icoDown": iconDOWN, "icoEqual": iconEqual}
+        
         
         if os.path.exists(self.env_file):
             #write env_path to file
@@ -416,6 +424,10 @@ class MainWindow(QMainWindow):
         # show the Mainwindow
         self.show()
     
+
+    def get_icon(self,ico_name):
+      return self.icon_dict[ico_name]
+
     def refreshData_clicked(self):
         #spawn refresh thread
         self.ui.actionRefresh.setEnabled(False)
@@ -928,9 +940,9 @@ class MainWindow(QMainWindow):
 
 
         tbl_Index.setColumnCount(3*len(lst_SPY))
-        SPY_icon_up = QIcon(f"{self.icon_path}\\up.png")
-        SPY_icon_down = QIcon(f"{self.icon_path}\\down.png")
-        SPY_icon_equal = QIcon(f"{self.icon_path}\\equal.png")
+        SPY_icon_up = self.icon_dict['icoUp']
+        SPY_icon_down = self.icon_dict['icoDown']
+        SPY_icon_equal = self.icon_dict['icoEqual']
         
         
         for row in range(len(lst_SPY)):
@@ -1283,7 +1295,12 @@ class MainWindow(QMainWindow):
                                                    self.portfolio[sym]['percentage']]
                     )
 
-            #update portfolio if anything changes
+            iconUP = QIcon()
+            iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
+            iconDOWN = QIcon()
+            iconDOWN.addFile(u":/res/down.png", QSize(), QIcon.Normal, QIcon.Off)
+            iconEqual = QIcon()
+            iconEqual.addFile(u":/res/equal.png", QSize(), QIcon.Normal, QIcon.Off)
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -1295,15 +1312,15 @@ class MainWindow(QMainWindow):
                     if col == 2 and lst_elements_to_update[row][col] > 0.0:
                         # found change item add up/down arrow depending on the value
                         table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                        table_item.setIcon(iconUP)
                         
                     elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                         table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                        table_item.setIcon(iconDOWN)
                         
                     elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                        table_item.setIcon(iconEqual)
                     else:
                         if col == 0:
                             table_item.setText(lst_elements_to_update[row][col])
@@ -2542,7 +2559,12 @@ class MainWindow(QMainWindow):
             )
 
        
-        
+        iconUP = QIcon()
+        iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
+        iconDOWN = QIcon()
+        iconDOWN.addFile(u":/res/down.png", QSize(), QIcon.Normal, QIcon.Off)
+        iconEqual = QIcon()
+        iconEqual.addFile(u":/res/equal.png", QSize(), QIcon.Normal, QIcon.Off)
         #update table
         for row in range(len(lst_elements_to_update)):
             join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
@@ -2553,15 +2575,15 @@ class MainWindow(QMainWindow):
                 if col == 2 and lst_elements_to_update[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
                     table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\up.png"))
+                    table_item.setIcon(iconUP)
                     
                 elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                     table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\down.png"))
+                    table_item.setIcon(iconDOWN)
                     
                 elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                     table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(QIcon(f"{self.icon_path}\\equal.png"))
+                    table_item.setIcon(iconEqual)
                 else:
                     if col == 0:
                         table_item.setText(lst_elements_to_update[row][col])
@@ -4288,15 +4310,13 @@ class TableToolTip(QWidget):
             self.base_path = os.path.abspath(".")
 
         #set the program paths
-        icon_path = os.path.join(self.base_path,"icons")
+       
         data_path = os.path.join(os.environ['LOCALAPPDATA'], "pyShares")
 
-        icon_path = os.path.join(self.base_path,"icons")
+     
         
-
-        self.icon_up = QIcon(f"{icon_path}\\up.png")
-        self.icon_down = QIcon(f"{icon_path}\\down.png")
-        self.icon_equal = QIcon(f"{icon_path}\\equal.png")
+       
+    
 
         
         #load sector data
@@ -4346,13 +4366,13 @@ class TableToolTip(QWidget):
                 if col == 2 and lst_vals[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
                     table_item.setText("{0:+.2f}".format(lst_vals[row][col]))
-                    table_item.setIcon(self.icon_up)
+                    table_item.setIcon(self.parent().get_icon("icoUp"))
                 elif col == 2 and lst_vals[row][col] < 0.0:
                     table_item.setText("{0:-.2f}".format(lst_vals[row][col]))
-                    table_item.setIcon(self.icon_down)
+                    table_item.setIcon(self.parent().get_icon("icoDown"))
                 elif col == 2 and lst_vals[row][col] == 0.0:
                     table_item.setText("{0:.2f}".format(lst_vals[row][col]))
-                    table_item.setIcon(self.icon_equal)
+                    table_item.setIcon(self.parent().get_icon("icoEqual"))
                 else:
                     if col == 0:
                        
