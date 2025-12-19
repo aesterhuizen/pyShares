@@ -903,6 +903,7 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <addaction name="actionRefresh"/>
     <addaction name="actionCredentials_File"/>
     <addaction name="separator"/>
     <addaction name="action_Exit"/>
@@ -918,6 +919,8 @@
      <addaction name="actionBar_plot_Gain_Loss"/>
      <addaction name="actionBar_plot_Sector_Colors"/>
      <addaction name="actionIndividual_plot"/>
+     <addaction name="separator"/>
+     <addaction name="actionToggle_Charts"/>
     </widget>
     <addaction name="menuPlots"/>
    </widget>
@@ -946,6 +949,11 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_Exit"/>
+   <addaction name="separator"/>
+   <addaction name="actionCredentials_File"/>
+   <addaction name="separator"/>
+   <addaction name="actionToggle_Charts"/>
+   <addaction name="actionRefresh"/>
   </widget>
   <action name="action_Exit">
    <property name="icon">
@@ -963,23 +971,57 @@
    </property>
   </action>
   <action name="actionCredentials_File">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/Credentials.png</normaloff>:/res/Credentials.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;Credentials File</string>
    </property>
   </action>
   <action name="actionBar_plot_Gain_Loss">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
+   </property>
    <property name="text">
     <string>Bar plot - (Gain\Loss)</string>
    </property>
   </action>
   <action name="actionBar_plot_Sector_Colors">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
+   </property>
    <property name="text">
     <string>Bar plot - (Sector Colors)</string>
    </property>
   </action>
   <action name="actionIndividual_plot">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
+   </property>
    <property name="text">
     <string>Individual plot</string>
+   </property>
+  </action>
+  <action name="actionToggle_Charts">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
+   </property>
+   <property name="text">
+    <string>Toggle Charts</string>
+   </property>
+  </action>
+  <action name="actionRefresh">
+   <property name="icon">
+    <iconset resource="../icons/resources.qrc">
+     <normaloff>:/res/refresh.png</normaloff>:/res/refresh.png</iconset>
+   </property>
+   <property name="text">
+    <string>Refresh</string>
    </property>
   </action>
  </widget>

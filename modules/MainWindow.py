@@ -19,18 +19,18 @@ from matplotlib.patches import Patch
 matplotlib.use('QtAgg')
 
 import re
-from PyQt6.QtGui import QPalette
+from PySide6.QtGui import QPalette
 
 from dotenv import load_dotenv, set_key
 
 
-from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, \
+from PySide6.QtWidgets import QWidget, QApplication, QMainWindow, QMessageBox,QLabel, \
     QPushButton, QTableWidget, QTableWidgetItem,QVBoxLayout, QFileDialog, \
     QScrollArea, QSizePolicy
                             
-from PyQt6.QtGui import QAction, QIcon, QCursor, QColor,QFont
+from PySide6.QtGui import QAction, QIcon, QCursor, QColor,QFont
 
-from PyQt6.QtCore import QSize,Qt,QPoint, QTimer
+from PySide6.QtCore import QSize,Qt,QPoint, QTimer
 
 from modules.layout import Ui_MainWindow
 
@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.5"
+        self.ver_string = "v1.1.6"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -59,7 +59,8 @@ class MainWindow(QMainWindow):
         self.update_thread = None
         self.command_thread = None
         self.monitor_thread = None
-        self.refreh_thread = None
+        self._refresh_thread= None
+        self.toggle_chart_thread = None
 
         #total and today gains of portfolio
         self.totalGains = 0.0
@@ -323,30 +324,12 @@ class MainWindow(QMainWindow):
         self.ui.actionBar_plot_Sector_Colors.triggered.connect(self.showSectorChart)
         self.ui.actionIndividual_plot.triggered.connect(self.showIndividualChart)
         
-        #Toolbar
-        self.ui.toolBar.setIconSize(QSize(32,32))
-        button_action = QAction(QIcon(self.icon_path +'/exit.png'), "Exit", self)
-        button_action.triggered.connect(self.closeMenu_clicked)
-        button_action = self.ui.toolBar.addAction(button_action)
-        
-        self.ui.toolBar.addSeparator()
-
-        #add credentials button
-        button_cred_action = QAction(QIcon(self.icon_path +'/Credentials.png'), "Credentials", self)
-        button_cred_action.triggered.connect(self.Show_msgCredentials)
-        button_cred_action = self.ui.toolBar.addAction(button_cred_action)
-
-        #add charts button
-        button_chart_action = QAction(QIcon(self.icon_path +'/bar-chart.png'), "View Bar Chart (Sector Colors)", self)
-        button_chart_action.triggered.connect(self.toggleChart_clicked)
-        button_chart_action.setToolTip("Toggle Graph Type")
-        button_chart_action = self.ui.toolBar.addAction(button_chart_action)
-        
-        #add refresh button
-        button_refresh_action = QAction(QIcon(self.icon_path +'/refresh.png'), "Refresh Data", self)
-        button_refresh_action.triggered.connect(self.refreshData_clicked)
-        button_refresh_action.setToolTip("Refresh Data")
-        button_refresh_action = self.ui.toolBar.addAction(button_refresh_action)
+        # #Toolbar
+        self.ui.action_Exit.triggered.connect(self.closeMenu_clicked)
+        self.ui.actionCredentials_File.triggered.connect(self.Show_msgCredentials)
+        self.ui.actionToggle_Charts.triggered.connect(self.toggleChart_clicked)
+        self.ui.actionRefresh.triggered.connect(self.refreshData_clicked)
+ 
         
 
         # set tooltip for edtBuyWith textbox
@@ -435,11 +418,12 @@ class MainWindow(QMainWindow):
     
     def refreshData_clicked(self):
         #spawn refresh thread
+        self.ui.actionRefresh.setEnabled(False)
         cursor = QCursor()
         cursor.setShape(cursor.shape().WaitCursor)
-        refresh_thread = CommandThread(self.refresh_thread)
-        refresh_thread.start()
-        QApplication.restoreOverrideCursor()
+        self._refresh_thread = CommandThread(self.refresh_thread)
+        self._refresh_thread.start()
+        
 
         
         
@@ -464,8 +448,8 @@ class MainWindow(QMainWindow):
         # spawn toggleChart thread
         cursor = QCursor()
         cursor.setShape(cursor.shape().WaitCursor)
-        toggle_chart_thread = CommandThread(self.toggleChartType)
-        toggle_chart_thread.start()
+        self.toggle_chart_thread = CommandThread(self.toggleChartType)
+        self.toggle_chart_thread.start()
         QApplication.restoreOverrideCursor()
      
       
@@ -830,6 +814,9 @@ class MainWindow(QMainWindow):
                     self.ui.btnExecute.setText("Execute ...")
                     self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
                     self.ui.btnExecute.setEnabled(True)
+            elif self._refresh_thread is not None and not self._refresh_thread.is_alive():
+                    self.ui.actionRefresh.setEnabled(True)
+                    QApplication.restoreOverrideCursor()
            
                 
                 

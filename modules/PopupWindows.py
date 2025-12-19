@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, \
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, \
                             QFileDialog, QListWidget, QPushButton ,QLabel, QVBoxLayout, QHBoxLayout, QLineEdit
 
 
