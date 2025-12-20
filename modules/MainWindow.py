@@ -75,8 +75,11 @@ class MainWindow(QMainWindow):
         #main list of tickers and performance metrics
 
         self.fundamentals = []
+        #sector dictionary
         self.dict_sectors = {}
+        #portfolio dictionary
         self.portfolio  = {}
+        #portfolio total value
         self.portfolio_tvalue = 0.0
         self.plot_type = {0: "Bar (Gain/Loss)", 
                                   1: "Bar (Sector Colors)", 
@@ -193,7 +196,7 @@ class MainWindow(QMainWindow):
         #set icons
         self.icon_dict = { "icoUp": iconUP, "icoDown": iconDOWN, "icoEqual": iconEqual}
         
-        
+        #if env_file exists load it
         if os.path.exists(self.env_file):
             #write env_path to file
             with open(self.env_file,"r") as open_file:
@@ -243,7 +246,7 @@ class MainWindow(QMainWindow):
                         
                         
             
-                self.print_cur_protfolio(self.portfolio)
+                self.print_cur_portfolio(self.portfolio)
                 #get total gains for the day
                 self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
                 self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)               
@@ -312,7 +315,7 @@ class MainWindow(QMainWindow):
                             self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                             return
                     
-                    self.print_cur_protfolio(self.portfolio)
+                    self.print_cur_portfolio(self.portfolio)
                     #get total gains for the day
                 self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
                 self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
@@ -411,10 +414,11 @@ class MainWindow(QMainWindow):
         self.monitor_thread.start()
 
         # setup status bar and sector buttons---------------------------------
-        self.setupStatusbar()
+        self.setupStatusbar(self.portfolio)
+        self.dict_sectors = self.setupSectorButtons(self.portfolio)
         #---------------------------------------------------------------
         #setup sector analytics tab------------------------------------
-        self.setup_sector_analytics()
+        self.setup_sector_analytics(self.portfolio,self.dict_sectors)
         #--------------------------------------------------------------
 
        
@@ -430,29 +434,41 @@ class MainWindow(QMainWindow):
 
     def refreshData_clicked(self):
         #spawn refresh thread
-        self.ui.actionRefresh.setEnabled(False)
         cursor = QCursor()
         cursor.setShape(cursor.shape().WaitCursor)
+        QApplication.setOverrideCursor(cursor)
+
+        self.ui.actionRefresh.setEnabled(False)
         self._refresh_thread = CommandThread(self.refresh_thread)
         self._refresh_thread.start()
         
 
-        
+        QApplication.restoreOverrideCursor()
         
         
         return
     def refresh_thread(self):
         try:
-            self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)
-             
+            refreshed_portfolio = self.get_stocks_from_portfolio(self.current_account_num)
+            if len(refreshed_portfolio) != len(self.portfolio):
+                #setup the asset table again and other tables
+                self.print_cur_portfolio(refreshed_portfolio)
+                self.setup_plot(refreshed_portfolio,plot_type=self.current_plot_type)
+                self.setupStatusbar(refreshed_portfolio)
+                self.dict_sectors = self.setupSectorButtons(refreshed_portfolio)
+                self.setup_sector_analytics(refreshed_portfolio,self.dict_sectors)
+                self.portfolio = refreshed_portfolio
+            else:
+                #update existing portfolio
+                self.updateLstAssets()
+                self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+                self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
+                self.setup_sector_analytics(self.portfolio,self.dict_sectors)
         except Exception as e:
             if e.args[0]:
                 self.ui.lstTerm.addItem(f"Error!: {e.args[0]}")
                 
-        # self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
-        # self.update_sectorAnalytics()
-        # self.updateLstAssets()
-        # self.updateStatusBar(self.selected_stocks)
+       
 
         return
     
@@ -773,21 +789,19 @@ class MainWindow(QMainWindow):
                 
         return
 
-    def get_symbols_From_sectors(self) -> list[str]:
+    def get_symbols_From_sectors(self,sector_dict) -> list[str]:
         # Get the selected sector
         sectorFrom = self.ui.cmbFromSector.currentText()
         # Get the symbols in the selected sector
-        symbolsFromSector = self.get_symbols_pct_in_sector(sectorFrom)
-
+        symbolsFromSector = self.get_symbols_pct_in_sector(sector_dict, sectorFrom)
       
         return symbolsFromSector
 
-    def get_symbols_To_sectors(self) -> list[str]:
+    def get_symbols_To_sectors(self,sector_dict) -> list[str]:
         # Get the selected sector
         sectorTo = self.ui.cmbToSector.currentText()
         # Get the symbols in the selected sector
-        symbolsToSector = self.get_symbols_pct_in_sector(sectorTo)
-
+        symbolsToSector = self.get_symbols_pct_in_sector(sector_dict, sectorTo)
       
         return symbolsToSector
     
@@ -812,9 +826,9 @@ class MainWindow(QMainWindow):
 
         return lst_stockReduce
 
-    def get_symbols_pct_in_sector(self, name):
+    def get_symbols_pct_in_sector(self, sector_dict, name):
         # Get the list of stocks in sector
-        lst_stocks_pct_in_sector = self.dict_sectors[name]
+        lst_stocks_pct_in_sector = sector_dict[name]
         
         
         return lst_stocks_pct_in_sector
@@ -847,7 +861,7 @@ class MainWindow(QMainWindow):
                         self.clear_all_clicked()
                     else:
                         self.showTableTooltip(obj)
-                        lst_stocks = self.get_symbols_pct_in_sector(obj.objectName())
+                        lst_stocks = self.get_symbols_pct_in_sector(self.dict_sectors,obj.objectName())
                         symbols = [stock.split(':')[0] for stock in lst_stocks]
                         symbols_label = ','.join(symbols)
                         self.highlight_stocks_in_table(lst_stocks)
@@ -879,7 +893,7 @@ class MainWindow(QMainWindow):
         self.tooltip.move(pos)
         self.tooltip.show()
 
-    def setupStatusbar(self):
+    def setupStatusbar(self,cur_portfolio={}):
 
         #remove all statusbar childern
         
@@ -981,29 +995,25 @@ class MainWindow(QMainWindow):
         tbl_Index.setMinimumWidth(tbl_Index.width+ 20)
         self.ui.statusBar.addWidget(tbl_Index,1)
 
-
-        
-        self.setupSectorButtons()
-       
-      
-        
-        
-
         return
 
-    def setup_sector_analytics(self):
+    def setup_sector_analytics(self,cur_portfolio,cur_dict_sectors={}):
         
+        #clear existing table
+        if self.ui.tblSectorAnalytics.rowCount() > 0:
+            self.ui.tblSectorAnalytics.clear()
+
         row = 0
         self.ui.tblSectorAnalytics.setColumnCount(5)
-        self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Total Return","Today's Return","Equity","Percent of Portfolio(%)"])
-        self.ui.tblSectorAnalytics.setRowCount(len(self.dict_sectors))
+        self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Total Return","Today's Return","Equity","% of Portfolio"])
+        self.ui.tblSectorAnalytics.setRowCount(len(cur_dict_sectors))
         
-        for sector,stocks_pct_in_sector in self.dict_sectors.items():
+        for sector,stocks_pct_in_sector in cur_dict_sectors.items():
             symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
             pct_of_portfolio = sum(float(x.split(':')[1]) for x in stocks_pct_in_sector)    # sum of all pct of portfolio for the sector
-            total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
-            todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
-            total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
+            total_return = sum(float(cur_portfolio[symbol]['total_return']) for symbol in symbols)
+            todays_return = sum(float(cur_portfolio[symbol]['todays_return']) for symbol in symbols)
+            total_equity = sum(float(cur_portfolio[symbol]['equity']) for symbol in symbols)
             percent_of_portfolio = "{0:.2f}".format(pct_of_portfolio) 
             for col in range(5):
                 row_item = QTableWidgetItem()
@@ -1033,42 +1043,46 @@ class MainWindow(QMainWindow):
         self.ui.tblSectorAnalytics.resizeColumnsToContents() 
            
         return
-          
-                
-           
-          
-    def setupSectorButtons(self):
+
+
+
+
+    #seup self.dict_sectors with sectors and stock symbols in those sectors      
+    def setupSectorButtons(self, cur_portfolio={}) -> dict:
 
         tot_pct = 0.0   
+        sector_dict = {}
+        #clear existing dictionary
         if len(self.dict_sectors) != 0:
             self.dict_sectors = {}
 
         #loop over the dictionary fundamentals and create a new dicrionary of all the sectors and stock symbols in those sectors
-        for symbol in self.portfolio:
-            sector = self.portfolio[symbol]['sector']
-            pct_portfolio = (float(self.portfolio[symbol]['equity']) / self.portfolio_tvalue * 100) if self.portfolio_tvalue > 0 else 0
-            if sector not in self.dict_sectors:
-                self.dict_sectors[sector] = [f'{symbol}:{pct_portfolio}']
+        for symbol in cur_portfolio:
+            sector = cur_portfolio[symbol]['sector']
+            cur_portfolio_value = sum(float(cur_portfolio[item]['equity']) for item in cur_portfolio)
+            pct_portfolio = (float(cur_portfolio[symbol]['equity']) / cur_portfolio_value * 100) if cur_portfolio_value > 0 else 0
+            if sector not in sector_dict:
+                sector_dict[sector] = [f'{symbol}:{pct_portfolio}']
             else:
-                self.dict_sectors[sector].append(f'{symbol}:{pct_portfolio}')
+                sector_dict[sector].append(f'{symbol}:{pct_portfolio}')
         #sort dictionary keys according to pct_portfolio
-        self.dict_sectors = dict(sorted(self.dict_sectors.items(), key=lambda item: sum(float(x.split(':')[1]) for x in item[1]), reverse=True))
+        sector_dict = dict(sorted(sector_dict.items(), key=lambda item: sum(float(x.split(':')[1]) for x in item[1]), reverse=True))
 
        #remove all sector button if it exist
-        remove_buttons = [child for child in self.ui.statusBar.children() if isinstance(child, QPushButton)]
+        remove_buttons_lst = [child for child in self.ui.statusBar.children() if isinstance(child, QPushButton)]
 
         #remove old buttons that are not necessary
-        for button in remove_buttons:
+        for button in remove_buttons_lst:
             self.ui.statusBar.removeWidget(button)
             
         #add buttons to statusbar
-        for sector in self.dict_sectors.keys():
-            button = QPushButton(QIcon(self.icon_path +'/application--arrow.png'), sector, self)
+        for sector in sector_dict.keys():
+            button = QPushButton(sector, self)
             button.setObjectName(sector)
             button.installEventFilter(self) #listen to mouse movement events for the buttons
             self.ui.statusBar.addWidget(button, 1)
             #load sectors into comboSectors in stackpage
-            if not (sector == ''):
+            if not (sector == ''): #ETHA has no sector
                 self.ui.cmbFromSector.addItem(sector)
                 self.ui.cmbToSector.addItem(sector)
         #add none option for to sector if user want to only sell from one sector
@@ -1079,14 +1093,14 @@ class MainWindow(QMainWindow):
         self.ui.cmbToSector.setCurrentIndex(0)
 
         #---setup allocated page combo boxes
-        from_sector_symbols = self.get_symbols_From_sectors()
+        from_sector_symbols = self.get_symbols_From_sectors(sector_dict)
         for item in from_sector_symbols:
             pct = item.split(":")[1]
             tot_pct += float(pct)
         self.ui.lblFromSector_pct.setText(f'{tot_pct:.2f}% of Portfolio')
 
         tot_pct = 0.0
-        to_sector_symbols = self.get_symbols_To_sectors()
+        to_sector_symbols = self.get_symbols_To_sectors(sector_dict)
         for item in to_sector_symbols:
             pct = item.split(":")[1]
             tot_pct += float(pct)
@@ -1096,7 +1110,7 @@ class MainWindow(QMainWindow):
                     
                         
 
-        return
+        return sector_dict
 
     def closeEvent(self, event):
         # Perform any cleanup or save operations here
@@ -1203,9 +1217,9 @@ class MainWindow(QMainWindow):
 
 
         
-        SPY_icon_up = QIcon(f"{self.icon_path}\\up.png")
-        SPY_icon_down = QIcon(f"{self.icon_path}\\down.png")
-        SPY_icon_equal = QIcon(f"{self.icon_path}\\equal.png")
+        SPY_icon_up = self.icon_dict['icoUp']
+        SPY_icon_down = self.icon_dict['icoDown']
+        SPY_icon_equal = self.icon_dict['icoEqual']
         
         
         for row in range(len(lst_SPY)):
@@ -1246,8 +1260,10 @@ class MainWindow(QMainWindow):
         total_return = selected_total_return
         today_return = selected_today_return
 
+        
         return total_return,today_return
-    
+
+
     def updateLstAssets(self):        
         
         #setup timer for status bar and lstAssets
@@ -1342,9 +1358,7 @@ class MainWindow(QMainWindow):
             
             
         
-            self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
-            self.update_sectorAnalytics()
-            
+           
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
@@ -1352,46 +1366,7 @@ class MainWindow(QMainWindow):
         
         return
         
-    def update_sectorAnalytics(self):
-        row = 0
-        
-        
-        for sector,stocks_pct_in_sector in self.dict_sectors.items():
-            symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
-            pct_of_portfolio = sum(float(pct.split(':')[1]) for pct in stocks_pct_in_sector)
-            total_return = sum(float(self.portfolio[symbol]['total_return']) for symbol in symbols)
-            todays_return = sum(float(self.portfolio[symbol]['todays_return']) for symbol in symbols)
-            total_equity = sum(float(self.portfolio[symbol]['equity']) for symbol in symbols)
-            percent_of_portfolio = "{0:.2f}".format(pct_of_portfolio) 
-            for col in range(4):
-                row_item = QTableWidgetItem()
-                    #set table properties
-                row_item.setForeground(QColor("white"))
-                row_item.setBackground(QColor("black"))
-                row_item.setFlags(row_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                row_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
-                
-                if col == 0:
-                    row_item.setText(sector)
-                elif col == 1:
-                    row_item.setText(f"{total_return:,.2f}")
-                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                elif col == 2:
-                    row_item.setText(f"{todays_return:,.2f}")
-                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                elif col == 3:
-                    row_item.setText(f"{total_equity:,.2f}")
-                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                elif col == 4:
-                    row_item.setText(percent_of_portfolio) 
-                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                                              
-                self.ui.tblSectorAnalytics.setItem(row,col,row_item)
-            row +=1    
-         
-        self.ui.tblSectorAnalytics.resizeColumnsToContents() 
-           
-        return
+    
     def Show_msgCredentials(self):
         get_cred_file = msgBoxGetCredentialFile()
         button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -1437,70 +1412,62 @@ class MainWindow(QMainWindow):
                 else:
                     self.setWindowTitle(f"PyShares - {self.ver_string} - ({self.env_path})")
 
-                #check to see if the account number has changed
-                try:
-                    self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num )
-                except Exception as e:
-                    if e.args[0] == "Invalid account number":
-                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        return
-                    else:
+                # #check to see if the account number has changed
+                # try:
+                self.portfolio = self.get_stocks_from_portfolio(self.current_account_num )
+                # except Exception as e:
+                #     if e.args[0] == "Invalid account number":
+                #         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                #         return
+                #     else:
                         
-                        #login to Robinhood
-                        try:
-                            otp = pyotp.TOTP(os.environ['robin_mfa']).now()
-                            r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
-                        except Exception as e:
-                            QMessageBox.critical(self,"Error",f"Error: {e.args[0]}",QMessageBox.StandardButton.Ok)
-                            return
+                #         #login to Robinhood
+                #         try:
+                #             otp = pyotp.TOTP(os.environ['robin_mfa']).now()
+                #             r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+                #         except Exception as e:
+                #             QMessageBox.critical(self,"Error",f"Error: {e.args[0]}",QMessageBox.StandardButton.Ok)
+                #             return
                 
-                #Get account numers and populate comboboxes
-                self.account_info = os.environ['account_number']
-                self.ui.cmbAccount.clear()
-                #There is an account number
-                if self.account_info != '':
-                    if self.account_info.find(',') != -1:
-                        slice_account = self.account_info.split(',')
-                        for item in slice_account:
-                            self.ui.cmbAccount.addItem(item)
-                    else:
-                        self.ui.cmbAccount.addItem(self.account_info)
+                # #Get account numers and populate comboboxes
+                # self.account_info = os.environ['account_number']
+                # self.ui.cmbAccount.clear()
+                # #There is an account number
+                # if self.account_info != '':
+                #     if self.account_info.find(',') != -1:
+                #         slice_account = self.account_info.split(',')
+                #         for item in slice_account:
+                #             self.ui.cmbAccount.addItem(item)
+                #     else:
+                #         self.ui.cmbAccount.addItem(self.account_info)
                     
-                    self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
-                    try:   
-                        self.ticker_lst = self.get_stocks_from_portfolio(self.current_account_num)
-                    except Exception as e:
-                        if e.args[0] == "Invalid account number":
-                            self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                            return
+                #     self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]    
+                #     try:   
+                #         self.portfolio = self.get_stocks_from_portfolio(self.current_account_num)
+                #     except Exception as e:
+                #         if e.args[0] == "Invalid account number":
+                #             self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                #             return
                         
-                    self.print_cur_protfolio(self.ticker_lst)
-                    if self.ui.lstTerm.count() > 0:
-                        self.ui.lstTerm.clear()
+                self.print_cur_portfolio(self.portfolio)
+                if self.ui.lstTerm.count() > 0:
+                    self.ui.lstTerm.clear()
 
-                    #get total gains for the day
-                    self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-                    self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
-                    #setup plot widget
-                    self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
-                    #edit status bar
-            
-                frm_TotalGains = "{0:,.2f}".format(self.totalGains)
-                frm_TodayGains = "{0:,.2f}".format(self.todayGains)
-
-                lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-                lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
-
-                lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
-                lblGainToday.setText(f"Todays Gains: ${frm_TodayGains}")
-                lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
-                lblGainTotal.setText(f"Total Gains: ${frm_TotalGains}")
+                #get total gains for the day
+                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+                #setup plot widget
+                self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+                #edit status bar
+        
+                self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.portfolio)
             finally:
                 #Restore the cursor
                 
                 QApplication.restoreOverrideCursor()
         else: #user pressed cancel at cridential dialog
-            return
+            {}
+        return  
 
       
     def cmbDollarShare_clicked(self):
@@ -1945,22 +1912,7 @@ class MainWindow(QMainWindow):
 
         self.ui.btnExecute.setEnabled(True)
         self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")  # Change background to green
-        #  if perform_action == "stock_info":
-        
-        # elif perform_action == "sell_selected":
-
-        # elif perform_action == "sell_total_return_except_x":
-        # elif perform_action == "sell_todays_return":
-        
-        # elif perform_action == "raise_x_sell_y_dollars":
-        # elif perform_action == "raise_x_sell_y_dollars_except_z":
-        # elif perform_action == "reinvest_with_gains":
-        # elif perform_action == "buy_x_with_y_amount":
-      
-        # elif perform_action == "buy_selected_with_x":
-        #   
-        # else: #default
-
+        return
     def setup_plot(self,tickersPerf = {},selected_tickets = [],plot_type = "Bar (Sector Colors)"):
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
@@ -2528,7 +2480,7 @@ class MainWindow(QMainWindow):
         self.tblAsset_clicked()
         self._selectAll_in_progress = True
         return
-    def print_cur_protfolio(self, curlist):
+    def print_cur_portfolio(self, curlist={}):
        
       
         join_list = []
@@ -2536,8 +2488,10 @@ class MainWindow(QMainWindow):
         lst_elements_to_update = []
         #set header
         
-        
-        
+        #clear the table
+        if self.ui.tblAssets.rowCount() > 0:
+            self.ui.tblAssets.clear()
+
         self.ui.tblAssets.setColumnCount(8)
         self.ui.tblAssets.setRowCount(len(curlist))
         
@@ -2548,14 +2502,14 @@ class MainWindow(QMainWindow):
         open_file = open(cur_portfolio_file,"w")
 
         for item in self.portfolio:
-            lst_elements_to_update.append(  [self.portfolio[item]['stock_name'], \
-                                            self.portfolio[item]['price'], \
-                                            self.portfolio[item]['change'], \
-                                            self.portfolio[item]['quantity'], \
-                                            self.portfolio[item]['total_return'], \
-                                            self.portfolio[item]['todays_return'], \
-                                            self.portfolio[item]['equity'], \
-                                            self.portfolio[item]['percentage']]
+            lst_elements_to_update.append(  [curlist[item]['stock_name'], \
+                                            curlist[item]['price'], \
+                                            curlist[item]['change'], \
+                                            curlist[item]['quantity'], \
+                                            curlist[item]['total_return'], \
+                                            curlist[item]['todays_return'], \
+                                            curlist[item]['equity'], \
+                                            curlist[item]['percentage']]
             )
 
        
@@ -2625,6 +2579,8 @@ class MainWindow(QMainWindow):
 
         
         return stock_tickers_names
+    def get_sector_dict(self):
+        return self.dict_sectors
     
     def get_portfolio_dict(self):
         return self.portfolio
@@ -4003,18 +3959,7 @@ class MpfCanvas(FigureCanvasQTAgg):
    
 
     def add_plot_to_figure(self,ticker_dict,sel_ticker_lst=[],action_selection="Bar (Sector Colors)", sectorsDict={}, frm_h=0, frm_w=0) -> str:
-        #Item[0] =  tickers
-        #Item[1]= Total_return
-        #Item[2] = stock_quantity_to_sell/buy
-        #Item[3]= last price
-        #item[4]= your quantities
-        #item[5]=today's return
-        #item[6]= average buy price
-        #item[7]=%change in price
-        #item[8]=change in price since previous close
-        #items to be updated ["Ticker","Price","Change","Quantity","Today's Return","Total Return"]
-        #updated_items = update_current_assets()
-        #item[9] = stock name
+      
        
 
      
@@ -4320,7 +4265,7 @@ class TableToolTip(QWidget):
 
         
         #load sector data
-        lst_stocks_in_sector = self.parent().get_symbols_pct_in_sector(obj.objectName())
+        lst_stocks_in_sector = self.parent().get_symbols_pct_in_sector(self.parent().get_sector_dict(), obj.objectName())
         portfolio = self.parent().get_portfolio_dict()
         self.createTable(lst_stocks_in_sector,portfolio)
 
