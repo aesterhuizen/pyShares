@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QForm
     QPushButton, QSizePolicy, QSpacerItem, QSplitter,
     QStackedWidget, QStatusBar, QTabWidget, QTableWidget,
     QTableWidgetItem, QToolBar, QVBoxLayout, QWidget)
-import modules.resource_rc
+
+import modules.resources_rc
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -472,6 +473,9 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.tblSectorAnalytics = QTableWidget(self.tabSectorAnalysis)
         self.tblSectorAnalytics.setObjectName(u"tblSectorAnalytics")
+        self.tblSectorAnalytics.setEditTriggers(QAbstractItemView.AnyKeyPressed|QAbstractItemView.EditKeyPressed)
+        self.tblSectorAnalytics.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tblSectorAnalytics.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tblSectorAnalytics.setShowGrid(False)
 
         self.verticalLayout_2.addWidget(self.tblSectorAnalytics)

@@ -726,6 +726,15 @@
                   <layout class="QVBoxLayout" name="verticalLayout_2">
                    <item>
                     <widget class="QTableWidget" name="tblSectorAnalytics">
+                     <property name="editTriggers">
+                      <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::EditKeyPressed</set>
+                     </property>
+                     <property name="selectionMode">
+                      <enum>QAbstractItemView::SingleSelection</enum>
+                     </property>
+                     <property name="selectionBehavior">
+                      <enum>QAbstractItemView::SelectRows</enum>
+                     </property>
                      <property name="showGrid">
                       <bool>false</bool>
                      </property>
@@ -957,7 +966,7 @@
   </widget>
   <action name="action_Exit">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/exit.png</normaloff>:/res/exit.png</iconset>
    </property>
    <property name="text">
@@ -972,7 +981,7 @@
   </action>
   <action name="actionCredentials_File">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/Credentials.png</normaloff>:/res/Credentials.png</iconset>
    </property>
    <property name="text">
@@ -981,7 +990,7 @@
   </action>
   <action name="actionBar_plot_Gain_Loss">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
    </property>
    <property name="text">
@@ -990,7 +999,7 @@
   </action>
   <action name="actionBar_plot_Sector_Colors">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
    </property>
    <property name="text">
@@ -999,7 +1008,7 @@
   </action>
   <action name="actionIndividual_plot">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
    </property>
    <property name="text">
@@ -1008,7 +1017,7 @@
   </action>
   <action name="actionToggle_Charts">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/bar-chart.png</normaloff>:/res/bar-chart.png</iconset>
    </property>
    <property name="text">
@@ -1017,7 +1026,7 @@
   </action>
   <action name="actionRefresh">
    <property name="icon">
-    <iconset resource="../icons/resources.qrc">
+    <iconset resource="../../icons_data/resources.qrc">
      <normaloff>:/res/refresh.png</normaloff>:/res/refresh.png</iconset>
    </property>
    <property name="text">
@@ -1026,7 +1035,7 @@
   </action>
  </widget>
  <resources>
-  <include location="../icons/resources.qrc"/>
+  <include location="../../icons_data/resources.qrc"/>
  </resources>
  <connections/>
 </ui>

@@ -187,6 +187,7 @@ class MainWindow(QMainWindow):
         self.data_path = os.path.join(os.environ['LOCALAPPDATA'], "pyShares")
         self.env_file = os.path.join(self.data_path,"env_path.txt")
 
+        #load icons from resources_rc.py module
         iconUP = QIcon()
         iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
         iconDOWN = QIcon()
@@ -434,18 +435,10 @@ class MainWindow(QMainWindow):
 
     def refreshData_clicked(self):
         #spawn refresh thread
-        cursor = QCursor()
-        cursor.setShape(cursor.shape().WaitCursor)
-        QApplication.setOverrideCursor(cursor)
-
         self.ui.actionRefresh.setEnabled(False)
+        self.ui.lstTerm.addItem("Refreshing portfolio data...")
         self._refresh_thread = CommandThread(self.refresh_thread)
         self._refresh_thread.start()
-        
-
-        QApplication.restoreOverrideCursor()
-        
-        
         return
     def refresh_thread(self):
         try:
@@ -842,6 +835,8 @@ class MainWindow(QMainWindow):
                     self.ui.btnExecute.setEnabled(True)
             elif self._refresh_thread is not None and not self._refresh_thread.is_alive():
                     self.ui.actionRefresh.setEnabled(True)
+                    self.ui.lstTerm.clear()
+                    self.ui.lstTerm.addItem("Portfolio refreshed.")
                     QApplication.restoreOverrideCursor()
            
                 
@@ -869,7 +864,7 @@ class MainWindow(QMainWindow):
                         self.setup_plot(self.portfolio,selected_tickets=symbols,plot_type=self.current_plot_type)
                         self.ui.edtLstStocksSelected.setText(symbols_label) 
                         self.ui.edtRaiseAmount.setText(symbols_label)
-                        self.cur_total_return, self.cur_today_return = self.updateStatusBar(self.selected_stocks)
+                        self.cur_total_return, self.cur_today_return = self.updateStatusBar_totals(self.selected_stocks)
                         if self.ui.cmbAction.currentText() == "sell_selected_total_return" :
                             self.ui.edtAmountEst.setText(f"${self.cur_total_return:,.2f}")
                         elif self.ui.cmbAction.currentText() == "sell_selected_todays_return" :
@@ -883,6 +878,61 @@ class MainWindow(QMainWindow):
             
             QApplication.restoreOverrideCursor()
        return super().eventFilter(obj, event)
+    
+    def updateStatusBar_totals(self,selected_stocks):
+        selected_total_return = 0.0
+        selected_today_return = 0.0
+       
+        frm_TodayGains = "0.00"
+        frm_TotalGains = "0.00"
+       
+        # if tblAssets has stocks sellected then only calculate gains for those stocks
+        if len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
+            self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
+            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+            
+        elif len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
+            self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"    
+        elif len(selected_stocks) > 0:
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+            
+        else:
+            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"
+            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+
+            if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+                self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
+            elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+                self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
+            
+          
+       
+        lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
+        lblGainToday.setText(frm_TodayGains)
+        lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
+        lblGainTotal.setText(frm_TotalGains)
+
+     
+
+        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
+        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+
+        
+      
+        total_return = selected_total_return
+        today_return = selected_today_return
+       
+        return total_return, today_return
     
     def showTableTooltip(self,button):
         if self.tooltip:
@@ -1917,7 +1967,7 @@ class MainWindow(QMainWindow):
         frm_h = self.plot_scroll.height()
         frm_w = self.plot_scroll.width()
 
-        self.plot.figure.clf()  # Clear the existing figure
+        self.plot.figure.clear()  # Clear the existing figure
         error_msg = self.plot.add_plot_to_figure(tickersPerf,selected_tickets,plot_type, self.dict_sectors,frm_h,frm_w)
         if error_msg != "":
             self.ui.lstTerm.addItem(f"Error: {error_msg}")
@@ -4123,11 +4173,11 @@ class MpfCanvas(FigureCanvasQTAgg):
                         if sorted_dict[ticker]['change'] < 0.0:
                             bars[i].set_facecolor('darkred')
                             val_down += 1
-                            tot_down_change += sorted_dict[ticker]['total_return'] #- total today down return
+                            tot_down_change += sorted_dict[ticker]['todays_return'] #- total today down return
                         elif sorted_dict[ticker]['change'] > 0.0:
                             bars[i].set_facecolor('darkgreen')
                             val_up += 1
-                            tot_up_change += sorted_dict[ticker]['total_return'] #- total today up return
+                            tot_up_change += sorted_dict[ticker]['todays_return'] #- total today up return
                         else:
                             bars[i].set_facecolor('gray')
 
