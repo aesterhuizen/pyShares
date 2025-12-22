@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.8"
+        self.ver_string = "v1.1.8a"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
