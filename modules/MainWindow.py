@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.8a"
+        self.ver_string = "v1.1.9"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -886,35 +886,36 @@ class MainWindow(QMainWindow):
         frm_TodayGains = "0.00"
         frm_TotalGains = "0.00"
        
-        # if tblAssets has stocks sellected then only calculate gains for those stocks
-        if len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
-            self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
-            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
-            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
-            
-        elif len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
-            self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
-            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"    
-        elif len(selected_stocks) > 0:
-            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
-            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
-            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
-            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            
-        else:
+       # if tblAssets has stocks sellected then only calculate gains for those stocks
+        if len(selected_stocks) == 0: #default to total portfolio gains
+            if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+                 self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
+            elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
             selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
             selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
             frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
-
-            if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-                self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
-            elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
-            
+        elif len(selected_stocks) == 1:
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+        elif len(selected_stocks) >= 2:
+            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+            frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
+            frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
+        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
+            self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
+            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
+            self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}" 
           
        
         lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
@@ -1201,34 +1202,38 @@ class MainWindow(QMainWindow):
         frm_TodayGains = "0.00"
         frm_TotalGains = "0.00"
        
-        # if tblAssets has stocks sellected then only calculate gains for those stocks
-        if len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
-            self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
-            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
-            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
-            
-        elif len(selected_stocks) > 0 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
-            self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
-            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"    
-        elif len(selected_stocks) > 0:
-            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
-            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
-            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
-            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            
-        else:
+     # if tblAssets has stocks sellected then only calculate gains for those stocks
+        if len(selected_stocks) == 0: #default to total portfolio gains
+            if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+                 self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
+            elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
             selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
             selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
             frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
-
-            if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-                self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
-            elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
+        elif len(selected_stocks) == 1:
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+        elif len(selected_stocks) >= 2:
+            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+            frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
+            frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
+        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
+            self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
+            frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
+            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
+            self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
+            frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
+            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"    
+       
+        
             
           
        
@@ -1659,7 +1664,7 @@ class MainWindow(QMainWindow):
             self.ui.edtRaiseAmount.setText("")
 
         
-        self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
+        self.cur_total_return,self.cur_today_return = self.updateStatusBar_totals(self.selected_stocks)
         return
 
                 
@@ -1776,7 +1781,7 @@ class MainWindow(QMainWindow):
         self.ui.btnExecute.setStyleSheet("background-color: grey; color: white;")
         self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
         self.selected_stocks = []
-        self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
+        self.cur_total_return,self.cur_today_return = self.updateStatusBar_totals(self.selected_stocks)
         
 
     def closeMenu_clicked(self):
