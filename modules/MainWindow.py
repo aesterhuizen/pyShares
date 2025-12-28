@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.1.9"
+        self.ver_string = "v1.2.0"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -68,8 +68,11 @@ class MainWindow(QMainWindow):
         #access the current total and today return on the status bar
         self.cur_total_return = 0.0
         self.cur_today_return = 0.0
+        #access variable to hold selected stocks from the asset table
         self.selected_stocks = {}
-        
+        self.selected_stocks_in_sector = {}
+        self.prev_selected_sector = ""
+
         self.current_account_num = ""
         self.account_info = ''
         #main list of tickers and performance metrics
@@ -383,9 +386,9 @@ class MainWindow(QMainWindow):
         #connect clear selection button
         self.ui.btnClearAll.clicked.connect(self.clear_all_clicked)  
         #connect the Asset table box
-        #self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
-        #connect the asset table sellection changed
-        self.ui.tblAssets.itemSelectionChanged.connect(self.tblAsset_selectionChanged)
+        self.ui.tblAssets.itemClicked.connect(self.tblAsset_clicked)
+        #connect table sector_analytics clicked
+        self.ui.tblSectorAnalytics.itemClicked.connect(self.tblSectorAnalytics_clicked)
         #connect cmbReinvest combo box
         self.ui.cmbReInvest.activated.connect(self.cmbReInvest_clicked)
         #connect edtFileBrowse_Reinvest textbox
@@ -441,9 +444,11 @@ class MainWindow(QMainWindow):
         self._refresh_thread.start()
         return
     def refresh_thread(self):
+        
         try:
             refreshed_portfolio = self.get_stocks_from_portfolio(self.current_account_num)
             if len(refreshed_portfolio) != len(self.portfolio):
+                self._selectAll_in_progress = True
                 #setup the asset table again and other tables
                 self.print_cur_portfolio(refreshed_portfolio)
                 self.setup_plot(refreshed_portfolio,plot_type=self.current_plot_type)
@@ -451,6 +456,7 @@ class MainWindow(QMainWindow):
                 self.dict_sectors = self.setupSectorButtons(refreshed_portfolio)
                 self.setup_sector_analytics(refreshed_portfolio,self.dict_sectors)
                 self.portfolio = refreshed_portfolio
+                self._selectAll_in_progress = False
             else:
                 #update existing portfolio
                 self.updateLstAssets()
@@ -462,7 +468,7 @@ class MainWindow(QMainWindow):
                 self.ui.lstTerm.addItem(f"Error!: {e.args[0]}")
                 
        
-
+       
         return
     
     def toggleChart_clicked(self):
@@ -649,7 +655,7 @@ class MainWindow(QMainWindow):
             self.ui.edtStocksInFile_Reinvest.setText(str_stock_names)
 
             stocks = [item[0] for item in self.lstShares_in_file]
-            self.highlight_stocks_in_table(stocks)
+            self.clear_and_highlight_stocks_in_table(stocks)
             self.setup_plot(self.portfolio,selected_tickets=stocks,plot_type=self.current_plot_type)
             total_amount = sum([float(item[1])*float(item[2]) for item in self.lstShares_in_file])
             self.ui.edtReinvestAmount_buyLower.setText(f"${total_amount:,.2f}")
@@ -709,7 +715,7 @@ class MainWindow(QMainWindow):
             
             str_stock_names = ','.join([item[0] for item in lstShares])  
             stocks = [item[0] for item in lstShares]
-            self.highlight_stocks_in_table(stocks)
+            self.clear_and_highlight_stocks_in_table(stocks)
             self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
             total_amount = sum([float(item[1])*float(item[2]) for item in lstShares])
             cur_amount = self.ui.edtAmountEst.text()
@@ -753,7 +759,7 @@ class MainWindow(QMainWindow):
 
             self.ui.lblToSector_pct.setText(f'{tot_pct:.2f}% of Portfolio')
             # highlist the lst_to_sector stocks in the asset table
-            self.highlight_stocks_in_table(lst_to_sector)
+            self.clear_and_highlight_stocks_in_table(lst_to_sector)
         return
     
     def cmbFromSector_clicked(self):
@@ -766,10 +772,10 @@ class MainWindow(QMainWindow):
             
         self.ui.lblFromSector_pct.setText(f'{tot_pct:.2f}% of Portfolio')
         # highlist the lst_from_sector stocks in the asset table
-        self.highlight_stocks_in_table(lst_from_sector)
+        self.clear_and_highlight_stocks_in_table(lst_from_sector)
         return
 
-    def highlight_stocks_in_table(self,lst_stocks):
+    def clear_and_highlight_stocks_in_table(self,lst_stocks):
         #clear all previous selections
         self.ui.tblAssets.clearSelection()
         self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
@@ -779,7 +785,8 @@ class MainWindow(QMainWindow):
             index = self.ui.tblAssets.findItems(symbol, Qt.MatchFlag.MatchContains)
             if index:
                 self.ui.tblAssets.selectRow(index[0].row())
-                
+
+        self.selected_stocks = self.find_and_remove(self.portfolio, symbols,1)   
         return
 
     def get_symbols_From_sectors(self,sector_dict) -> list[str]:
@@ -859,7 +866,7 @@ class MainWindow(QMainWindow):
                         lst_stocks = self.get_symbols_pct_in_sector(self.dict_sectors,obj.objectName())
                         symbols = [stock.split(':')[0] for stock in lst_stocks]
                         symbols_label = ','.join(symbols)
-                        self.highlight_stocks_in_table(lst_stocks)
+                        self.clear_and_highlight_stocks_in_table(lst_stocks)
                         self.selected_stocks = self.find_and_remove(self.portfolio, symbols,1)
                         self.setup_plot(self.portfolio,selected_tickets=symbols,plot_type=self.current_plot_type)
                         self.ui.edtLstStocksSelected.setText(symbols_label) 
@@ -902,8 +909,8 @@ class MainWindow(QMainWindow):
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 2:
-            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+            selected_total_retun = self.totalGains = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = self.todayGains = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
@@ -1218,8 +1225,8 @@ class MainWindow(QMainWindow):
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 2:
-            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+            selected_total_retun = self.totalGains = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = self.todayGains = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
@@ -1366,12 +1373,7 @@ class MainWindow(QMainWindow):
                                                    self.portfolio[sym]['percentage']]
                     )
 
-            iconUP = QIcon()
-            iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
-            iconDOWN = QIcon()
-            iconDOWN.addFile(u":/res/down.png", QSize(), QIcon.Normal, QIcon.Off)
-            iconEqual = QIcon()
-            iconEqual.addFile(u":/res/equal.png", QSize(), QIcon.Normal, QIcon.Off)
+        
 
             #update table
             for row in range(len(lst_elements_to_update)):
@@ -1383,15 +1385,15 @@ class MainWindow(QMainWindow):
                     if col == 2 and lst_elements_to_update[row][col] > 0.0:
                         # found change item add up/down arrow depending on the value
                         table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(iconUP)
+                        table_item.setIcon(self.icon_dict["icoUp"])
                         
                     elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                         table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(iconDOWN)
+                        table_item.setIcon(self.icon_dict["icoDown"])
                         
                     elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                         table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                        table_item.setIcon(iconEqual)
+                        table_item.setIcon(self.icon_dict["icoEqual"])
                     else:
                         if col == 0:
                             table_item.setText(lst_elements_to_update[row][col])
@@ -1417,7 +1419,7 @@ class MainWindow(QMainWindow):
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
-        
+            self.totalGains,self.todayGains = self.updateStatusBar(self.selected_stocks)
         
         return
         
@@ -1563,10 +1565,38 @@ class MainWindow(QMainWindow):
             priceTotal += float(last_price) * float(dollar_value_to_buy_sell)
 
         return priceTotal
-    def tblAsset_selectionChanged(self):
-        self.tblAsset_clicked()
-        return
+  
+    def tblSectorAnalytics_clicked(self):
 
+        stock_names = []
+        priceTotal = 0.0
+        lblAsset_totEquity = ""
+        symbols_label = ""
+        sel_items = [item.text() for item in self.ui.tblSectorAnalytics.selectedItems()]
+        selected_sector = sel_items[0]
+        
+
+        #if the same sector is selected do nothing
+        if selected_sector == self.prev_selected_sector:
+            return
+        else:
+            self.prev_selected_sector = selected_sector
+            lst_stocks = self.get_symbols_pct_in_sector(self.dict_sectors,selected_sector)
+            symbols = [stock.split(':')[0] for stock in lst_stocks]
+            symbols_label = ','.join(symbols)
+            self.clear_and_highlight_stocks_in_table(lst_stocks)
+            self.selected_stocks_in_sector = self.find_and_remove(self.portfolio, symbols,1)
+            self.setup_plot(self.portfolio,selected_tickets=symbols,plot_type=self.current_plot_type)
+            self.ui.edtLstStocksSelected.setText(symbols_label) 
+            self.ui.edtRaiseAmount.setText(symbols_label)
+            self.cur_total_return, self.cur_today_return = self.updateStatusBar_totals(self.selected_stocks_in_sector)
+            total_equity = sum(float(self.portfolio[sym]['equity']) for sym in symbols)
+            self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
+            self.ui.tblAssets.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        return
+        
+    
     def tblAsset_clicked(self):
         stock_names = []
         priceTotal = 0.0
@@ -1613,7 +1643,7 @@ class MainWindow(QMainWindow):
                         self.ui.edtBuyWithAmount.setText(f"{priceTotal:,.2f}")
                         
                     
-                    #self.highlight_stocks_in_table(stock_names)
+                    #self.clear_and_highlight_stocks_in_table(stock_names)
                     if not len(stock_names) > 1:
                         self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
                 case "sell_total_return_except_x":
@@ -1766,6 +1796,7 @@ class MainWindow(QMainWindow):
 
         self.ui.lbltblAsset_sum.setText(f"Equity: $0.00")
         self.ui.tblAssets.clearSelection()
+        self.ui.tblSectorAnalytics.clearSelection()
         self.selected_stocks = [] 
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
@@ -2568,12 +2599,7 @@ class MainWindow(QMainWindow):
             )
 
        
-        iconUP = QIcon()
-        iconUP.addFile(u":/res/up.png", QSize(), QIcon.Normal, QIcon.Off)
-        iconDOWN = QIcon()
-        iconDOWN.addFile(u":/res/down.png", QSize(), QIcon.Normal, QIcon.Off)
-        iconEqual = QIcon()
-        iconEqual.addFile(u":/res/equal.png", QSize(), QIcon.Normal, QIcon.Off)
+     
         #update table
         for row in range(len(lst_elements_to_update)):
             join_list.append(f'{lst_elements_to_update[row][0]}:{str(lst_elements_to_update[row][3])}')
@@ -2584,15 +2610,15 @@ class MainWindow(QMainWindow):
                 if col == 2 and lst_elements_to_update[row][col] > 0.0:
                     # found change item add up/down arrow depending on the value
                     table_item.setText("{0:+.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(iconUP)
+                    table_item.setIcon(self.icon_dict["icoUp"])
                     
                 elif col ==2 and lst_elements_to_update[row][col] < 0.0:
                     table_item.setText("{0:-.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(iconDOWN)
+                    table_item.setIcon(self.icon_dict["icoDown"])
                     
                 elif col == 2 and lst_elements_to_update[row][col] == 0.0:
                     table_item.setText("{0:.2f}".format(lst_elements_to_update[row][col]))
-                    table_item.setIcon(iconEqual)
+                    table_item.setIcon(self.icon_dict["icoEqual"])
                 else:
                     if col == 0:
                         table_item.setText(lst_elements_to_update[row][col])
