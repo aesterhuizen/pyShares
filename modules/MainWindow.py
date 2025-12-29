@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.2.0"
+        self.ver_string = "v1.2.1"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -223,6 +223,8 @@ class MainWindow(QMainWindow):
             try:
                 otp = pyotp.TOTP(os.environ['robin_mfa']).now()
                 result = r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
+                
+                
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                 
@@ -250,10 +252,8 @@ class MainWindow(QMainWindow):
                         
                         
             
-                self.print_cur_portfolio(self.portfolio)
-                #get total gains for the day
-                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)               
+               
+                             
         else: #self.data_path is empty create path and file
             get_cred_file = msgBoxGetCredentialFile()
             button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -319,10 +319,8 @@ class MainWindow(QMainWindow):
                             self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
                             return
                     
-                    self.print_cur_portfolio(self.portfolio)
-                    #get total gains for the day
-                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+                   
+              
                    
             else: #user pressed cancel at credential dialog
                 self.setWindowTitle(f"PyShares - {self.ver_string}")
@@ -417,6 +415,11 @@ class MainWindow(QMainWindow):
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
 
+        #get total gains for the day
+        self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+        self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio) 
+        #print the current portfolio to the asset table
+        self.print_cur_portfolio(self.portfolio)
         # setup status bar and sector buttons---------------------------------
         self.setupStatusbar(self.portfolio)
         self.dict_sectors = self.setupSectorButtons(self.portfolio)
@@ -429,6 +432,8 @@ class MainWindow(QMainWindow):
         
         #setup plot widget
         self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+
+       
         # show the Mainwindow
         self.show()
     
@@ -703,7 +708,7 @@ class MainWindow(QMainWindow):
                     for line in lines:
                         line = line.strip()
                         share_name,share_quantity,share_price = line.split(':')
-                        lstShares.append((share_name,share_quantity,share_price))   
+                        lstShares.append([share_name,share_quantity,share_price])   
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: File not in correct format")
                 self.ui.edtFileBrowse.setText("")
@@ -894,35 +899,35 @@ class MainWindow(QMainWindow):
         frm_TotalGains = "0.00"
        
        # if tblAssets has stocks sellected then only calculate gains for those stocks
-        if len(selected_stocks) == 0: #default to total portfolio gains
+        if len(selected_stocks) == 0: #default to total portfolio gains            
             if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
                  self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
-            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")  
             frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+            selected_today_return = self.todayGains
+            selected_total_return = self.totalGains  
         elif len(selected_stocks) == 1:
             selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
             selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 2:
-            selected_total_retun = self.totalGains = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
-            selected_today_return = self.todayGains = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
-            frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
-            frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
+            frm_TotalGains = f"Total return (sum): ${selected_total_return:,.2f}"
+            frm_TodayGains = f"Today's return (sum): ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
             self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
-            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+            frm_TodayGains = f"Today's return: ${selected_total_return:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
             self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}" 
+            frm_TotalGains = f"Total return: ${selected_today_return:,.2f}"     
           
        
         lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
@@ -1208,38 +1213,37 @@ class MainWindow(QMainWindow):
        
         frm_TodayGains = "0.00"
         frm_TotalGains = "0.00"
-       
+      
      # if tblAssets has stocks sellected then only calculate gains for those stocks
-        if len(selected_stocks) == 0: #default to total portfolio gains
+        if len(selected_stocks) == 0: #default to total portfolio gains            
             if self.ui.cmbAction.currentText() == "sell_total_return_except_x":
                  self.ui.edtAmountEst.setText(f"${self.totalGains:,.2f}")
             elif self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")    
-            selected_total_retun = self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
-            selected_today_return = self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
+                 self.ui.edtAmountEst.setText(f"${self.todayGains:,.2f}")  
             frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"
             frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+            selected_today_return = self.todayGains
+            selected_total_return = self.totalGains  
         elif len(selected_stocks) == 1:
             selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
             selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 2:
-            selected_total_retun = self.totalGains = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
-            selected_today_return = self.todayGains = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
-            frm_TotalGains = f"Total return (sum): ${self.totalGains:,.2f}"
-            frm_TodayGains = f"Today's return (sum): ${self.todayGains:,.2f}"
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks)
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
+            frm_TotalGains = f"Total return (sum): ${selected_total_return:,.2f}"
+            frm_TodayGains = f"Today's return (sum): ${selected_today_return:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
             self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
-            frm_TodayGains = f"Today's return: ${self.todayGains:,.2f}"
+            frm_TodayGains = f"Today's return: ${selected_total_return:,.2f}"
         elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
             self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
-            frm_TotalGains = f"Total return: ${self.totalGains:,.2f}"    
-       
+            frm_TotalGains = f"Total return: ${selected_today_return:,.2f}" 
         
             
           
@@ -1419,7 +1423,7 @@ class MainWindow(QMainWindow):
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
-            self.totalGains,self.todayGains = self.updateStatusBar(self.selected_stocks)
+            self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
         
         return
         
@@ -1650,13 +1654,16 @@ class MainWindow(QMainWindow):
 
                         strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSelected.setText(strjoinlst)
+                        new_total_gains = self.totalGains - sum(self.selected_stocks[item]['total_return'] for item in self.selected_stocks if self.selected_stocks[item]['total_return'] > 0.0)
+                        self.ui.edtAmountEst.setText(f"${new_total_gains:,.2f}")
                         
 
                 case "sell_todays_return_except_x":
                     
                         strjoinlst = ",".join(stock_names)
                         self.ui.edtLstStocksSelected.setText(strjoinlst)
-                      
+                        new_total_gains = self.totalGains - abs(sum(self.selected_stocks[item]['total_return'] for item in self.selected_stocks ))
+                        self.ui.edtAmountEst.setText(f"${new_total_gains:,.2f}")
                 case "buy_selected_with_x":
                     strjoinlst = ",".join(stock_names)
                     self.ui.edtRaiseAmount.setText(strjoinlst)
@@ -2149,7 +2156,7 @@ class MainWindow(QMainWindow):
         self.ui.edtBuyWith.setVisible(False)
         self.ui.cmbDollarShare.setVisible(False)
         self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-       
+        self.clear_all_clicked()
         
         match perform_action:
             case "stock_info":
@@ -2294,7 +2301,7 @@ class MainWindow(QMainWindow):
                 try:
                     
                     self.portfolio = self.get_stocks_from_portfolio(accountNum)
-                    self.print_cur_protfolio(self.portfolio)
+                    self.print_cur_portfolio(self.portfolio)
                     self.setupStatusbar()
                     
                     
@@ -2306,7 +2313,7 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     if e.args[0] == "No stocks in account":
                         self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        self.print_cur_protfolio(self.portfolio)
+                        self.print_cur_portfolio(self.portfolio)
                         self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
                
                     
@@ -2520,12 +2527,12 @@ class MainWindow(QMainWindow):
             confirm = confirmMsgBox(msg,preview_sellbuy_list, self)
             button = confirm.exec() #show the popup box for the user to enter account number
 
-            if button != 1: #if user did NOT click yes then return else execute
+            if button != 1: #if user clicked Cancel or NO then return else execute
                 self.ui.btnExecute.setText("Execute ...")
                 self.ui.btnExecute.setStyleSheet("background-color: green; color: white;")
                 return ['user_cancel']           
             
-            else: # no confirmation needed
+            else: # user clicked YES
 
                 self.ui.btnExecute.setText("Cancel")
                 self.ui.btnExecute.setStyleSheet("background-color: red; color: white;")
@@ -2695,6 +2702,8 @@ class MainWindow(QMainWindow):
         for key in updated_holdings:
             updated_holdings[key]["percentage"] = (float(updated_holdings[key]["equity"]) / updated_portfolio_tvalue * 100)    
 
+        self.totalGains = sum(updated_holdings[item]['total_return'] for item in updated_holdings)
+        self.todayGains = sum(updated_holdings[item]['todays_return'] for item in updated_holdings)
         return updated_holdings
 
     
@@ -3243,7 +3252,7 @@ class MainWindow(QMainWindow):
             Total_quantity = item[1]
             priceTotal += float(item[2]) * Total_quantity
 
-        self.lstTerm_update_progress_fn(f"Sell Selected: {','.join(item[0] for item in lst)} Total gains = ${priceTotal*int(n):,.2f}") 
+        self.lstTerm_update_progress_fn(f"Sell Selected: {[item[0] for item in lst]} Total gains = ${priceTotal*int(n):,.2f}") 
 
 
         
@@ -3286,7 +3295,7 @@ class MainWindow(QMainWindow):
                            
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            continue
                     
                         if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                             fill_price = "{0:.2f}".format(float(sell_info['average_price']))
@@ -3367,10 +3376,10 @@ class MainWindow(QMainWindow):
         stock_symbols = []
         tgains_actual = 0.0
 
-        tot_gains = sum(float(dollar_value_to_sell)*item[2] for item in lst)        
+        tot_gains = sum(item[1]*item[2] for item in lst)        
         fmt_tot_gains = "{0:,.2f}".format(tot_gains*int(n))
         if os.environ['debug'] == '0':
-            self.lstTerm_update_progress_fn(f"Sell Total Return: Total return ~ ${fmt_tot_gains}, Except = {lst}")
+            self.lstTerm_update_progress_fn(f"Sell Total Return: Total return ~ ${fmt_tot_gains}, Except = {[item[0] for item in lst]}")
 
 
 
@@ -3414,7 +3423,7 @@ class MainWindow(QMainWindow):
                                     self.lstTerm_update_progress_fn(f"Error: {sell_info['detail']}")
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            continue
                     
                     
                         if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
@@ -3535,7 +3544,7 @@ class MainWindow(QMainWindow):
                            
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            continue
                     
                         if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                             fill_price = "{0:.2f}".format(float(sell_info['average_price']))
@@ -3616,7 +3625,7 @@ class MainWindow(QMainWindow):
                            
                         except Exception as e:
                             self.lstTerm_update_progress_fn(f"Error: {e.args[0]}")
-                            return
+                            continue
                     
                         if 'average_price' in sell_info and sell_info['average_price'] is not None:        #Item 0 =  tickers     #Item 2 = stock_quantity_to_sell  #Item 3 = last price
                             fill_price = "{0:.2f}".format(float(sell_info['average_price']))
