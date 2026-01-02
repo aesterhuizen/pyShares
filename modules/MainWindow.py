@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.2.1"
+        self.ver_string = "v1.2.2"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
             try:
                 otp = pyotp.TOTP(os.environ['robin_mfa']).now()
                 result = r.login(os.environ['robin_username'],os.environ['robin_password'], mfa_code=otp)
-                
+                linked_accounts = r.account.get_linked_bank_accounts()
                 
             except Exception as e:
                 self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
@@ -409,12 +409,12 @@ class MainWindow(QMainWindow):
         self.update_thread = UpdateThread(self.updateLstAssets)
         self.update_thread.daemon = True
         self.update_thread.start()
-
+        
         #Monitor to see if command thread is currently running and if it is not then change the button to green
         self.monitor_thread = UpdateThread(self.monitor_command_thread)
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
-
+        
         #get total gains for the day
         self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
         self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio) 
@@ -428,8 +428,12 @@ class MainWindow(QMainWindow):
         self.setup_sector_analytics(self.portfolio,self.dict_sectors)
         #--------------------------------------------------------------
 
-       
         
+        # for sym,val in self.dict_sectors.items():
+        #     print (f"(self.dictsector)Sector: {sym} - Total return: {val} - Today's return: {val}")
+                   
+        # for sym,val in self.portfolio.items():
+        #     print (f"(self.portfolio)Symbol: {sym} - Total return: {val} - Today's return: {val}")
         #setup plot widget
         self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
 
@@ -757,7 +761,7 @@ class MainWindow(QMainWindow):
         if self.ui.cmbToSector.currentText() == "None":
             self.ui.lblToSector_pct.setText("sell only")
         else:
-            lst_to_sector = self.get_symbols_To_sectors()
+            lst_to_sector = self.get_symbols_To_sectors(self.dict_sectors)
             for item in lst_to_sector:
                     pct = item.split(":")[1]
                     tot_pct += float(pct)
@@ -770,7 +774,7 @@ class MainWindow(QMainWindow):
     def cmbFromSector_clicked(self):
         
         tot_pct = 0.0
-        lst_from_sector = self.get_symbols_From_sectors()
+        lst_from_sector = self.get_symbols_From_sectors(self.dict_sectors)
         for item in lst_from_sector:
                 pct = item.split(":")[1]
                 tot_pct += float(pct)
@@ -918,13 +922,13 @@ class MainWindow(QMainWindow):
             selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return (sum): ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return (sum): ${selected_today_return:,.2f}"
-        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
+        elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
             self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
             frm_TodayGains = f"Today's return: ${selected_total_return:,.2f}"
-        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
+        elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
             self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
             frm_TotalGains = f"Total return: ${selected_today_return:,.2f}"     
@@ -961,7 +965,7 @@ class MainWindow(QMainWindow):
         #remove all statusbar childern
         
         for child in self.ui.statusBar.children():
-            if not isinstance(child, QVBoxLayout):
+            if not isinstance(child, QVBoxLayout): #do not remove layout widget
                 self.ui.statusBar.removeWidget(child)
 
         lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
@@ -1062,6 +1066,7 @@ class MainWindow(QMainWindow):
 
     def setup_sector_analytics(self,cur_portfolio,cur_dict_sectors={}):
         
+        totalpct_of_portfolio = 0.0
         #clear existing table
         if self.ui.tblSectorAnalytics.rowCount() > 0:
             self.ui.tblSectorAnalytics.clear()
@@ -1071,13 +1076,15 @@ class MainWindow(QMainWindow):
         self.ui.tblSectorAnalytics.setHorizontalHeaderLabels(["Sector","Total Return","Today's Return","Equity","% of Portfolio"])
         self.ui.tblSectorAnalytics.setRowCount(len(cur_dict_sectors))
         
+       
+
         for sector,stocks_pct_in_sector in cur_dict_sectors.items():
             symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
-            pct_of_portfolio = sum(float(x.split(':')[1]) for x in stocks_pct_in_sector)    # sum of all pct of portfolio for the sector
             total_return = sum(float(cur_portfolio[symbol]['total_return']) for symbol in symbols)
             todays_return = sum(float(cur_portfolio[symbol]['todays_return']) for symbol in symbols)
             total_equity = sum(float(cur_portfolio[symbol]['equity']) for symbol in symbols)
-            percent_of_portfolio = "{0:.2f}".format(pct_of_portfolio) 
+            totalpct_of_portfolio = sum(float(x.split(':')[1]) for x in stocks_pct_in_sector)    # sum of all pct of portfolio for the sector
+            percent_of_portfolio = "{0:.2f}".format(totalpct_of_portfolio) 
             for col in range(5):
                 row_item = QTableWidgetItem()
                     #set table properties
@@ -1234,13 +1241,13 @@ class MainWindow(QMainWindow):
             selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks)
             frm_TotalGains = f"Total return (sum): ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return (sum): ${selected_today_return:,.2f}"
-        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'] > 0.0)
+        elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
             self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
             frm_TodayGains = f"Today's return: ${selected_total_return:,.2f}"
-        elif len(selected_stocks) >= 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'] > 0.0)
+        elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
             self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
             frm_TotalGains = f"Total return: ${selected_today_return:,.2f}" 
@@ -1423,11 +1430,64 @@ class MainWindow(QMainWindow):
             if os.environ["debug"] == '1':
                 print("thread running...LstAssets Updated!")
         
+            self.updateSectorAlanytics(self.portfolio,self.dict_sectors)
+            #get selected item from tblSectors
+            if self.ui.tblSectorAnalytics.selectedItems():
+                selected_sector_item = self.ui.tblSectorAnalytics.selectedItems()[0]
+                sector_name = selected_sector_item.text()
+                lst_stocks = self.get_symbols_pct_in_sector(self.dict_sectors,sector_name)
+                symbols = [stock.split(':')[0] for stock in lst_stocks]
+                self.selected_stocks = self.find_and_remove(self.portfolio, symbols,1)
+                self.ui.edtLstStocksSelected.setText(','.join(symbols)) 
+                self.ui.edtRaiseAmount.setText(','.join(symbols))
+                total_equity = sum(float(self.portfolio[sym]['equity']) for sym in symbols)
+                self.ui.lbltblAsset_sum.setText(f"Equity: ${total_equity:,.2f}")
+            
             self.cur_total_return,self.cur_today_return = self.updateStatusBar(self.selected_stocks)
-        
+            
         return
         
-    
+    def updateSectorAlanytics(self, cur_portfolio, cur_dict_sectors={}):
+        #update sector analytics table
+        totalpct_of_portfolio = 0.0
+        row = 0
+        
+        for sector,stocks_pct_in_sector in cur_dict_sectors.items():
+            symbols = [stock.split(':')[0] for stock in stocks_pct_in_sector]
+            total_return = sum(float(cur_portfolio[symbol]['total_return']) for symbol in symbols)
+            todays_return = sum(float(cur_portfolio[symbol]['todays_return']) for symbol in symbols)
+            total_equity = sum(float(cur_portfolio[symbol]['equity']) for symbol in symbols)
+            totalpct_of_portfolio = sum(float(x.split(':')[1]) for x in stocks_pct_in_sector)    # sum of all pct of portfolio for the sector
+            percent_of_portfolio = "{0:.2f}".format(totalpct_of_portfolio) 
+            for col in range(5):
+                row_item = QTableWidgetItem()
+                    #set table properties
+                row_item.setForeground(QColor("white"))
+                row_item.setBackground(QColor("black"))
+                row_item.setFlags(row_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                row_item.setFont(QFont("Arial",10,QFont.Weight.Normal))
+                
+                if col == 0:
+                    row_item.setText(sector)
+                elif col == 1:
+                    row_item.setText(f"{total_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 2:
+                    row_item.setText(f"{todays_return:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 3:
+                    row_item.setText(f"{total_equity:,.2f}")
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                elif col == 4:
+                    row_item.setText(percent_of_portfolio)
+                    row_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.ui.tblSectorAnalytics.setItem(row,col,row_item)
+            row +=1    
+         
+        self.ui.tblSectorAnalytics.resizeColumnsToContents() 
+        
+        
+        return
     def Show_msgCredentials(self):
         get_cred_file = msgBoxGetCredentialFile()
         button = get_cred_file.exec() #show the popup box for the user to enter account number
@@ -1578,7 +1638,7 @@ class MainWindow(QMainWindow):
         symbols_label = ""
         sel_items = [item.text() for item in self.ui.tblSectorAnalytics.selectedItems()]
         selected_sector = sel_items[0]
-        
+      
 
         #if the same sector is selected do nothing
         if selected_sector == self.prev_selected_sector:
@@ -1778,7 +1838,7 @@ class MainWindow(QMainWindow):
         self.ui.edtReinvestAmount.setEnabled(True)
         self.ui.edtStocksInFile_Reinvest.setEnabled(True)
         self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
-
+        
         #Reinvest page--------------------------------
         if self.ui.cmbAction.currentText() == "reinvest_with_gains":
             self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
@@ -1805,6 +1865,9 @@ class MainWindow(QMainWindow):
         self.ui.tblAssets.clearSelection()
         self.ui.tblSectorAnalytics.clearSelection()
         self.selected_stocks = [] 
+        #clear variables associated with tblSectors
+        self.selected_stocks_in_sector = {}
+        
         self.ui.edtRaiseAmount.setText("")
         self.ui.edtDollarValueToSell.setText("")
         self.ui.edtBuyWithAmount.setText("")
