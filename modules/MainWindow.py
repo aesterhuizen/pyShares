@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
 
         
      
-        self.ver_string = "v1.2.2"
+        self.ver_string = "v1.2.3"
         self.icon_path = ''
         self.base_path = ''
         self.env_file = ''
@@ -68,6 +68,11 @@ class MainWindow(QMainWindow):
         #access the current total and today return on the status bar
         self.cur_total_return = 0.0
         self.cur_today_return = 0.0
+        # access variables that hold the today and total gains and total_Assets and the table on the statusbar
+        self.lblStatusBar_pctToday = None
+        self.lblStatusBar_pctT = None
+        self.lbltotalAssets = None
+        self.tbl_Index = None
         #access variable to hold selected stocks from the asset table
         self.selected_stocks = {}
         self.selected_stocks_in_sector = {}
@@ -923,26 +928,26 @@ class MainWindow(QMainWindow):
             frm_TotalGains = f"Total return (sum): ${selected_total_return:,.2f}"
             frm_TodayGains = f"Today's return (sum): ${selected_today_return:,.2f}"
         elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_total_return_except_x":
-            selected_total_return = self.totalGains - sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
+            selected_total_return = sum(selected_stocks[item]['total_return'] for item in selected_stocks if selected_stocks[item]['total_return'])
             self.ui.edtAmountEst.setText(f"${selected_total_return:,.2f}")
             frm_TotalGains = f"Total return: ${selected_total_return:,.2f}"           
             frm_TodayGains = f"Today's return: ${selected_total_return:,.2f}"
         elif len(selected_stocks) == 1 and self.ui.cmbAction.currentText() == "sell_todays_return_except_x":
-            selected_today_return = self.todayGains - sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
+            selected_today_return = sum(selected_stocks[item]['todays_return'] for item in selected_stocks if selected_stocks[item]['todays_return'])
             self.ui.edtAmountEst.setText(f"${selected_today_return:,.2f}")
             frm_TodayGains = f"Today's return: ${selected_today_return:,.2f}"
             frm_TotalGains = f"Total return: ${selected_today_return:,.2f}"     
           
        
-        lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
-        lblGainToday.setText(frm_TodayGains)
-        lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
-        lblGainTotal.setText(frm_TotalGains)
+    
+        if self.lblStatusBar_pctToday is not None:
+            self.lblStatusBar_pctToday.setText(frm_TodayGains)
+ 
+        if self.lblStatusBar_pctT is not None:
+            self.lblStatusBar_pctT.setText(frm_TotalGains)
 
-     
-
-        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+        if self.lbltotalAssets is not None:
+            self.lbltotalAssets.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
 
         
       
@@ -960,7 +965,7 @@ class MainWindow(QMainWindow):
         self.tooltip.move(pos)
         self.tooltip.show()
 
-    def setupStatusbar(self,cur_portfolio={}):
+    def setupStatusbar(self,cur_portfolio):
 
         #remove all statusbar childern
         
@@ -968,38 +973,40 @@ class MainWindow(QMainWindow):
             if not isinstance(child, QVBoxLayout): #do not remove layout widget
                 self.ui.statusBar.removeWidget(child)
 
-        lblStatusBar = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
-        lblStatusBar.setMinimumWidth(100)
-        lblStatusBar.setObjectName("lblStatusBar")
-        self.ui.statusBar.addWidget(lblStatusBar,1)
+        self.lbltotalAssets = QLabel(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+        self.lbltotalAssets.setMinimumWidth(100)
+        self.lbltotalAssets.setObjectName("lblStatusBar")
+        self.ui.statusBar.addWidget(self.lbltotalAssets,1)
 
         frm_TotalGains = f"Total Return: ${self.totalGains:,.2f}"
-        lblStatusBar_pctT = QLabel(frm_TotalGains)
-        lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
-        lblStatusBar_pctT.setMinimumWidth(170)
-        self.ui.statusBar.addWidget(lblStatusBar_pctT,1)
+        self.lblStatusBar_pctT = QLabel(frm_TotalGains)
+        self.lblStatusBar_pctT.setObjectName("lblStatusBar_pctT")
+        self.lblStatusBar_pctT.setMinimumWidth(170)
+        self.ui.statusBar.addWidget(self.lblStatusBar_pctT,1)
 
+       
         frm_TodayGains = f"Today's Return: ${self.todayGains:,.2f}"
-        lblStatusBar_pctToday = QLabel(frm_TodayGains)
-        lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
+        self.lblStatusBar_pctToday = QLabel(frm_TodayGains)
+        self.lblStatusBar_pctToday.setObjectName("lblStatusBar_pctToday")
+      
 
-        lblStatusBar_pctToday.setMinimumWidth(170)
-        self.ui.statusBar.addWidget(lblStatusBar_pctToday,1)
-
+        self.lblStatusBar_pctToday.setMinimumWidth(170)
+        self.ui.statusBar.addWidget(self.lblStatusBar_pctToday,1)
+     
         
             
-        tbl_Index = QTableWidget()
+        self.tbl_Index = QTableWidget()
        
-        tbl_Index.setObjectName("tbl_Index")
-        tbl_Index.setMaximumHeight(25)
-        tbl_Index.setMinimumWidth(495)
+        self.tbl_Index.setObjectName("tbl_Index")
+        self.tbl_Index.setMaximumHeight(25)
+        self.tbl_Index.setMinimumWidth(495)
        
-        tbl_Index.setRowCount(1)
-        tbl_Index.horizontalHeader().setVisible(False)
-        tbl_Index.verticalHeader().setVisible(False)
-        tbl_Index.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        tbl_Index.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tbl_Index.setShowGrid(False)
+        self.tbl_Index.setRowCount(1)
+        self.tbl_Index.horizontalHeader().setVisible(False)
+        self.tbl_Index.verticalHeader().setVisible(False)
+        self.tbl_Index.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.tbl_Index.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tbl_Index.setShowGrid(False)
         
         lst_SPY = []
         count = 0
@@ -1020,7 +1027,7 @@ class MainWindow(QMainWindow):
         lst_SPY.append(["DOW", float(Dow_value)*100,float(Dow_Gains)])
 
 
-        tbl_Index.setColumnCount(3*len(lst_SPY))
+        self.tbl_Index.setColumnCount(3*len(lst_SPY))
         SPY_icon_up = self.icon_dict['icoUp']
         SPY_icon_down = self.icon_dict['icoDown']
         SPY_icon_equal = self.icon_dict['icoEqual']
@@ -1051,17 +1058,15 @@ class MainWindow(QMainWindow):
                 table_item.setForeground(QColor("Black"))
                 if row > 0:
                     count += 1
-                    tbl_Index.setColumnWidth(2+count, 55)
-                    tbl_Index.setItem(0,2+count, table_item)
+                    self.tbl_Index.setColumnWidth(2+count, 55)
+                    self.tbl_Index.setItem(0,2+count, table_item)
                 elif row == 0:
-                    tbl_Index.setItem(0,col, table_item)
-                    tbl_Index.setColumnWidth(col, 55)
-
-        tbl_Index.resizeColumnsToContents()
-        tbl_Index.width = tbl_Index.horizontalHeader().length()
-        tbl_Index.setMinimumWidth(tbl_Index.width+ 20)
-        self.ui.statusBar.addWidget(tbl_Index,1)
-
+                    self.tbl_Index.setItem(0,col, table_item)
+                    self.tbl_Index.setColumnWidth(col, 55)
+        self.tbl_Index.resizeColumnsToContents()
+        self.tbl_Index.width = self.tbl_Index.horizontalHeader().length()
+        self.tbl_Index.setMinimumWidth(self.tbl_Index.width+ 20)
+        self.ui.statusBar.addWidget(self.tbl_Index,1)
         return
 
     def setup_sector_analytics(self,cur_portfolio,cur_dict_sectors={}):
@@ -1254,21 +1259,18 @@ class MainWindow(QMainWindow):
         
             
           
-       
-        lblGainToday = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctToday")
-        lblGainToday.setText(frm_TodayGains)
-        lblGainTotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar_pctT")
-        lblGainTotal.setText(frm_TotalGains)
+       #display the text in the status bar labels
+        if self.lblStatusBar_pctToday is not None:
+            self.lblStatusBar_pctToday.setText(frm_TodayGains)
 
-     
+        if self.lblStatusBar_pctT is not None:
+            self.lblStatusBar_pctT.setText(frm_TotalGains)
 
-        lbltotal = self.ui.statusBar.findChild(QLabel, "lblStatusBar")
-        lbltotal.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
+        if self.lbltotalAssets is not None:
+            self.lbltotalAssets.setText(f"Total Assets: {self.ui.tblAssets.rowCount()}")
 
         
-        #setup the status table widget
-        tbl_Index = self.ui.statusBar.findChild(QTableWidget, "tbl_Index")
-       
+              
         
         lst_SPY = []
         count = 0
@@ -1320,16 +1322,15 @@ class MainWindow(QMainWindow):
                 table_item.setForeground(QColor("Black"))
                 if row > 0:
                     count += 1
-                    tbl_Index.setColumnWidth(2+count, 55)
-                    tbl_Index.setItem(0,2+count, table_item)
+                    self.tbl_Index.setColumnWidth(2+count, 55)
+                    self.tbl_Index.setItem(0,2+count, table_item)
                 elif row == 0:
-                    tbl_Index.setItem(0,col, table_item)
-                    tbl_Index.setColumnWidth(col, 55)
+                    self.tbl_Index.setItem(0,col, table_item)
+                    self.tbl_Index.setColumnWidth(col, 55)
 
-        tbl_Index.resizeColumnsToContents()
-        tbl_Index.width = tbl_Index.horizontalHeader().length()
-        tbl_Index.setMinimumWidth(tbl_Index.width+ 20)
-
+        self.tbl_Index.resizeColumnsToContents()
+        self.tbl_Index.width = self.tbl_Index.horizontalHeader().length()
+        self.tbl_Index.setMinimumWidth(self.tbl_Index.width+ 20)
         total_return = selected_total_return
         today_return = selected_today_return
 
@@ -2353,31 +2354,59 @@ class MainWindow(QMainWindow):
         if self.current_account_num != self.ui.cmbAccount.currentText().split(' ')[0]:
             wait_cursor = QCursor()
             wait_cursor.setShape(wait_cursor.shape().WaitCursor)
-           
+            
             QApplication.setOverrideCursor(wait_cursor)
+                #shut down the threads first
+            self._shutting_down = True
+            # self.monitor_thread.daemon = False
+            # self.update_thread.daemon = False
+            if self.monitor_thread is not None:
+                self.monitor_thread.stop()
+                self.monitor_thread.join(timeout=1.0)
+            if self.update_thread is not None:
+                self.update_thread.stop()
+                self.update_thread.join(timeout=1.0)
+            if self.command_thread is not None:
+                self.command_thread.stop()
+                self.command_thread.join(timeout=2.0)
+            
+            self._shutting_down = False
+            self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
+            accountNum = self.current_account_num
+            if self.ui.tblAssets.rowCount() > 0:
+                self.ui.tblAssets.clear()
+            #get tickers in portfolio
             try:
-                self.current_account_num = self.ui.cmbAccount.currentText().split(' ')[0]
-                accountNum = self.current_account_num
-                if self.ui.tblAssets.rowCount() > 0:
-                    self.ui.tblAssets.clear()
-                #get tickers in portfolio
-                try:
-                    
-                    self.portfolio = self.get_stocks_from_portfolio(accountNum)
-                    self.print_cur_portfolio(self.portfolio)
-                    self.setupStatusbar()
-                    
-                    
-                    if self.ui.lstTerm.count() > 0:
-                        self.ui.lstTerm.clear()
+            
+                self.clear_class_variables()
+                self.portfolio = self.get_stocks_from_portfolio(accountNum)
+                #get total gains for the day
+                self.totalGains = sum(self.portfolio[item]['total_return'] for item in self.portfolio)
+                self.todayGains = sum(self.portfolio[item]['todays_return'] for item in self.portfolio)
 
-                    self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
-                  
-                except Exception as e:
-                    if e.args[0] == "No stocks in account":
-                        self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
-                        self.print_cur_portfolio(self.portfolio)
-                        self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+                self.print_cur_portfolio(self.portfolio)
+                
+                self.setupStatusbar(self.portfolio) 
+                self.dict_sectors = self.setupSectorButtons(self.portfolio)
+                self.setup_sector_analytics(self.portfolio,self.dict_sectors)
+                self.setup_plot(self.portfolio,plot_type=self.current_plot_type)
+                
+                if self.ui.lstTerm.count() > 0:
+                    self.ui.lstTerm.clear()
+
+                
+                #restart the update and monitor threads
+                self.monitor_thread = UpdateThread(self.monitor_command_thread)
+                self.monitor_thread.daemon = True
+                self.monitor_thread.start()
+                self.update_thread = UpdateThread(self.updateLstAssets)
+                self.update_thread.daemon = True
+                self.update_thread.start()
+            
+            except Exception as e:
+                if e.args[0] == "No stocks in account":
+                    self.ui.lstTerm.addItem(f"Error: {e.args[0]}")
+                       
                
                     
                     
@@ -2386,7 +2415,32 @@ class MainWindow(QMainWindow):
             finally:
                 QApplication.restoreOverrideCursor()
         
-    
+    def clear_class_variables(self):
+
+        self.portfolio = {}
+        self.dict_sectors = {}
+        #total and today gains of portfolio
+        self.totalGains = 0.0
+        self.todayGains = 0.0
+        #access the current total and today return on the status bar
+        self.cur_total_return = 0.0
+        self.cur_today_return = 0.0
+        #access variable to hold selected stocks from the asset table
+        self.selected_stocks = {}
+        self.selected_stocks_in_sector = {}
+        self.prev_selected_sector = ""
+        self.ui.tblAssets.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        if self.ui.cmbAction.currentText() == "stock_info": 
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        else:
+            self.ui.tblAssets.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
+
+        self.ui.lbltblAsset_sum.setText(f"Equity: $0.00")
+        # clear list asset and sector analytics
+        self.ui.tblAssets.clearSelection()
+        self.ui.tblSectorAnalytics.clearSelection()
+      
+        return
     #Add the sequence helpers 
     def _check_and_run_next(self):
         if (self.command_thread is None) or (not self.command_thread.is_alive()):
@@ -2657,7 +2711,7 @@ class MainWindow(QMainWindow):
         cur_portfolio_file = os.path.join(self.data_path,"current_portfolio.csv")
         open_file = open(cur_portfolio_file,"w")
 
-        for item in self.portfolio:
+        for item in curlist:
             lst_elements_to_update.append(  [curlist[item]['stock_name'], \
                                             curlist[item]['price'], \
                                             curlist[item]['change'], \
@@ -4315,8 +4369,8 @@ class MpfCanvas(FigureCanvasQTAgg):
                     y_data = []
                     sorted_list_stock_name = [item for item in sorted_dict]
                     #build bars according to sectors    
-                    for sector, stocks_in_sector in sectorsDict.items():   
-                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
+                    for sector, stocks_pct_in_sector in sectorsDict.items():   
+                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_pct_in_sector]
                         for stock in lst_stock_in_sec:
                             x_data.append(stock)
                             y_data.append(float(sorted_dict[stock]['price'])*float(sorted_dict[stock]['quantity']))
@@ -4337,10 +4391,10 @@ class MpfCanvas(FigureCanvasQTAgg):
                     names = sorted(colors, key=lambda c: tuple(mcolors.rgb_to_hsv(mcolors.to_rgb(c))))
                     
                     
-                    for sector, stocks_in_sector in sectorsDict.items():
+                    for sector, stocks_pct_in_sector in sectorsDict.items():
                         
-                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_in_sector]
-                        lst_pct_in_sec = [float(stock.split(":")[1]) for stock in stocks_in_sector]
+                        lst_stock_in_sec = [stock.split(":")[0] for stock in stocks_pct_in_sector]
+                        lst_pct_in_sec = [float(stock.split(":")[1]) for stock in stocks_pct_in_sector]
                         count_total_pct = sum(lst_pct_in_sec)
 
                         color_idx = sec_index
